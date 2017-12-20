@@ -16,3 +16,9 @@ After these are done and implemented we will move onto moving the existing worki
 5) CNV report
 6) Lego Plot
 7) Fingerprint report
+
+Notes: When Mahesh was here briefly he attempted a rewrite into python using snakemake. This approach is a little onerous in that snakemake
+may be esoteric for some new analysts (implied requirement being that we want to keep everything in common libraries/languages) and makes some
+added steps for running scripts that was actually simpler in R. Additionally some of his code mixed hardcoded aspects with abstracted functions,
+we want to abstract and document as much as possible. That said, his project Metriq will be used as a starting point for the code/structure
+we want to replicate. 

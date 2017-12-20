@@ -1,0 +1,315 @@
+#!/usr/bin/env python
+# version 1.0
+
+__author__ = "Bruce Wollison"
+__date__ = "Nov, 2017"
+
+'''
+    Description: This will run ConPair for a specified project code
+    This will require (aka workflow outline):
+        1) hitting the RikerDB to find the samples associated
+        with the specified project code, get the paths for the sample pairs
+        to test
+    
+        2) running the Conpair pipeline - this includes generating the pileups 
+        for each sample, concordance for sample pairs, and contamination for
+        sample pairs (recommended to use suprocess module instead of os.system())
+        
+        3) organizing the concordance and contamination results for all sample
+        pairs and writing them to an excel file
+    
+    Notes:
+        ConPair only works on tumor/normal pairs
+        ConPair takes a while to run - specifically the pileup and contamination steps
+            because of this we should be verbose. It could take hours and the user
+            should know the program is processing
+        This is version 1.0, the output excel file may be subject to modification as we
+            get a better idea of what we want in a report
+'''
+
+### library imports ###
+import pandas as pd
+import sys, imp, os, argparse, yaml
+
+# add special modules to the path
+sys.path.append('utils/sql')
+sys.path.append('utils/excel')
+sys.path.append('utils/general')
+sys.path.append('Conpair-master/scripts')
+import db_connect as db
+import excel_write as xls
+import common_queries as com_queries
+import general_functions as genFun
+
+### globals ###
+# default configutation file, should be used most of the time
+# unless the user is doing something special
+DEFAULT_CONFIGURATION_FILE = 'ccgd_rotation_scripts.config'
+DEFAULT_OUTPUT_DIRECTORY = os.getcwd() + '/ConPair_Reports'
+
+### handle command line interface with argparse ###
+parser = argparse.ArgumentParser(description='Run ConPair pipeline and create report.',
+                                 epilog='Warning: This script will often take a long time to complete',
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--project_code', '-p', help='project code of project to run the ConPair pipeline on',
+                    type=str, required=True)
+parser.add_argument('--output_folder', '-o', help='folder to output the results to',
+                    default=DEFAULT_OUTPUT_DIRECTORY, type=str)
+parser.add_argument('--config', '-c', help='configuration file to use',
+                    default=DEFAULT_CONFIGURATION_FILE, type=str)
+parser.add_argument('--version', action='version', version='ConPair_pipeline.py ver 1.0')
+args = parser.parse_args()
+
+### import configurations from configuration file ###
+print "Reading in configuration file ", args.config
+try:
+    with open(args.config, 'r') as ymlfile:
+        config = yaml.load(ymlfile)
+except IOError:
+    # whoa whats happening bros? File might not exist, or some other IO error
+    sys.exit("Error reading configuration file!")
+
+# parse the needed variables from the config file into readable variables
+genConfig = config['general']
+DBconfig = config['rikerDB']
+print "configuration file read in successfully"
+
+# add the conpair module directory to the pythonpath variable
+# then import the ConPair scripts
+ConPairConfig = config['conpair']
+sys.path.append(ConPairConfig['conpair_modules_path'])
+import run_gatk_pileup_for_sample as run_pileup
+import verify_concordance as run_concordance
+import estimate_tumor_normal_contamination as run_contamination
+
+# lets make a few more variable names that will be useful later
+# starting with output folders of the ConPair analysis
+project_folder = args.output_folder + "/" + args.project_code
+pileup_output_dir = project_folder + "/pileups"
+concordance_output_dir = project_folder + "/concordance"
+contamination_output_dir = project_folder + "/contamination"
+conpair_report_fileName = project_folder + "/" + args.project_code + "_report.xlsx"
+
+### define any small script-specific functions ###
+
+# concordance output by ConPair is specific
+# so we need to parse it in very specific ways
+# concordanceDF is a dataframe with only 1 column for each row in the
+# ConPair concordance out, tumorSample/normalSample are
+# strings for the names of the tumor/normal samples
+def concordance_parser(concordanceDF, tumorSample, normalSample):
+    concordanceValue = concordanceDF[0][0].split(': ')[1]
+    markersUsed = concordanceDF[0][1].split('Based on ')[1].split(' markers ')[0]
+    markerThreshold = concordanceDF[0][1].split(': ')[1].split(' reads')[0]
+    minMapQuality = concordanceDF[0][2].split(': ')[1]
+    minBaseQuality = concordanceDF[0][3].split(': ')[1]
+    return pd.DataFrame({'tumor sample' : [tumorSample],
+                         'paired normal': [normalSample],
+                         'concordance' : [concordanceValue],
+                         'markers used' : [markersUsed],
+                         'min coverage for markers' : [markerThreshold],
+                         'min map quality' : [minMapQuality],
+                         'min base quality' : [minBaseQuality]})
+
+# contamination table is similar to the concordance table, just with less
+# specific data to parse
+def contamination_parser(contaminationDF, tumorSample, normalSample):
+    # contamination tool doesn't report out contamination values
+    # for tumors when there are too few loci with adequate coverage,
+    # here we assume that if there are contamination values the normal
+    # returns, since the normal loci are used for determining the tumor
+    # loci, therefore the tumor loci should be a subset of the normals
+    normalSampleContamination = contaminationDF[0][0].split(': ')[1]
+    try:
+        tumorSampleContamination = contaminationDF[0][1].split(': ')[1]
+    except:
+        tumorSampleContamination = 'NA'
+    return pd.DataFrame({'tumor sample' : [tumorSample],
+                                       'paired normal' : [normalSample],
+                                       'tumor sample contamination' : [tumorSampleContamination],
+                                       'normal sample contamination' : [normalSampleContamination]})
+
+### it's main() time ###
+if __name__ == "__main__":
+    ###### WORKFLOW PART 1 ######
+    ### start with flight check and gathering the necessary information
+    ### from the DB
+
+    # set up DB connection
+    dbConn = db.DBconnect(DBconfig)
+
+    # first check the project exists in the DB and that some samples
+    projectIDQueryResults = dbConn.DBquery(com_queries.projectIDFromProjectCode(args.project_code))
+    # make sure something was returned, AKA project code exists in DB
+    if projectIDQueryResults.empty:
+        sys.exit("Error, project code " + args.project_code + " does not exist in "
+                 + DBconfig['schema'] + "!!!\nExiting...")
+    project_id = projectIDQueryResults.project_id[0]
+    # make sure samples exist with pairs (tumor/normals) per individual
+    projectSamplePairsQuery = dbConn.DBquery(com_queries.projectSamplePairsFromProjectID(project_id))
+    if projectSamplePairsQuery.empty:
+        sys.exit("Error, project " + args.project_code + " has no sample pairs to run ConPair on according to "
+                 + DBconfig['schema'] + "!!!\nExiting...")
+    # get the aggregation information so we know where the bam files are
+    aggregatePairTableQuery = dbConn.DBquery(com_queries.aggregatePairTableFromProjectID(project_id))
+    if aggregatePairTableQuery.empty:
+        sys.exit("Error, project " + args.project_code + " has no aggregate pairs to run ConPair on according to "
+                 + DBconfig['schema'] + "!!!\nExiting...")
+    # debug line, retruns list of sample pairs/aggregate pairs
+    # print(projectSamplePairsQuery)
+    # print(aggregatePairTableQuery)
+
+    # check that the output directory exists, and create the necessary subdirs
+    if os.path.exists(args.output_folder):
+        # make the necessary subdirs if needed
+        for neededDirectory in [project_folder, pileup_output_dir, contamination_output_dir, concordance_output_dir]:
+            if not os.path.exists(neededDirectory):
+                os.mkdir(neededDirectory)
+    else:
+        # output folder doesn't exist, user needs to create it or pick a diff output folder
+        sys.exit("Error, output directory " + args.output_folder
+                 + " does not exist!!!\nYou need to make sure it exists before running.")
+
+    ### needed directories exist, and we have
+    ### not we need to gather all the information
+    ### to run the commands
+
+    # reorganize sample_id and bam_file_path info
+    aggPairs = genFun.rbind(aggregatePairTableQuery[['control_sample_id','control_sample_path']],
+          aggregatePairTableQuery[['case_sample_id','case_sample_path']], ['sample_id','bam_file_path']).dropna()
+
+    # iterate over list altering the DB given path to the bam file
+    # to the actual path on this system
+    for bamPath in aggPairs.bam_file_path:
+        newPath = genFun.replaceWCommonSubStr(genConfig['isilon_project_directory'], bamPath)
+        aggPairs.bam_file_path.replace(bamPath, newPath, inplace=True)
+
+    # reorganize samples into sample/sample_id
+    allSamples = genFun.rbind(projectSamplePairsQuery[['normal_sample', 'normal_sample_id']],
+                               projectSamplePairsQuery[['tumor_sample', 'tumor_sample_id']],
+                               ['sample_name','sample_id']).dropna()
+
+    # merge samplePair info with the sample ID info
+    allSamples = allSamples.merge(aggPairs, on="sample_id", how="left")
+    # create the pileup output file path
+    pileup_output_file = pileup_output_dir + "/" + allSamples.sample_name + "_ConPairPileup.pu"
+    allSamples['pileup_output_file'] = pileup_output_file
+
+    # now that we have the pileup output filenames we can generate the
+    # table for all pairs and populate it with the pileup paths
+    samplePairs = projectSamplePairsQuery
+    samplePairs['normal_pileup_file'] = samplePairs.merge(allSamples[['sample_id','pileup_output_file']],
+                                    how='left', right_on='sample_id', left_on='normal_sample_id')['pileup_output_file']
+    samplePairs['tumor_pileup_file'] = samplePairs.merge(allSamples[['sample_id','pileup_output_file']],
+                                    how='left', right_on='sample_id', left_on='tumor_sample_id')['pileup_output_file']
+    # add concordance/contamination files to the table for easy iterating over
+    # samplePairs table to generate the commands
+    samplePairs['concordance_output_file'] = concordance_output_dir + "/" + samplePairs['tumor_sample'] + \
+                                             "_v_" + samplePairs['normal_sample'] + "_ConPairConcordance.tsv"
+    samplePairs['contamination_output_file'] = contamination_output_dir + "/" + samplePairs['tumor_sample'] + \
+                                             "_v_" + samplePairs['normal_sample'] + "_ConPairContamination.tsv"
+    # column to track what we will report out, set True everytime we verify that
+    # we can get a concordance/contamination because the tumor/normal pileups exist
+    # TODO: check whether the contamination/concordance tools actually run
+    samplePairs['report_out'] = False
+
+    ###### WORKFLOW PART 2 ######
+    ### invoking ConPair commands
+    ### starting with pileups
+
+    # iterate over allSamples table, since that contains all samples
+    # we need to analyze then run the appropriate pileup
+    for index, sampleRow in allSamples.iterrows():
+        OUTFILE = sampleRow['pileup_output_file']
+        BAM_FILE = sampleRow['bam_file_path']
+        # check that the bam file exists, it may be inaccessible
+        # TODO fix case where the bam file path is NaN
+        if os.path.isfile(BAM_FILE):
+            # if we don't want to overwrite the an existing pileup we should also
+            # check to make sure it doesn't already exist
+            if os.path.isfile(OUTFILE) and ConPairConfig['rewrite_previous_files'] == False:
+                print("Skipping generating pileup for file " + OUTFILE + " because it already exists")
+            else:
+                run_pileup.run_gatk_pileup_for_sample(ConPairConfig['conpair_directory'],
+                                                      ConPairConfig['gatk_jar_path'], BAM_FILE, OUTFILE,
+                                                      ConPairConfig['java_path'])
+        else:
+            print("WARNING! File " + BAM_FILE + " does not exist!!!")
+
+    # next we need to run the concordance/contamination tools for all sample pairs
+    for index, samplePair in samplePairs.iterrows():
+        CONTAMINATION_OUT = samplePair['contamination_output_file']
+        CONCORDANCE_OUT = samplePair['concordance_output_file']
+        NORMAL_PILEUP = samplePair['normal_pileup_file']
+        TUMOR_PILEUP = samplePair['tumor_pileup_file']
+        # check that the pileup file exists, it may be inaccessible
+        if os.path.isfile(NORMAL_PILEUP) and os.path.isfile(TUMOR_PILEUP):
+            # if we don't want to overwrite the an existing pileup we should also
+            # check to make sure it doesn't already exist
+            # run ConPair concordance tool
+            if os.path.isfile(CONCORDANCE_OUT) and ConPairConfig['rewrite_previous_files'] == False:
+                print("Skipping generating concordance for file " + CONCORDANCE_OUT + " because it already exists")
+            else:
+                run_concordance.verify_concordance(ConPairConfig['conpair_directory'], TUMOR_PILEUP, NORMAL_PILEUP,
+                                   CONCORDANCE_OUT)
+            # run ConPair contamination tool
+            if os.path.isfile(CONTAMINATION_OUT) and ConPairConfig['rewrite_previous_files'] == False:
+                print("Skipping generating contamination for file " + CONTAMINATION_OUT + " because it already exists")
+            else:
+                run_contamination.estimate_tumor_normal_contamination(ConPairConfig['conpair_directory'], TUMOR_PILEUP, NORMAL_PILEUP,
+                                                    CONTAMINATION_OUT)
+            # update samplePairs table to mark this as a sample we can report out
+            samplePairs.loc[index, 'report_out'] = True
+        else:
+            print("WARNING! Pileup file " + NORMAL_PILEUP + " and/or " + TUMOR_PILEUP + " does not exist!!!")
+
+    ###### WORKFLOW PART 3 ######
+    ### gather all the ConPair output into an excel file for reporting
+
+    # create empty data frames for storing the values
+    concordanceTable = pd.DataFrame({'tumor sample' : [],
+                         'paired normal': [],
+                         'concordance' : [],
+                         'markers used' : [],
+                         'min coverage for markers' : [],
+                         'min map quality' : [],
+                         'min base quality' : []})
+
+    contaminationTable = pd.DataFrame({'tumor sample' : [],
+                                       'paired normal' : [],
+                                       'tumor sample contamination' : [],
+                                       'normal sample contamination' : []})
+
+    # import all the concordance/contaminaion outputs
+    for index, samplePair in samplePairs.iterrows():
+        # check that there wasn't an issue with generating
+        # the concordance/contamination data
+        if samplePair['report_out'] == True:
+            contaminationFile = samplePair['contamination_output_file']
+            concordanceFile = samplePair['concordance_output_file']
+            normalSample = samplePair['normal_sample']
+            tumorSample = samplePair['tumor_sample']
+            # collect the concordance data
+            # parsing concordance files is not generalizable, ConPair has its own
+            # format, so we are just going to make a specific function to sanitize their output
+            currConcordanceColumn = concordance_parser(pd.read_csv(concordanceFile, sep="\t", header=None),
+                                                 tumorSample, normalSample)
+            concordanceTable = concordanceTable.append(currConcordanceColumn)
+            # contamination table has similar issues with parsing that the concordance
+            # table does
+            currContaminationColumn = contamination_parser(pd.read_csv(contaminationFile, sep="\t", header=None),
+                                                 tumorSample, normalSample)
+            contaminationTable = contaminationTable.append(currContaminationColumn)
+
+    # merge the concordance/contamination tables on the tumor/normal columns
+    # that way we can read the conrodance, marker sites, etc in the same table
+    # as the contamination values
+    ConPairReportDataFrame = concordanceTable.merge(contaminationTable, on=['tumor sample','paired normal'],
+                                                    how='left')
+
+    # create excel file and write the data to it
+    conPairReport = xls.XLwrite(conpair_report_fileName,'ConPair_Report')
+    conPairReport.writeTable(ConPairReportDataFrame)
+    conPairReport.save()
+
+# EOF
