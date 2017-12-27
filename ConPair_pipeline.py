@@ -120,9 +120,10 @@ def contamination_parser(contaminationDF, tumorSample, normalSample):
     # returns, since the normal loci are used for determining the tumor
     # loci, therefore the tumor loci should be a subset of the normals
     normalSampleContamination = contaminationDF[0][0].split(': ')[1]
-    try:
+    # if only 2 rows, there must be no tumor contamination information
+    if len(contaminationDF.index) == 2:
         tumorSampleContamination = contaminationDF[0][1].split(': ')[1]
-    except:
+    else:
         tumorSampleContamination = 'NA'
     return pd.DataFrame({'tumor sample' : [tumorSample],
                                        'paired normal' : [normalSample],
@@ -184,13 +185,23 @@ if __name__ == "__main__":
         newPath = genFun.replaceWCommonSubStr(genConfig['isilon_project_directory'], bamPath)
         aggPairs.bam_file_path.replace(bamPath, newPath, inplace=True)
 
-    # reorganize samples into sample/sample_id
+    # reorganize tumor/normal samples into 2 columns of sample/sample_id
     allSamples = genFun.rbind(projectSamplePairsQuery[['normal_sample', 'normal_sample_id']],
                                projectSamplePairsQuery[['tumor_sample', 'tumor_sample_id']],
                                ['sample_name','sample_id']).dropna()
 
     # merge samplePair info with the sample ID info
     allSamples = allSamples.merge(aggPairs, on="sample_id", how="left")
+
+    # lets do 1 final data check here
+    # there is a conceivable case where the sample table indicates pairs
+    # of samples, but the aggregate table only has some of those samples
+    # currently available (ex: all tumors aggregated, but none of the normals)
+    # so lets just check the merge
+    if allSamples['bam_file_path'].isnull().all():
+        sys.exit("Error, project " + args.project_code + " has no tumor/normal pairs with bam files according to "
+                 + DBconfig['schema'] + "!!!\nExiting...")
+
     # create the pileup output file path
     pileup_output_file = pileup_output_dir + "/" + allSamples.sample_name + "_ConPairPileup.pu"
     allSamples['pileup_output_file'] = pileup_output_file
@@ -210,7 +221,6 @@ if __name__ == "__main__":
                                              "_v_" + samplePairs['normal_sample'] + "_ConPairContamination.tsv"
     # column to track what we will report out, set True everytime we verify that
     # we can get a concordance/contamination because the tumor/normal pileups exist
-    # TODO: check whether the contamination/concordance tools actually run
     samplePairs['report_out'] = False
 
     ###### WORKFLOW PART 2 ######
@@ -223,8 +233,13 @@ if __name__ == "__main__":
         OUTFILE = sampleRow['pileup_output_file']
         BAM_FILE = sampleRow['bam_file_path']
         # check that the bam file exists, it may be inaccessible
-        # TODO fix case where the bam file path is NaN
-        if os.path.isfile(BAM_FILE):
+        # this should not be the case, however we frequently do hacks to the riker
+        # database so this is a fine sanity check
+        if pd.isnull(BAM_FILE):
+            print("Skipping generating pileup for file " + OUTFILE + " because bam path is NaN")
+            # mark the pileup output to indicate that pileup failed
+            allSamples['index', 'pileup_output_file'] = ""
+        elif os.path.isfile(BAM_FILE):
             # if we don't want to overwrite the an existing pileup we should also
             # check to make sure it doesn't already exist
             if os.path.isfile(OUTFILE) and ConPairConfig['rewrite_previous_files'] == False:
@@ -242,6 +257,7 @@ if __name__ == "__main__":
         CONCORDANCE_OUT = samplePair['concordance_output_file']
         NORMAL_PILEUP = samplePair['normal_pileup_file']
         TUMOR_PILEUP = samplePair['tumor_pileup_file']
+        TUMOR_SAMPLE = samplePair['tumor_sample']
         # check that the pileup file exists, it may be inaccessible
         if os.path.isfile(NORMAL_PILEUP) and os.path.isfile(TUMOR_PILEUP):
             # if we don't want to overwrite the an existing pileup we should also
@@ -259,9 +275,16 @@ if __name__ == "__main__":
                 run_contamination.estimate_tumor_normal_contamination(ConPairConfig['conpair_directory'], TUMOR_PILEUP, NORMAL_PILEUP,
                                                     CONTAMINATION_OUT)
             # update samplePairs table to mark this as a sample we can report out
-            samplePairs.loc[index, 'report_out'] = True
+            # but first check that the files were actually created
+            if os.path.isfile(CONTAMINATION_OUT) and os.path.isfile(CONCORDANCE_OUT):
+                samplePairs.loc[index, 'report_out'] = True
         else:
-            print("WARNING! Pileup file " + NORMAL_PILEUP + " and/or " + TUMOR_PILEUP + " does not exist!!!")
+            # make sure neither sample failed pileup
+            if NORMAL_PILEUP == "" or TUMOR_PILEUP == "":
+                print("Warning! Skipped concordance/contamination because one of the pileups for pair ",
+                      + TUMOR_SAMPLE + " could not be generated!")
+            else:
+                print("WARNING! Pileup file " + NORMAL_PILEUP + " and/or " + TUMOR_PILEUP + " does not exist!!!")
 
     ###### WORKFLOW PART 3 ######
     ### gather all the ConPair output into an excel file for reporting
@@ -309,7 +332,8 @@ if __name__ == "__main__":
 
     # create excel file and write the data to it
     conPairReport = xls.XLwrite(conpair_report_fileName,'ConPair_Report')
-    conPairReport.writeTable(ConPairReportDataFrame)
+    conPairReport.writeTable(ConPairReportDataFrame,
+                             styles={'normal sample contamination':'0.00%', 'tumor sample contamination':'0.00%'})
     conPairReport.save()
 
 # EOF
