@@ -57,7 +57,7 @@ def colNumToExcelColLetter(colNum):
     alphaReps = colNum/26
     if alphaReps > 1:
         # make 2 chars based on Excel formatting, which is A-Z then
-        # AA-AZ then BA-BZ etc
+        # AA-AZ then BA-BZ etc. No [A-Z][A-Z][A-Z] support.
         firstChar = chr(math.floor(alphaReps)+64)
         secondChar = chr(colNum-(math.floor(alphaReps)*26) + 65)
         return firstChar + secondChar
@@ -68,6 +68,9 @@ def colNumToExcelColLetter(colNum):
 
 
 class XLwrite:
+    # globals for this class
+    # starting with accepted styles:
+    number_styles = ["0.00%"]
 
     # begin a new workbook. Requires 2 strings:
     # XLFileName - string for the name of the excel file to write to
@@ -97,7 +100,12 @@ class XLwrite:
     def setColStyle(self, column, startRow, endRow, style):
         for currRow in range(startRow, endRow):
             cellName = column + str(currRow)
-            self.currSheet[cellName].number_format = style
+            # check that we know the style type
+            if style in XLwrite.number_styles:
+                self.currSheet[cellName].number_format = style
+            else:
+                print("Error! Style " + style + " unknown!")
+
 
 
     # writes a table to the current sheet. Skips a row if a table was previously written.
