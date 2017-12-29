@@ -27,7 +27,10 @@ __date__ = "Nov, 2017"
             get a better idea of what we want in a report
 '''
 
+#######################
 ### library imports ###
+#######################
+
 import pandas as pd
 import sys, imp, os, argparse, yaml
 
@@ -41,7 +44,10 @@ import excel_write as xls
 import common_queries as com_queries
 import general_functions as genFun
 
-### globals ###
+##########################################
+### globals, parsing and configuration ###
+##########################################
+
 # default configutation file, should be used most of the time
 # unless the user is doing something special
 DEFAULT_CONFIGURATION_FILE = 'ccgd_rotation_scripts.config'
@@ -90,14 +96,22 @@ concordance_output_dir = project_folder + "/concordance"
 contamination_output_dir = project_folder + "/contamination"
 conpair_report_fileName = project_folder + "/" + args.project_code + "_report.xlsx"
 
+##################################################
 ### define any small script-specific functions ###
+##################################################
 
-# concordance output by ConPair is specific
-# so we need to parse it in very specific ways
-# concordanceDF is a dataframe with only 1 column for each row in the
-# ConPair concordance out, tumorSample/normalSample are
-# strings for the names of the tumor/normal samples
+
 def concordance_parser(concordanceDF, tumorSample, normalSample):
+    """
+    bmw35 12-29-2017
+    concordance output by ConPair is specific
+    so we need to parse it in very specific ways
+    :param concordanceDF: dataframe with only 1 column for each row produced by
+      ConPair concordance output
+    :param tumorSample: string for the tumor sample name
+    :param normalSample: string for the normal sample name
+    :return: dataframe with the relevant concordance information parsed into a usable format
+    """
     concordanceValue = concordanceDF[0][0].split(': ')[1]
     markersUsed = concordanceDF[0][1].split('Based on ')[1].split(' markers ')[0]
     markerThreshold = concordanceDF[0][1].split(': ')[1].split(' reads')[0]
@@ -111,9 +125,18 @@ def concordance_parser(concordanceDF, tumorSample, normalSample):
                          'min map quality' : [minMapQuality],
                          'min base quality' : [minBaseQuality]})
 
-# contamination table is similar to the concordance table, just with less
-# specific data to parse
+
 def contamination_parser(contaminationDF, tumorSample, normalSample):
+    """
+    bmw35 12-29-2017
+    contamination table is similar to the concordance table, just with less
+    specific data to parse
+    :param contaminationDF: dataframe with only 1 column for each row produced by
+      ConPair contamination output
+    :param tumorSample: string for the tumor sample name
+    :param normalSample: string for the normal sample name
+    :return: 
+    """
     # contamination tool doesn't report out contamination values
     # for tumors when there are too few loci with adequate coverage,
     # here we assume that if there are contamination values the normal
@@ -130,7 +153,9 @@ def contamination_parser(contaminationDF, tumorSample, normalSample):
                                        'tumor sample contamination' : [tumorSampleContamination],
                                        'normal sample contamination' : [normalSampleContamination]})
 
+########################
 ### it's main() time ###
+########################
 if __name__ == "__main__":
     ###### WORKFLOW PART 1 ######
     ### start with flight check and gathering the necessary information
@@ -171,10 +196,9 @@ if __name__ == "__main__":
         sys.exit("Error, output directory " + args.output_folder
                  + " does not exist!!!\nYou need to make sure it exists before running.")
 
-    ### needed directories exist, and we have
-    ### not we need to gather all the information
+    ### needed directories exist, and we
+    ### now need to gather all the information
     ### to run the commands
-
     # reorganize sample_id and bam_file_path info
     aggPairs = genFun.rbind(aggregatePairTableQuery[['control_sample_id','control_sample_path']],
           aggregatePairTableQuery[['case_sample_id','case_sample_path']], ['sample_id','bam_file_path']).dropna()
@@ -230,61 +254,61 @@ if __name__ == "__main__":
     # iterate over allSamples table, since that contains all samples
     # we need to analyze then run the appropriate pileup
     for index, sampleRow in allSamples.iterrows():
-        OUTFILE = sampleRow['pileup_output_file']
-        BAM_FILE = sampleRow['bam_file_path']
+        pileupOutputFile = sampleRow['pileup_output_file']
+        bamFilePath = sampleRow['bam_file_path']
         # check that the bam file exists, it may be inaccessible
         # this should not be the case, however we frequently do hacks to the riker
         # database so this is a fine sanity check
-        if pd.isnull(BAM_FILE):
-            print("Skipping generating pileup for file " + OUTFILE + " because bam path is NaN")
+        if pd.isnull(bamFilePath):
+            print("Skipping generating pileup for file " + pileupOutputFile + " because bam path is NaN")
             # mark the pileup output to indicate that pileup failed
             allSamples['index', 'pileup_output_file'] = ""
-        elif os.path.isfile(BAM_FILE):
+        elif os.path.isfile(bamFilePath):
             # if we don't want to overwrite the an existing pileup we should also
             # check to make sure it doesn't already exist
-            if os.path.isfile(OUTFILE) and ConPairConfig['rewrite_previous_files'] == False:
-                print("Skipping generating pileup for file " + OUTFILE + " because it already exists")
+            if os.path.isfile(pileupOutputFile) and ConPairConfig['rewrite_previous_files'] == False:
+                print("Skipping generating pileup for file " + pileupOutputFile + " because it already exists")
             else:
                 run_pileup.run_gatk_pileup_for_sample(ConPairConfig['conpair_directory'],
-                                                      ConPairConfig['gatk_jar_path'], BAM_FILE, OUTFILE,
+                                                      ConPairConfig['gatk_jar_path'], bamFilePath, pileupOutputFile,
                                                       ConPairConfig['java_path'])
         else:
-            print("WARNING! File " + BAM_FILE + " does not exist!!!")
+            print("WARNING! File " + bamFilePath + " does not exist!!!")
 
     # next we need to run the concordance/contamination tools for all sample pairs
     for index, samplePair in samplePairs.iterrows():
-        CONTAMINATION_OUT = samplePair['contamination_output_file']
-        CONCORDANCE_OUT = samplePair['concordance_output_file']
-        NORMAL_PILEUP = samplePair['normal_pileup_file']
-        TUMOR_PILEUP = samplePair['tumor_pileup_file']
-        TUMOR_SAMPLE = samplePair['tumor_sample']
+        contaminationOutFile = samplePair['contamination_output_file']
+        concordanceOutFile = samplePair['concordance_output_file']
+        normalPileupFile = samplePair['normal_pileup_file']
+        tumorPileupFile = samplePair['tumor_pileup_file']
+        tumorSampleName = samplePair['tumor_sample']
         # check that the pileup file exists, it may be inaccessible
-        if os.path.isfile(NORMAL_PILEUP) and os.path.isfile(TUMOR_PILEUP):
+        if os.path.isfile(normalPileupFile) and os.path.isfile(tumorPileupFile):
             # if we don't want to overwrite the an existing pileup we should also
             # check to make sure it doesn't already exist
             # run ConPair concordance tool
-            if os.path.isfile(CONCORDANCE_OUT) and ConPairConfig['rewrite_previous_files'] == False:
-                print("Skipping generating concordance for file " + CONCORDANCE_OUT + " because it already exists")
+            if os.path.isfile(concordanceOutFile) and ConPairConfig['rewrite_previous_files'] == False:
+                print("Skipping generating concordance for file " + concordanceOutFile + " because it already exists")
             else:
-                run_concordance.verify_concordance(ConPairConfig['conpair_directory'], TUMOR_PILEUP, NORMAL_PILEUP,
-                                   CONCORDANCE_OUT)
+                run_concordance.verify_concordance(ConPairConfig['conpair_directory'], tumorPileupFile, normalPileupFile,
+                                                   concordanceOutFile)
             # run ConPair contamination tool
-            if os.path.isfile(CONTAMINATION_OUT) and ConPairConfig['rewrite_previous_files'] == False:
-                print("Skipping generating contamination for file " + CONTAMINATION_OUT + " because it already exists")
+            if os.path.isfile(contaminationOutFile) and ConPairConfig['rewrite_previous_files'] == False:
+                print("Skipping generating contamination for file " + contaminationOutFile + " because it already exists")
             else:
-                run_contamination.estimate_tumor_normal_contamination(ConPairConfig['conpair_directory'], TUMOR_PILEUP, NORMAL_PILEUP,
-                                                    CONTAMINATION_OUT)
+                run_contamination.estimate_tumor_normal_contamination(ConPairConfig['conpair_directory'],
+                                                                      tumorPileupFile, normalPileupFile, contaminationOutFile)
             # update samplePairs table to mark this as a sample we can report out
             # but first check that the files were actually created
-            if os.path.isfile(CONTAMINATION_OUT) and os.path.isfile(CONCORDANCE_OUT):
+            if os.path.isfile(contaminationOutFile) and os.path.isfile(concordanceOutFile):
                 samplePairs.loc[index, 'report_out'] = True
         else:
             # make sure neither sample failed pileup
-            if NORMAL_PILEUP == "" or TUMOR_PILEUP == "":
+            if normalPileupFile == "" or tumorPileupFile == "":
                 print("Warning! Skipped concordance/contamination because one of the pileups for pair ",
-                      + TUMOR_SAMPLE + " could not be generated!")
+                      + tumorSampleName + " could not be generated!")
             else:
-                print("WARNING! Pileup file " + NORMAL_PILEUP + " and/or " + TUMOR_PILEUP + " does not exist!!!")
+                print("WARNING! Pileup file " + normalPileupFile + " and/or " + tumorPileupFile + " does not exist!!!")
 
     ###### WORKFLOW PART 3 ######
     ### gather all the ConPair output into an excel file for reporting
