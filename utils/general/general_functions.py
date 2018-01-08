@@ -8,6 +8,32 @@ __date__ = "Dec, 2017"
     Description: This script contains functions that we will use regularly
     in multiple scripts. These functions 
 '''
+import logging, sys
+from logging.handlers import RotatingFileHandler
+
+def getLogger(logFileName):
+    """
+    bmw35 12-29-2017
+    Logger should be same format for all scripts, and there isn't a reason to
+    rewrite the same basic configuration everytime, so we put it here
+    we want to write to a log file and stdout, while rotating the log file when necessary
+    :param logFileName: string of the file name to write the log file to
+    :return: logging object
+    """
+    # get logging object
+    logger = logging.getLogger('Logger')
+    # add rotating file handler if size gets too big
+    MAX_LOGFILE_DISK_SIZE = 50000000
+    fileHandle = RotatingFileHandler(filename=logFileName,
+                                     maxBytes=MAX_LOGFILE_DISK_SIZE, backupCount=5)
+    formatter = logging.Formatter('%(asctime)s: %(name)s - %(levelname)s: %(message)s')
+    fileHandle.setFormatter(formatter)
+    logger.addHandler(fileHandle)
+    # set and format the stream handler
+    logger.addHandler(logging.StreamHandler(sys.stdout))
+    # set logging level
+    logger.setLevel(logging.INFO)
+    return logger
 
 def replaceWCommonSubStr(str1, str2):
     """

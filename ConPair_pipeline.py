@@ -47,11 +47,13 @@ import general_functions as genFun
 ##########################################
 ### globals, parsing and configuration ###
 ##########################################
-
-# default configutation file, should be used most of the time
-# unless the user is doing something special
+DEFAULT_LOGGER_FILE = "ConPairLogFile.log"
 DEFAULT_CONFIGURATION_FILE = 'ccgd_rotation_scripts.config'
 DEFAULT_OUTPUT_DIRECTORY = os.getcwd() + '/ConPair_Reports'
+
+# set up logger
+logger = genFun.getLogger(DEFAULT_LOGGER_FILE)
+logger.info("Starting new ConPair Pipeline run with command: "  + " ".join(sys.argv))
 
 ### handle command line interface with argparse ###
 parser = argparse.ArgumentParser(description='Run ConPair pipeline and create report.',
@@ -67,18 +69,19 @@ parser.add_argument('--version', action='version', version='ConPair_pipeline.py 
 args = parser.parse_args()
 
 ### import configurations from configuration file ###
-print "Reading in configuration file ", args.config
+logger.info( "Reading in configuration file " + args.config)
 try:
     with open(args.config, 'r') as ymlfile:
         config = yaml.load(ymlfile)
 except IOError:
     # whoa whats happening bros? File might not exist, or some other IO error
-    sys.exit("Error reading configuration file!")
+    logger.error("Error reading configuration file!")
+    sys.exit()
 
 # parse the needed variables from the config file into readable variables
 genConfig = config['general']
 DBconfig = config['rikerDB']
-print "configuration file read in successfully"
+logger.info( "configuration file read in successfully" )
 
 # add the conpair module directory to the pythonpath variable
 # then import the ConPair scripts
@@ -99,7 +102,6 @@ conpair_report_fileName = project_folder + "/" + args.project_code + "_report.xl
 ##################################################
 ### define any small script-specific functions ###
 ##################################################
-
 
 def concordance_parser(concordanceDF, tumorSample, normalSample):
     """
@@ -125,7 +127,6 @@ def concordance_parser(concordanceDF, tumorSample, normalSample):
                          'min map quality' : [minMapQuality],
                          'min base quality' : [minBaseQuality]})
 
-
 def contamination_parser(contaminationDF, tumorSample, normalSample):
     """
     bmw35 12-29-2017
@@ -143,8 +144,9 @@ def contamination_parser(contaminationDF, tumorSample, normalSample):
     # returns, since the normal loci are used for determining the tumor
     # loci, therefore the tumor loci should be a subset of the normals
     normalSampleContamination = contaminationDF[0][0].split(': ')[1]
-    # if only 2 rows, there must be no tumor contamination information
-    if len(contaminationDF.index) == 2:
+    # if there isn't 2 rows, there must be no tumor contamination information
+    FULL_CONTAMINATION_DF_ROWS = 2
+    if len(contaminationDF.index) == FULL_CONTAMINATION_DF_ROWS:
         tumorSampleContamination = contaminationDF[0][1].split(': ')[1]
     else:
         tumorSampleContamination = 'NA'
@@ -156,11 +158,12 @@ def contamination_parser(contaminationDF, tumorSample, normalSample):
 ########################
 ### it's main() time ###
 ########################
+
 if __name__ == "__main__":
     ###### WORKFLOW PART 1 ######
     ### start with flight check and gathering the necessary information
     ### from the DB
-
+    logger.info("Checking database to see what samples need to be run through ConPair")
     # set up DB connection
     dbConn = db.DBconnect(DBconfig)
 
@@ -168,22 +171,22 @@ if __name__ == "__main__":
     projectIDQueryResults = dbConn.DBquery(com_queries.projectIDFromProjectCode(args.project_code))
     # make sure something was returned, AKA project code exists in DB
     if projectIDQueryResults.empty:
-        sys.exit("Error, project code " + args.project_code + " does not exist in "
-                 + DBconfig['schema'] + "!!!\nExiting...")
+        logger.error("Error, project code " + args.project_code + " does not exist in "
+                 + DBconfig['schema'] + "!!! Exiting...")
+        sys.exit()
     project_id = projectIDQueryResults.project_id[0]
     # make sure samples exist with pairs (tumor/normals) per individual
     projectSamplePairsQuery = dbConn.DBquery(com_queries.projectSamplePairsFromProjectID(project_id))
     if projectSamplePairsQuery.empty:
-        sys.exit("Error, project " + args.project_code + " has no sample pairs to run ConPair on according to "
-                 + DBconfig['schema'] + "!!!\nExiting...")
+        logger.error("Error, project " + args.project_code + " has no sample pairs to run ConPair on according to "
+                 + DBconfig['schema'] + "!!! Exiting...")
+        sys.exit()
     # get the aggregation information so we know where the bam files are
     aggregatePairTableQuery = dbConn.DBquery(com_queries.aggregatePairTableFromProjectID(project_id))
     if aggregatePairTableQuery.empty:
-        sys.exit("Error, project " + args.project_code + " has no aggregate pairs to run ConPair on according to "
-                 + DBconfig['schema'] + "!!!\nExiting...")
-    # debug line, retruns list of sample pairs/aggregate pairs
-    # print(projectSamplePairsQuery)
-    # print(aggregatePairTableQuery)
+        logger.error("Error, project " + args.project_code + " has no aggregate pairs to run ConPair on according to "
+                 + DBconfig['schema'] + "!!! Exiting...")
+        sys.exit()
 
     # check that the output directory exists, and create the necessary subdirs
     if os.path.exists(args.output_folder):
@@ -193,8 +196,9 @@ if __name__ == "__main__":
                 os.mkdir(neededDirectory)
     else:
         # output folder doesn't exist, user needs to create it or pick a diff output folder
-        sys.exit("Error, output directory " + args.output_folder
+        logger.error("Error, output directory " + args.output_folder
                  + " does not exist!!!\nYou need to make sure it exists before running.")
+        sys.exit()
 
     ### needed directories exist, and we
     ### now need to gather all the information
@@ -223,8 +227,9 @@ if __name__ == "__main__":
     # currently available (ex: all tumors aggregated, but none of the normals)
     # so lets just check the merge
     if allSamples['bam_file_path'].isnull().all():
-        sys.exit("Error, project " + args.project_code + " has no tumor/normal pairs with bam files according to "
-                 + DBconfig['schema'] + "!!!\nExiting...")
+        logger.error("Error, project " + args.project_code + " has no tumor/normal pairs with bam files according to "
+                 + DBconfig['schema'] + "!!! Exiting...")
+        sys.exit()
 
     # create the pileup output file path
     pileup_output_file = pileup_output_dir + "/" + allSamples.sample_name + "_ConPairPileup.pu"
@@ -250,7 +255,7 @@ if __name__ == "__main__":
     ###### WORKFLOW PART 2 ######
     ### invoking ConPair commands
     ### starting with pileups
-
+    logger.info("Running ConPair pipeline, starting with pileups")
     # iterate over allSamples table, since that contains all samples
     # we need to analyze then run the appropriate pileup
     for index, sampleRow in allSamples.iterrows():
@@ -260,20 +265,20 @@ if __name__ == "__main__":
         # this should not be the case, however we frequently do hacks to the riker
         # database so this is a fine sanity check
         if pd.isnull(bamFilePath):
-            print("Skipping generating pileup for file " + pileupOutputFile + " because bam path is NaN")
+            logger.warn("Skipping generating pileup for file " + pileupOutputFile + " because bam path is NaN")
             # mark the pileup output to indicate that pileup failed
             allSamples['index', 'pileup_output_file'] = ""
         elif os.path.isfile(bamFilePath):
             # if we don't want to overwrite the an existing pileup we should also
             # check to make sure it doesn't already exist
             if os.path.isfile(pileupOutputFile) and ConPairConfig['rewrite_previous_files'] == False:
-                print("Skipping generating pileup for file " + pileupOutputFile + " because it already exists")
+                logger.warn("Skipping generating pileup for file " + pileupOutputFile + " because it already exists")
             else:
                 run_pileup.run_gatk_pileup_for_sample(ConPairConfig['conpair_directory'],
                                                       ConPairConfig['gatk_jar_path'], bamFilePath, pileupOutputFile,
                                                       ConPairConfig['java_path'])
         else:
-            print("WARNING! File " + bamFilePath + " does not exist!!!")
+            logger.warn("WARNING! File " + bamFilePath + " does not exist!!!")
 
     # next we need to run the concordance/contamination tools for all sample pairs
     for index, samplePair in samplePairs.iterrows():
@@ -288,13 +293,13 @@ if __name__ == "__main__":
             # check to make sure it doesn't already exist
             # run ConPair concordance tool
             if os.path.isfile(concordanceOutFile) and ConPairConfig['rewrite_previous_files'] == False:
-                print("Skipping generating concordance for file " + concordanceOutFile + " because it already exists")
+                logger.warn("Skipping generating concordance for file " + concordanceOutFile + " because it already exists")
             else:
                 run_concordance.verify_concordance(ConPairConfig['conpair_directory'], tumorPileupFile, normalPileupFile,
                                                    concordanceOutFile)
             # run ConPair contamination tool
             if os.path.isfile(contaminationOutFile) and ConPairConfig['rewrite_previous_files'] == False:
-                print("Skipping generating contamination for file " + contaminationOutFile + " because it already exists")
+                logger.warn("Skipping generating contamination for file " + contaminationOutFile + " because it already exists")
             else:
                 run_contamination.estimate_tumor_normal_contamination(ConPairConfig['conpair_directory'],
                                                                       tumorPileupFile, normalPileupFile, contaminationOutFile)
@@ -305,14 +310,14 @@ if __name__ == "__main__":
         else:
             # make sure neither sample failed pileup
             if normalPileupFile == "" or tumorPileupFile == "":
-                print("Warning! Skipped concordance/contamination because one of the pileups for pair ",
+                logger.warn("Warning! Skipped concordance/contamination because one of the pileups for pair ",
                       + tumorSampleName + " could not be generated!")
             else:
-                print("WARNING! Pileup file " + normalPileupFile + " and/or " + tumorPileupFile + " does not exist!!!")
+                logger.warn("WARNING! Pileup file " + normalPileupFile + " and/or " + tumorPileupFile + " does not exist!!!")
 
     ###### WORKFLOW PART 3 ######
     ### gather all the ConPair output into an excel file for reporting
-
+    logger.info("Collecting concordance/contamination results and putting it into an excel file")
     # create empty data frames for storing the values
     concordanceTable = pd.DataFrame({'tumor sample' : [],
                          'paired normal': [],

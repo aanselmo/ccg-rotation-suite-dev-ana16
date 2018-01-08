@@ -28,7 +28,7 @@ def verify_concordance(CONPAIR_DIR, tumor_pileup, normal_pileup,
 
     if MARKER_FILE==None:
         MARKER_FILE = os.path.join(CONPAIR_DIR, 'data', 'markers',
-                                   'GRCh37.autosomes.phase3_shapeit2_mvncall_integrated.20130502.SNV.genotype.sselect_v4_MAF_0.4_LD_0.8.txt')
+            'GRCh37.autosomes.phase3_shapeit2_mvncall_integrated.20130502.SNV.genotype.sselect_v4_MAF_0.4_LD_0.8.txt')
 
     if tumor_pileup == None or normal_pileup == None:
         print('Error: Requires tumor and normal sample pileups')
@@ -73,8 +73,9 @@ def verify_concordance(CONPAIR_DIR, tumor_pileup, normal_pileup,
 
     if concordant + discordant == 0:
         print(
-        'WARNING: There are no shared markers between the tumor and the normal samples that meet the specified coverage requirements ({0})\nIs the coverage of your samples high enough?\nExiting...'.format(
-            COVERAGE_THRESHOLD))
+        'WARNING: There are no shared markers between the tumor and the normal samples ' +
+        'that meet the specified coverage requirements ({0})\nIs the coverage of your ' +
+        'samples high enough?\nExiting...'.format(COVERAGE_THRESHOLD))
         sys.exit(0)
 
     if outfile == "-":

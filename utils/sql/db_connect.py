@@ -53,7 +53,8 @@ class DBconnect:
         try:
             self.cursor = self.connection.cursor()
             print("successfully connected to database " + self.host)
-        # Oops. Didn't work! TODO: return a better error so anything using the module can parse the error state
+        # Oops. Didn't work!
+        # TODO: return a better error so anything using the module can parse the error state
         except ValueError as err:
             print("Something went wrong: {}".format(err))
 

@@ -32,7 +32,8 @@ def run_gatk_pileup_for_sample(CONPAIR_DIR, GATK, BAM_FILE, OUTFILE, JAVAPATH,
         sys.exit(2)
 
     if MARKER_FILE == None:
-        MARKER_FILE = os.path.join(CONPAIR_DIR, 'data', 'markers', 'GRCh37.autosomes.phase3_shapeit2_mvncall_integrated.20130502.SNV.genotype.sselect_v4_MAF_0.4_LD_0.8.bed')
+        MARKER_FILE = os.path.join(CONPAIR_DIR, 'data', 'markers',
+            'GRCh37.autosomes.phase3_shapeit2_mvncall_integrated.20130502.SNV.genotype.sselect_v4_MAF_0.4_LD_0.8.bed')
 
     if not os.path.exists(MARKER_FILE):
         print('ERROR: Marker file {0} cannot be find.'.format(MARKER_FILE))
