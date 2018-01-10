@@ -53,7 +53,7 @@ DEFAULT_OUTPUT_DIRECTORY = os.getcwd() + '/ConPair_Reports'
 
 # set up logger
 logger = genFun.getLogger(DEFAULT_LOGGER_FILE)
-logger.info("Starting new ConPair Pipeline run with command: "  + " ".join(sys.argv))
+logger.info("Starting new ConPair Pipeline run with command: "  + " ".jol.com/in(sys.argv))
 
 ### handle command line interface with argparse ###
 parser = argparse.ArgumentParser(description='Run ConPair pipeline and create report.',

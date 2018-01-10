@@ -54,7 +54,6 @@ class DBconnect:
             self.cursor = self.connection.cursor()
             print("successfully connected to database " + self.host)
         # Oops. Didn't work!
-        # TODO: return a better error so anything using the module can parse the error state
         except ValueError as err:
             print("Something went wrong: {}".format(err))
 
@@ -68,8 +67,14 @@ class DBconnect:
         :param queryToRun: string of the query that we want to hit the current DB connection
         :return: pandas Data Frame, returns the query results as a pandas dataframe
         """
-        # TODO: figure out how to handle queries that are wrong vs queries that return empty
-        self.cursor.execute(queryToRun)
+        try:
+            self.cursor.execute(queryToRun)
+        # Issue with the query
+        except mysql.DatabaseError as err:
+            print("Something went wrong: {}".format(err))
+            # can't return empty list because that could be interperted
+            # as the query returning an empty table
+            return None
         queryResults = list(self.cursor)
         queryDescriptors = self.cursor.description
         # DB column name is in first element of each description array
