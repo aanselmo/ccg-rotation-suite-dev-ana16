@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # version 1.0
+# test with python 2.7.13
 
 __author__ = "Bruce Wollison"
 __date__ = "Nov, 2017"
@@ -61,12 +62,13 @@ def colNumToExcelColLetter(colNum):
       column name
     :return: string, returns 1-2 uppercase letters
     """
-    alphaReps = colNum/26
+    ALPHABET_LENGTH = 26
+    alphaReps = colNum/ALPHABET_LENGTH
     if alphaReps > 1:
         # make 2 chars based on Excel formatting, which is A-Z then
         # AA-AZ then BA-BZ etc. No [A-Z][A-Z][A-Z] support.
         firstChar = chr(math.floor(alphaReps)+64)
-        secondChar = chr(colNum-(math.floor(alphaReps)*26) + 65)
+        secondChar = chr(colNum-(math.floor(alphaReps)*ALPHABET_LENGTH) + 65)
         return firstChar + secondChar
     else:
         # note, we are ord by 65 instead of 64 because
