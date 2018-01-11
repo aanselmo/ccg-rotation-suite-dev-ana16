@@ -35,7 +35,7 @@ __date__ = "Nov, 2017"
 '''
 
 # library imports
-import math
+import math, logging
 import openpyxl as xl
 from openpyxl.utils.dataframe import dataframe_to_rows
 
@@ -94,6 +94,12 @@ class XLwrite:
         :param XLSheetName: string for the name of the first sheet to begin writing to
         :return: XLwrite object new XLwrite object that contains a new workbook with active sheet
         """
+        # set the logger for this XL writer object
+        # setting it to the same logger as the script logger
+        # automagically has it output to the main scripts logging
+        # paramters
+        self.logger = logging.getLogger('Logger')
+        # create a new workbook and what not
         self.workbook = xl.Workbook()
         self.filename = XLFileName
         self.currSheet = self.workbook.active
@@ -135,7 +141,7 @@ class XLwrite:
             if style in XLwrite.NUMBER_STYLES:
                 self.currSheet[cellName].number_format = style
             else:
-                print("Error! Style " + style + " unknown!")
+                self.logger.error("Error! Style " + style + " unknown!")
 
 
     def writeTable(self, pandaTable, styles={}):
@@ -206,6 +212,6 @@ class XLwrite:
         :return: saves the workbook to a file
         """
         self.workbook.save(self.filename)
-        print("wrote data to file " + self.filename)
+        self.logger.info("wrote data to file " + self.filename)
 
 # EOF

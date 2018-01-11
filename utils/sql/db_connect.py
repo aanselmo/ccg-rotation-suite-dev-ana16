@@ -22,6 +22,7 @@ __date__ = "Nov, 2017"
 import MySQLdb as mysql
 import pandas as pd
 import numpy as np
+import logging
 
 ### wrapping functions from the DB API here so we can keep them abstracted
 ### as opposed to having an implementation that is specific to a DB
@@ -41,6 +42,11 @@ class DBconnect:
         :return: returns a DBconnect object, which serves as the database connection for the programs
            duration
         """
+        # set the logger for this db connection object
+        # setting it to the same logger as the script logger
+        # automagically has it output to the main scripts logging
+        # paramters
+        self.logger = logging.getLogger('Logger')
         # test to make sure dict items exist properly
         self.schema = DBConfigDict['schema']
         self.host = DBConfigDict['host']
@@ -52,10 +58,10 @@ class DBconnect:
         # initiate connection to the db using the given credentials
         try:
             self.cursor = self.connection.cursor()
-            print("successfully connected to database " + self.host)
+            self.logger.info("successfully connected to database " + self.host)
         # Oops. Didn't work! Can't return a db object
         except ValueError as err:
-            print("Something went wrong: {}".format(err))
+            self.logger.error("Something went wrong: {}".format(err))
             return None
 
 
@@ -72,7 +78,7 @@ class DBconnect:
             self.cursor.execute(queryToRun)
         # Issue with the query
         except mysql.DatabaseError as err:
-            print("Something went wrong: {}".format(err))
+            self.logger.error("Something went wrong with the MySQL query: {}".format(err))
             # can't return empty list because that could be interperted
             # as the query returning an empty table, return None type
             # and let whatever is getting the query deal with that
@@ -93,6 +99,6 @@ class DBconnect:
         """
         self.cursor.close()
         self.connection.close()
-        print("disconnected from " + self.host)
+        self.logger.info("disconnected from " + self.host)
 
 # EOF

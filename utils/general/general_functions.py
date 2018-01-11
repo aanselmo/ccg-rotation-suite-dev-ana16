@@ -26,7 +26,7 @@ def getLogger(logFileName):
     MAX_LOGFILE_DISK_SIZE = 50000000
     fileHandle = RotatingFileHandler(filename=logFileName,
                                      maxBytes=MAX_LOGFILE_DISK_SIZE, backupCount=5)
-    formatter = logging.Formatter('%(asctime)s: %(name)s - %(levelname)s: %(message)s')
+    formatter = logging.Formatter('%(asctime)s: %(module)s - %(levelname)s: %(message)s')
     fileHandle.setFormatter(formatter)
     logger.addHandler(fileHandle)
     # set and format the stream handler
