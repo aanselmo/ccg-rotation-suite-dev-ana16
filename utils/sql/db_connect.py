@@ -53,9 +53,10 @@ class DBconnect:
         try:
             self.cursor = self.connection.cursor()
             print("successfully connected to database " + self.host)
-        # Oops. Didn't work!
+        # Oops. Didn't work! Can't return a db object
         except ValueError as err:
             print("Something went wrong: {}".format(err))
+            return None
 
 
     def DBquery(self, queryToRun):
@@ -73,7 +74,8 @@ class DBconnect:
         except mysql.DatabaseError as err:
             print("Something went wrong: {}".format(err))
             # can't return empty list because that could be interperted
-            # as the query returning an empty table
+            # as the query returning an empty table, return None type
+            # and let whatever is getting the query deal with that
             return None
         queryResults = list(self.cursor)
         queryDescriptors = self.cursor.description
