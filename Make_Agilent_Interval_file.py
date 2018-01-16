@@ -5,6 +5,10 @@ __author__ = "Bruce Wollison"
 __date__ = "Jan, 2018"
 
 '''
+    STATUS: UNFINISHED
+'''
+
+'''
     Description: This script will generate interval files that are used in
     Riker Pipeline from Agilent Bait Set Design files, as well as the XML 
     configuration that needs to be inserted into the config
