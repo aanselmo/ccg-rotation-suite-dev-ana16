@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # version 1.0
-# test with python 2.7.13
+# tested with python 2.7.13
 
 __author__ = "Bruce Wollison"
 __date__ = "Nov, 2017"
@@ -21,10 +21,13 @@ __date__ = "Nov, 2017"
     then adding new contents (which would be either pictures or tables) in a 
     sequential organized fashion
     
-    Possible issues with these requirements: It prohibits an obvious way to implement notes
+    Possible issues with these requirements: It prohibits an obvious way to implement excel cell comments
     which may be desirable for explaining metrics. A work around for this might be to allow 
     inserting tables to be accompanies by a list or dict object with the comments for the
-    header row. Currently table styles are implemented with dict objects, with matching key:value 
+    header row. Right now we are not implementing this feature, for the variant report at least we
+    are currently writing the column descriptions into their own tab.
+    
+    Currently table styles are implemented with dict objects, with matching key:value 
     being used to represent column:style pairs. 
     
     API functions should be include
@@ -40,14 +43,17 @@ import math, logging
 import openpyxl as xl
 from openpyxl.utils.dataframe import dataframe_to_rows
 
-### wrapping functions from the XL API here so we can keep them abstracted
-### as opposed to having an implementation that is specific to an API
-### this way we can reimplement with a diff API or in a diff output format with
-### hopefully minimal, if any, changing of the other scripts
-### this is a lesson learned from using XL APIs in R, it was sometimes necessary
-### to use different ones because none are official and all seemed sub-optimal.
-### in the future we may want to look at others here (some outlined here):
-### https://github.com/kz26/PyExcelerate
+"""
+bmw35
+wrapping functions from the XL API here so we can keep them abstracted
+as opposed to having an implementation that is specific to an API
+this way we can reimplement with a diff API or in a diff output format with
+hopefully minimal, if any, changing of the other scripts
+this is a lesson learned from using XL APIs in R, it was sometimes necessary
+to use different ones because none are official and all seemed sub-optimal.
+in the future we may want to look at others here (some outlined here):
+https://github.com/kz26/PyExcelerate
+"""
 
 def colNumToExcelColLetter(colNum):
     """
@@ -77,16 +83,18 @@ def colNumToExcelColLetter(colNum):
 
 
 class XLwrite:
-    # class XLwrite abstracts the excel writing package used
-    # to a few basic functions for writing the outputs for reporting
-    # scripts. Wrapping the package into a module class here prevents
-    # rewriting every script if we need to change out the python excel
-    # package at any point
+    """
+    bmw35 01-16-2018
+    class XLwrite abstracts the excel writing package used
+    to a few basic functions for writing the outputs for reporting
+    scripts. Wrapping the package into a module class here prevents
+    rewriting every script if we need to change out the python excel
+    package at any point
+    """
 
     # globals for this class
     # starting with accepted number styles:
     NUMBER_STYLES = ["0.00%"]
-
 
     def __init__(self, XLFileName, XLSheetName="Sheet1"):
         """
@@ -109,9 +117,6 @@ class XLwrite:
         # try and guess the data types of the data we write
         # this prevents numbers from being strings, which is really annoying
         self.workbook.guess_types = True
-        # firstSheetElement lets us know if the active sheet has has something
-        # written to it yet. If it is False we want to add a blank row
-        self.firstSheetElement = True
 
 
     def newSheet(self, NewSheetName="New_Sheet"):
@@ -122,7 +127,6 @@ class XLwrite:
         :return: adds a new worksheet to the existing workbook object
         """
         self.currSheet = self.workbook.create_sheet(title=NewSheetName)
-        self.firstSheetElement = True
 
 
     def setColStyle(self, column, startRow, endRow, style):
@@ -158,9 +162,8 @@ class XLwrite:
         firstTableRow = True
         # openpyxl default behavior is to write in the immediate row after the previous one
         # so we need to add blank rows if an items already been written to the sheet
-        if not self.firstSheetElement:
+        if self.currSheet._current_row != 0:
             self.currSheet.append([])
-        self.firstSheetElement = False
         # loop over the data frame and write it. Openpyxl chokes hard on a lot of pandas
         # data types, so we want to also convert all of them to strings first so that
         # it can deal with them properly <.applymap(str)>.
@@ -199,12 +202,11 @@ class XLwrite:
         """
         # openpyxl default behavior is to write in the immediate row after the previous one
         # so we need to add blank rows if an items already been written to the sheet
-        if not self.firstSheetElement:
+        if self.currSheet._current_row != 0:
             self.currSheet.append([])
         # write the image to the sheet
         img = xl.drawing.image.Image(imageFilePath)
         self.add_image(img)
-        self.firstSheetElement = False
 
 
     def save(self):
