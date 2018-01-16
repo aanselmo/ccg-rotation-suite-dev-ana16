@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # version 1.0
+# tested in python 2.7.13
 
 __author__ = "Bruce Wollison"
 __date__ = "Dec, 2017"
