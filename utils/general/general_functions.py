@@ -58,10 +58,8 @@ def replaceWCommonSubStr(str1, str2):
     commonSubStr = ""
     # search for a common substring
     for substr2 in path2:
-        for substr1 in path1[::-1]:
-            if substr1 == substr2:
-                if commonSubStr == "":
-                    commonSubStr = substr1
+        if substr2 in path1:
+            commonSubStr = substr2
     # if we found a common substring join on it
     if commonSubStr != "":
         returnPathPart1 = "/".join(path1[:path1.index(commonSubStr)])

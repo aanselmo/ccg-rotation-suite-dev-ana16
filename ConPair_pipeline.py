@@ -25,6 +25,9 @@ __date__ = "Nov, 2017"
             should know the program is processing
         This is version 1.0, the output excel file may be subject to modification as we
             get a better idea of what we want in a report
+            
+    How to run (minimal command line):
+        python ConPair_pipeline.py -p [project_code]
 '''
 
 #######################
@@ -53,7 +56,7 @@ DEFAULT_OUTPUT_DIRECTORY = os.getcwd() + '/ConPair_Reports'
 
 # set up logger
 logger = genFun.getLogger(DEFAULT_LOGGER_FILE)
-logger.info("Starting new ConPair Pipeline run with command: "  + " ".jol.com/in(sys.argv))
+logger.info("Starting new ConPair Pipeline run with command: "  + " ".join(sys.argv))
 
 ### handle command line interface with argparse ###
 parser = argparse.ArgumentParser(description='Run ConPair pipeline and create report.',
@@ -168,7 +171,7 @@ if __name__ == "__main__":
     dbConn = db.DBconnect(DBconfig)
 
     # first check the project exists in the DB and that some samples
-    projectIDQueryResults = dbConn.DBquery(com_queries.projectIDFromProjectCode(args.project_code))
+    projectIDQueryResults = com_queries.projectIDFromProjectCode(dbConn, args.project_code)
     # make sure something was returned, AKA project code exists in DB
     if projectIDQueryResults.empty:
         logger.error("Error, project code " + args.project_code + " does not exist in "
@@ -176,13 +179,13 @@ if __name__ == "__main__":
         sys.exit()
     project_id = projectIDQueryResults.project_id[0]
     # make sure samples exist with pairs (tumor/normals) per individual
-    projectSamplePairsQuery = dbConn.DBquery(com_queries.projectSamplePairsFromProjectID(project_id))
+    projectSamplePairsQuery = com_queries.projectSamplePairsFromProjectID(dbConn, project_id)
     if projectSamplePairsQuery.empty:
         logger.error("Error, project " + args.project_code + " has no sample pairs to run ConPair on according to "
                  + DBconfig['schema'] + "!!! Exiting...")
         sys.exit()
     # get the aggregation information so we know where the bam files are
-    aggregatePairTableQuery = dbConn.DBquery(com_queries.aggregatePairTableFromProjectID(project_id))
+    aggregatePairTableQuery = com_queries.aggregatePairTableFromProjectID(dbConn, project_id)
     if aggregatePairTableQuery.empty:
         logger.error("Error, project " + args.project_code + " has no aggregate pairs to run ConPair on according to "
                  + DBconfig['schema'] + "!!! Exiting...")

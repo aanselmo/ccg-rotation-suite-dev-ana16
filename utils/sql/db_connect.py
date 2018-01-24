@@ -65,17 +65,18 @@ class DBconnect:
             return None
 
 
-    def DBquery(self, queryToRun):
+    def DBquery(self, queryToRun, parametersForQuery):
         """
         bmw35 12-29-2017
         generalized function for performing a query and returning a panda data frame
         must be able to deal with any type of query return so that we have a common
         way to communicate empty results or errors
         :param queryToRun: string of the query that we want to hit the current DB connection
+        :param parametersForQuery: Dict object outlining the parameters the query takes as input
         :return: pandas Data Frame, returns the query results as a pandas dataframe
         """
         try:
-            self.cursor.execute(queryToRun)
+            self.cursor.execute(queryToRun, parametersForQuery)
         # Issue with the query
         except mysql.DatabaseError as err:
             self.logger.error("Something went wrong with the MySQL query: {}".format(err))
