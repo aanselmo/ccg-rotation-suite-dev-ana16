@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # version 1.0
+# tested with python 2.7.13
 
 __author__ = "Bruce Wollison"
 __date__ = "Nov, 2017"
@@ -42,7 +43,7 @@ class DBconnect:
         :return: returns a DBconnect object, which serves as the database connection for the programs
            duration
         """
-        # set the logger for this db connection object
+        # set the logger forct sc this db connection object
         # setting it to the same logger as the script logger
         # automagically has it output to the main scripts logging
         # paramters

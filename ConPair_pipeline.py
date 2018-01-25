@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # version 1.0
+# tested with python 2.7.13
 
 __author__ = "Bruce Wollison"
 __date__ = "Nov, 2017"
@@ -184,7 +185,7 @@ if __name__ == "__main__":
         logger.error("Error, project " + args.project_code + " has no sample pairs to run ConPair on according to "
                  + DBconfig['schema'] + "!!! Exiting...")
         sys.exit()
-    # get the aggregation information so we know where the bam files are
+    # get the aggregation infct scormation so we know where the bam files are
     aggregatePairTableQuery = com_queries.aggregatePairTableFromProjectID(dbConn, project_id)
     if aggregatePairTableQuery.empty:
         logger.error("Error, project " + args.project_code + " has no aggregate pairs to run ConPair on according to "

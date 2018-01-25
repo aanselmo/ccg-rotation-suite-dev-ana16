@@ -16,7 +16,7 @@ __date__ = "Nov, 2017"
     2) all written contents have one blank row between them when written to the
             same sheet
     3) all contents will be written from the top to the bottom of the sheet,
-            and never from right to left
+            and never from right to leftct sc
     These rules should allow us to simplify the API by only adding new sheets, 
     then adding new contents (which would be either pictures or tables) in a 
     sequential organized fashion
