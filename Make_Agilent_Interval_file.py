@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # version 1.0
+# tested with python 2.7.13
 
 __author__ = "Bruce Wollison"
 __date__ = "Jan, 2018"
@@ -14,8 +15,9 @@ __date__ = "Jan, 2018"
     configuration that needs to be inserted into the config
     Steps
       1) Made bed files from input folders using bedtools
-      2) Create interval files from set of input folders using Picard Tools
-      3) Create XML output file for entering into the config
+      2) Convert these to picard interval files
+      3) Create interval files from set of input folders using Picard Tools
+      4) Create XML output file for entering into the config
 
     Notes:
         Adapted from AgilentBaitSetAnnotation written by M Ducar
@@ -23,13 +25,26 @@ __date__ = "Jan, 2018"
         everything, this script should replace it functionally and make it easier
         to run without background information
         
-    EX Picard call:
+    EX Final Picard call:
     java -jar picard.jar IntervalListTools 
     INPUT=/home/bmw35/Desktop/Gutierrez_POPv3_Plus_NoTRL/exons/Gutierrez_POPv3_Plus_NoTRL_3042751_p0_BaitedRegions.interval_list 
     INPUT=/home/bmw35/Desktop/Gutierrez_POPv3_Plus_NoTRL/snps/Gutierrez_POPv3_Plus_NoTRL_3042751_p1_BaitedRegions.interval_list 
     INPUT=/home/bmw35/Desktop/Gutierrez_POPv3_Plus_NoTRL/snps/Gutierrez_POPv3_Plus_NoTRL_3042751_p2_BaitedRegions.interval_list 
     OUTPUT=/home/bmw35/Desktop/Gutierrez_POPv3_Plus_NoTRL/161228_Gutierrez_POPv3_Plus_NoTRL_3042751_BaitedRegions.interval_list 
     UNIQUE=true SORT=true COMMENT="Baited regions for bait set Gutierrez_POPv3_Plus_NoTRL_3042751"
+    
+    Step1 makes covered, notcovered and baitedRegion interval_list files
+    Covered are $bedtools intersect -a [...Covered.bed] -b [...Regions.bed]
+    NotCovered are $bedtools subtract -a [...Regions.bed] -b [...Covered.bed] 
+    BaitedRegion are just the Covered.bed
+    EX:bedtools intersect -a Weinstock_FL_v2.0-CARD10_exons_Covered.bed -b Weinstock_FL_v2.0-CARD10_exons_Regions.bed
+    This is pretty straightforward with pybedtools, ex:
+    Covered = BedTool('Weinstock_FL_v2.0-CARD10_exons_Covered.bed')
+    Region = BedTool('Weinstock_FL_v2.0-CARD10_exons_Regions.bed')
+    print(Covered.intersect(Region))
+    It is really that simple.
+    
+    Step2 read in bed, convert its coordinates from base 0 to base 1, give interval classification
 '''
 
 #######################
@@ -43,7 +58,6 @@ from pybedtools import BedTool
 # add special modules to the path
 import general_functions as genFun
 
-
 ##########################################
 ### globals, parsing and configuration ###
 ##########################################
@@ -53,7 +67,7 @@ DEFAULT_OUTPUT_DIRECTORY = os.getcwd() + '/Agilent_Interval_Files'
 
 # set up logger
 logger = genFun.getLogger(DEFAULT_LOGGER_FILE)
-logger.info("Starting to make Agilent itnerval files with command: " + " ".jol.com / in (sys.argv))
+logger.info("Starting to make Agilent interval files with command: " + " ".join (sys.argv))
 
 ### handle command line interface with argparse ###
 parser = argparse.ArgumentParser(description='Make Riker pipeline ready interval files from Agilent Bait Design files.',
@@ -82,16 +96,9 @@ genConfig = config['general']
 DBconfig = config['rikerDB']
 logger.info("configuration file read in successfully")
 
-# add the conpair module directory to the pythonpath variable
-# then import the ConPair scripts
-ConPairConfig = config['conpair']
-
 # lets make a few more variable names that will be useful later
 # starting with output folders of the ConPair analysis
 project_folder = args.output_folder + "/" + args.project_code
-pileup_output_dir = project_folder + "/pileups"
-concordance_output_dir = project_folder + "/concordance"
-contamination_output_dir = project_folder + "/contamination"
 conpair_report_fileName = project_folder + "/" + args.project_code + "_report.xlsx"
 
 

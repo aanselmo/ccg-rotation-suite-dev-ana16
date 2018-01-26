@@ -42,7 +42,6 @@ import sys, imp, os, argparse, yaml
 sys.path.append('utils/sql')
 sys.path.append('utils/excel')
 sys.path.append('utils/general')
-sys.path.append('Conpair-master/scripts')
 import db_connect as db
 import excel_write as xls
 import common_queries as com_queries
@@ -91,6 +90,7 @@ logger.info( "configuration file read in successfully" )
 # then import the ConPair scripts
 ConPairConfig = config['conpair']
 sys.path.append(ConPairConfig['conpair_modules_path'])
+sys.path.append(ConPairConfig['conpair_directory']+'/scripts')
 import run_gatk_pileup_for_sample as run_pileup
 import verify_concordance as run_concordance
 import estimate_tumor_normal_contamination as run_contamination
