@@ -283,6 +283,8 @@ if __name__ == "__main__":
                                                       ConPairConfig['java_path'])
         else:
             logger.warn("WARNING! File " + bamFilePath + " does not exist!!!")
+    # TODO: Currently no check to see that any pairs have pileups in order to move forward
+    # the program gives a lot of warnings but will still generate an empty report.
 
     # next we need to run the concordance/contamination tools for all sample pairs
     for index, samplePair in samplePairs.iterrows():
