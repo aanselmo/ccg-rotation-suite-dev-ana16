@@ -156,9 +156,9 @@ if __name__ == "__main__":
             for line in originalConfig:
                 if 'tumorCoveragePath' in line:
                     newConfig.write("tumorCoveragePath = '" + tumorFolder + "'\n")
-                if 'normalCoveragePath' in line:
+                elif 'normalCoveragePath' in line:
                      newConfig.write("normalCoveragePath = '" + normalFolder + "'\n")
-                if 'experiment' in line:
+                elif 'experiment' in line:
                      newConfig.write("experiment = '" + currntIterationFolder + "'\n")
                 else:
                     newConfig.write(line)
