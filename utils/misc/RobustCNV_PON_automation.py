@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
     # copy the normals into the tumor folder now
     for normalFile in normalFiles:
-        shutil.move(normalFile, tumorFolder)
+        shutil.copy(normalFile, tumorFolder)
 
     # loop over however many leave-X-out iterations we want
     for currIterationNum in range(0,args.iterations):
