@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# alt shebang for cluster: !/apps/python-2.7.10/bin/python
 # version 1.0
 # tested with python 2.7.13
 # sorry :(
@@ -127,7 +128,7 @@ if __name__ == "__main__":
 
     # copy the normals into the tumor folder now
     for normalFile in normalFiles:
-        shutil.copy(normalFile, tumorFolder)
+        shutil.move(normalFile, tumorFolder)
 
     # loop over however many leave-X-out iterations we want
     for currIterationNum in range(0,args.iterations):
@@ -164,7 +165,7 @@ if __name__ == "__main__":
 
         # run RobustCNV again using the new config on the new PON
         robustRunCommand = 'Rscript ' + args.RobustCNV + ' ' + currIterationConfigFile
-        logFile.writelines('Running robust command:' + robustRunCommand)
+        logFile.writelines('\nRunning robust command:' + robustRunCommand)
         os.system(robustRunCommand)
 
         # after it returns move it to the RobustCNVLeaveXOut folder
@@ -172,7 +173,7 @@ if __name__ == "__main__":
             robustParentFolder = '/'.join(args.RobustCNV.split('/')[:-1]) + '/'
         else:
             robustParentFolder = ''
-        RobustIterationOutput = robustParentFolder + currntIterationFolder
+        RobustIterationOutput = robustParentFolder + currntIterationFolder + '_RobustCNV_results'
         shutil.move(RobustIterationOutput, outputFolder)
 
         # move anything in the normals folder to the tumor folder
