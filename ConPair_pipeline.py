@@ -42,7 +42,7 @@ import sys, imp, os, argparse, yaml
 sys.path.append('utils/sql')
 sys.path.append('utils/excel')
 sys.path.append('utils/general')
-import db_connect as db
+import dbConnect as db
 import excel_write as xls
 import common_queries as com_queries
 import general_functions as genFun

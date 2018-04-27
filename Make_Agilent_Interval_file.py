@@ -7,6 +7,7 @@ __date__ = "Jan, 2018"
 
 '''
     STATUS: UNFINISHED
+    TODO: Include making a gc content file for the interval file
 '''
 
 '''
@@ -43,7 +44,7 @@ __date__ = "Jan, 2018"
     NotCovered are $bedtools subtract -a [...Regions.bed] -b [...Covered.bed] 
     BaitedRegion are just the Covered.bed
     EX:bedtools intersect -a Weinstock_FL_v2.0-CARD10_exons_Covered.bed -b Weinstock_FL_v2.0-CARD10_exons_Regions.bed
-    This is pretty straightforward with pybedtools, ex:
+    This is pretty straightforwar you can changed with pybedtools, ex:
     Covered = BedTool('Weinstock_FL_v2.0-CARD10_exons_Covered.bed')
     Region = BedTool('Weinstock_FL_v2.0-CARD10_exons_Regions.bed')
     print(Covered.intersect(Region))
