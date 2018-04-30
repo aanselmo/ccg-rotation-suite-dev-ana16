@@ -307,8 +307,15 @@ if __name__ == "__main__":
             if os.path.isfile(contaminationOutFile) and ConPairConfig['rewrite_previous_files'] == False:
                 logger.warn("Skipping generating contamination for file " + contaminationOutFile + " because it already exists")
             else:
-                run_contamination.estimate_tumor_normal_contamination(ConPairConfig['conpair_directory'],
+                try:
+                    run_contamination.estimate_tumor_normal_contamination(ConPairConfig['conpair_directory'],
                                                                       tumorPileupFile, normalPileupFile, contaminationOutFile)
+                except ValueError:
+                    # getting an error complaining about 'bracket' issues, this seems to be a problem with the
+                    # ConPair contamination script, for this pipeline we just want to make sure the whole pipeline
+                    # doesn't die if the contamination script fails and we get a ValueError
+                    logger.warn("WARNING! Contamination test failed for " + tumorPileupFile + " due to ValueError!!!")
+
             # update samplePairs table to mark this as a sample we can report out
             # but first check that the files were actually created
             if os.path.isfile(contaminationOutFile) and os.path.isfile(concordanceOutFile):

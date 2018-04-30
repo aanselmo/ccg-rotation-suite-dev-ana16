@@ -51,10 +51,16 @@ def projectIDFromProjectCode(DBconn, project_code):
     return queryResults
 
 # get a panda dataframe using the project ID
-# returns
+# returns all complete aggregate pairs for a project and their associated completed breakmer runs
+# should look at the whole panda df. If there are nulls for the breakmer path that means it was
+# not run or completed on those aggregate pairs, worth mentioning
 def breakmerDirectoriesFromProjectID(DBconn, project_id):
-    querySTMT =  "SELECT project_id FROM project WHERE project_code = %(proj_code)s"
-    queryResults = DBconn.DBquery(querySTMT, {'proj_code' : project_id})
+    querySTMT =  "SELECT * FROM aggregate_pair ap "\ 
+                 "left join analysis_tool_run atr on atr.aggregate_pair_id = ap.aggregate_pair_id "\ 
+                 "where atr.analysis_tool_id = %(breakmer_id)s and atr.status_id = 1 "\ 
+                 "and atr.annotation_status_id = 1 and ap.qc_status_id = 1 "\
+                 "and ap.aggregate_pair_project_id = %(proj_id)s"
+    queryResults = DBconn.DBquery(querySTMT, {'proj_id' : project_id, 'breakmer_id': DEFAULT_BREAKMER_TOOL_ID})
     return queryResults
 
 ########################
