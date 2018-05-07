@@ -100,7 +100,7 @@ if __name__ == "__main__":
     if args.tumors:
         tumorFiles = [tumorCoveragePath + '/' + f for f in os.listdir(tumorCoveragePath)]
         for tumorFile in tumorFiles:
-            shutil.copy(tumorFile, tumorCoveragePath)
+            shutil.copy(tumorFile, tumorFolder)
 
     # make note of which samples are the normals and track whether they were run
     # use lists of lists, [[samp_name1, bool], [samp_name2, bool], ... [samp_nameN, bool]]
