@@ -22,7 +22,7 @@ __date__ = "May, 2018"
 ### library imports ###
 #######################
 
-import sys, os, argparse, yaml, fnmatch
+import sys, os, argparse, yaml, shutil, fnmatch
 import pandas as pd
 
 # add special modules to the path
@@ -79,11 +79,6 @@ projectCode = args.project_code
 ## small script specific functions ##
 #####################################
 
-# from stack overflow, supposed to be equive to touch
-# https://stackoverflow.com/questions/1158076/implement-touch-using-python
-def touch(fname, times=None):
-    with open(fname, 'a'):
-        os.utime(fname, times)
 
 ################################
 ### mysql queires we'll need ###
@@ -105,7 +100,7 @@ def breaKmerDirectoriesFromProjectID(DBconn, project_id, breakmer_tool_id):
 # Need to query DB and get back the project code with the description
 # ex: SCB0020a gives back SCB0020a_RadioGenomicsB1
 def projectDescriptionQuery(DBconn, project_code):
-    querySTMT = "SELECT concat(project_code, '_', project_name) FROM project " +\
+    querySTMT = "SELECT concat(project_code, '_', project_name) as projectDescription FROM project " +\
                 "where project_code = %(proj_code)s;"
     queryResults = DBconn.DBquery(querySTMT, {'proj_code': project_code})
     return queryResults
@@ -137,10 +132,10 @@ if __name__ == "__main__":
 
     # get project description
     projectDescriptionQueryResults = projectDescriptionQuery(dbConn, projectCode)
-    projectDescription = projectDescriptionQueryResults[0]
+    projectDescription = projectDescriptionQueryResults['projectDescription'][0]
 
     # now query for the main breakmer files table
-    breaKmerDirectoriesQueryResult"SCB0020a"s = breaKmerDirectoriesFromProjectID(dbConn, project_id, DEFAULT_BREAKMER_TOOL_ID)
+    breaKmerDirectoriesQueryResults = breaKmerDirectoriesFromProjectID(dbConn, project_id, DEFAULT_BREAKMER_TOOL_ID)
 
     # make sure something was returned, AKA aggregate pairs exist exists in DB
     if breaKmerDirectoriesQueryResults.empty:
@@ -192,10 +187,12 @@ if __name__ == "__main__":
     # are running something outside of the DB
     # additionally we are also replacing the DB name with any local paths to the isilon
     # that we define in the config.
-    breaKmerPerantDirectories = breaKmerDirectoriesQueryResults['aggregate_pair_name','output_file']
+    breaKmerPerantDirectories = breaKmerDirectoriesQueryResults[['aggregate_pair_name','output_file']]
+    newBreaKmerParentDir = []
     for parentDir in breaKmerPerantDirectories['output_file']:
         newDir = genFun.replaceWCommonSubStr(genConfig['isilon_project_directory'], parentDir)
-        breaKmerPerantDirectories['output_file'].replace(parentDir, newDir)
+        newBreaKmerParentDir.append(newDir)
+    breaKmerPerantDirectories['output_file'] = newBreaKmerParentDir
 
     ################# WORKFLOW PT 2 #############################
     ### replaces Ryans link_breakmer_files.rcprime.py script  ###
@@ -205,11 +202,25 @@ if __name__ == "__main__":
     projectOutputDirectory = DEFAULT_OUTPUT_DIRECTORY + "/" + projectCode + "_breaKmerData"
     if not os.path.exists(projectOutputDirectory):
         os.mkdir(projectOutputDirectory)
+    else:
+        # warn that the directory already exists and that we would want to
+        # overwrite everything.
+        print "This script appears to already have been run on this project. " + \
+              "\nDelete current BreaKmer results directory to Continue? Y/N"
+        # raw_input returns the empty string for "enter"
+        choice = raw_input().lower()
+        if choice in yes:
+            shutil.rmtree(projectOutputDirectory)
+            os.mkdir(projectOutputDirectory)
+        else:
+            sys.exit()
 
     # need to make links for the following files: "*rearrangement_svs.out", "*indel_svs.out", "output/"
     # that way Ryans other script can find them on the file system and extract the needed info
     for aggPairName,directoryToLink in zip(breaKmerPerantDirectories['aggregate_pair_name'], \
                                            breaKmerPerantDirectories['output_file']):
+        print "creating symlinks for aggregate pair" + aggPairName +\
+            " using directory " + directoryToLink
         # for each parent dir path, create one of each symlink needed (indel, rearrangement, outputfolder)
         # first collect all the file paths we need fro the breakmer output
         breaKmerOutputDirectoryPath = directoryToLink + "/output"
@@ -218,8 +229,7 @@ if __name__ == "__main__":
             allBreakmerFiles = os.listdir(breaKmerOutputDirectoryPath)
         else:
             print "Warning!!!! Did not find the following expected output directory:\n" + \
-                  ("\n").join(breaKmerOutputDirectoryPath) + \
-                  "\nCheck this before continuing"
+                  breaKmerOutputDirectoryPath + "\nCheck this before continuing"
             sys.exit()
         rearrangementOutPath = [returnPath for returnPath in allBreakmerFiles if REARRANGE_FILE_PATTERN in returnPath]
         indelOutPath = [returnPath for returnPath in allBreakmerFiles if INDEL_FILE_PATTERN in returnPath]
@@ -228,34 +238,35 @@ if __name__ == "__main__":
         outputSymLinkDest = projectOutputDirectory + "/" + aggPairName + "_breakmer_out"
         os.symlink(breaKmerOutputDirectoryPath, outputSymLinkDest)
 
+        # for these we assume there is only 1 of each file type in each directory
+        # this should be true for the breaKmer generated output
+        # but could be technically wrong if there is nefarious behavior going on
         if len(indelOutPath) > 0:
             indelSymLinkDest = projectOutputDirectory + "/" + aggPairName + "_Breakmer_0_0_6_indel_svs.out"
-            # check whether it already exists incase we are rerunning this
-            if not indelSymLinkDest.exists():
-                os.symlink(indelOutPath[0], indelSymLinkDest)
+            os.symlink(("/").join([breaKmerOutputDirectoryPath, indelOutPath[0]]), indelSymLinkDest)
 
         if len(rearrangementOutPath) > 0:
             rearrangementSymLinkDest = projectOutputDirectory + "/" + aggPairName +\
                                        "_Breakmer_0_0_6_rearrangement_svs.out"
-            # check whether it already exists incase we are rerunning this
-            if not indelSymLinkDest.exists():
-                os.symlink(indelOutPath[0], rearrangementOutPath)
+            os.symlink(("/").join([breaKmerOutputDirectoryPath, rearrangementOutPath[0]]), rearrangementSymLinkDest)
 
     # create the filters file, normal file, and tumors file. These are neede for running the
     # process_cohort_results.py script. After we do this, lets run that script to generate the desired
     # output
-    touch(("/").join([projectOutputDirectory, "filters.txt"]))
+    filterListFile = projectOutputDirectory + "/" +  "filters.txt"
+    open(filterListFile, 'a').close()
     # Note: we have decided in CCGD not to make use of normal samples for filtering
     # breaKmer calls, so all samples are treated as tumors. However to wrap to the process_cohort/py
     # script we still need to create the empty file
-    normalSampleList = projectOutputDirectory, "/", projectCode, "_normals.txt"
-    touch(normalSampleList)
+    normalSampleList = projectOutputDirectory + "/" +  projectCode +  "_normals.txt"
+    open(normalSampleList, 'a').close()
     # we need to write the tumor file list, that is usually done by the link files script
     # it is just a list of aggregate_pair_names and paths
-    tumorSampleList = projectOutputDirectory, "/", projectCode, "_tumors.txt"
+    tumorSampleList = projectOutputDirectory +  "/" +  projectCode + "_tumors.txt"
     with open(tumorSampleList, 'w') as tumorSampleListFile:
         for aggPair in breaKmerPerantDirectories['aggregate_pair_name']:
             tumorSampleListFile.write(("\t").join([projectDescription, aggPair]))
+            tumorSampleListFile.write("\n")
 
     ################# WORKFLOW PT 3 #############################
     ### we have all the data from the runs now, lets produce  ###
