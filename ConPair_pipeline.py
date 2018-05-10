@@ -50,7 +50,7 @@ import general_functions as genFun
 ##########################################
 ### globals, parsing and configuration ###
 ##########################################
-DEFAULT_LOGGER_FILE = "ConPairLogFile.log"
+DEFAULT_LOGGER_FILE = "logs/ConPairLogFile.log"
 DEFAULT_CONFIGURATION_FILE = 'ccgd_rotation_scripts.config'
 DEFAULT_OUTPUT_DIRECTORY = os.getcwd() + '/ConPair_Reports'
 
