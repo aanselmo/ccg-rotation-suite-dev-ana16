@@ -8,6 +8,8 @@ __date__ = "Jan, 2018"
 '''
     STATUS: UNFINISHED
     TODO: Include making a gc content file for the interval file
+    TODO: Add ability to determine feature off the intersection of a preset file
+    Ex: if you supply an exome file it will label exons automatically based on overlap and rules
 '''
 
 '''

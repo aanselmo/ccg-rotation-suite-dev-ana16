@@ -33,7 +33,9 @@ class filters():
         self.setup()
 
     def setup(self):
-        filterF = open(filterFn, 'r')
+        # edited by bmw35, used to be open(filterFN, 'r'), got complaint that it wasn't a global
+        # tbh I don't know how it worked previously like that, it isn't a global or a class global
+        filterF = open(self.filterFn, 'r')
         for line in filterF.readlines():
             line = line.strip()
             targetName, svType, descriptions = line.split(" ")
@@ -611,14 +613,19 @@ def report(resD, fileDict, filterList):
     for item in legend:
         reportOut.write(item + ': ' + legend[item] + "\n")
 
+    brkmrSummary = open('BreaKmer_Summary.txt', 'w')
     for item in summary_values:
         if item == 'nsamples':
-            print 'Number of samples:', summary_values[item]
+            numSamples = 'Number of samples:' + '\t' +  str(summary_values[item]) + '\n'
+            brkmrSummary.write( numSamples )
         elif item == 'type_counts':
             for type in summary_values[item]:
-                print 'Number of', type, 'events:', summary_values[item][type]
+                numSubEvents = 'Number of ' + type + ' events:' + '\t' +  str(summary_values[item][type]) + '\n'
+                brkmrSummary.write(numSubEvents )
         elif item == 'samples_with_event':
-            print 'Number of samples with event:', len(summary_values['samples_with_event'])
+            numEvents = 'Number of samples with event:' + '\t' + str(len(summary_values['samples_with_event'])) + '\n'
+            brkmrSummary.write(numEvents)
+    brkmrSummary.close()
 
     for link in circosValues['links']:
         circosLinkOut.write(link + '\n')
@@ -654,13 +661,17 @@ def collapse_bed(targetBedFn):
     newBed.close()
 
 
-def run_bedtools(brkptBedFn):
-    bedtools = '/ifs/rcgroups/ccgd/software/bedtools-2.17.0/bin/bedtools'
-    cytoBandBedFn = '/ifs/rcgroups/ccgd/reference/human/refseq/hg19/annotation/bed/cytoBandIdeo.primary_chrs.bed'
-    geneAnnoBedFn = '/ifs/rcgroups/ccgd/reference/human/refseq/hg19/annotation/bed/refseq_refFlat.bed'
-    canonTrxAnnoBedFn = '/ifs/rcgroups/ccgd/reference/human/ensembl/GRCh37/annotation/bed/ensembl_GRCh37_canon_trx_anno.v75.primary_chrs.sorted.bed'
+def run_bedtools(brkptBedFn, bedToolsPath):
+    # bmw35: these all used to point to specific paths on the isilon
+    # I've decided to include them in the repo for right now, so they should be in the path
+    # they point to now. Bedtools needs to be read in from the path. Should use version 1.7
+    # but I'm not gunna check it because I am a garbage person, have fun finding that bug
+    bedtools = bedToolsPath
+    cytoBandBedFn = os.getcwd() + '/utils/BreaKmer/cytoBandIdeo.primary_chrs.bed'
+    geneAnnoBedFn = os.getcwd() + '/utils/BreaKmer/refseq_refFlat.bed'
+    canonTrxAnnoBedFn = os.getcwd() + '/utils/BreaKmer/ensembl_GRCh37_canon_trx_anno.v75.primary_chrs.sorted.bed'
     # targetBedFn = '/data/ccgd/breakmer/ccgd_projects/panel_beds/P50.bed'
-    clusterRegionBedFn = '/ifs/rcgroups/ccgd/bmw35/BreaKmer_processing/cluster_regions.bed'
+    clusterRegionBedFn = os.getcwd() + '/utils/BreaKmer/cluster_regions.bed'
     #targetCollapsedBedFn = collapse_bed(targetBedFn)
 
     # brkptTrgtAnno = 'brkpt_target_anno.bed'
@@ -703,7 +714,7 @@ def run_bedtools(brkptBedFn):
     return annoDict
 
 
-def format_results(sampleListFn, sampleType, filterList):
+def format_results(sampleListFn, sampleType, filterList, resultsDir, bedToolsPath):
     resD = {}
     for line in open(sampleListFn, 'rU'):
         line = line.strip()
@@ -721,7 +732,7 @@ def format_results(sampleListFn, sampleType, filterList):
             rec.write_brkpt_bed(fbed)
     fbed.close()
 
-    annoDictFs = run_bedtools('brkpts.%s.bed' % sampleType)
+    annoDictFs = run_bedtools('brkpts.%s.bed' % sampleType, bedToolsPath)
     annotate_recs(resD, annoDictFs)
 
     if sampleType == "normal":
@@ -733,19 +744,20 @@ def format_results(sampleListFn, sampleType, filterList):
                 filterList.filters.append(filter(rec.targetName, rec.type, descriptions))
     return resD
 
-if __name__ == "__main__":
-    args = sys.argv[1:]
-    projectId = args[0]
-    tumorSamplesFn = args[1]
-    normalSamplesFn = args[2]
+# bmw35: refactored this to be a function so we can call it with an import
+# the code was taken from the __main__ section, the major changes were just
+# moving the args to function variables
+def processCohortResults(projectId, projectCode, resultsDir, bedToolsPath):
+    tumorSamplesFn = resultsDir + "/" + projectCode +  "_tumors.txt"
+    normalSamplesFn = resultsDir + "/" + projectCode +  "_normals.txt"
 
-    resultsDir = os.path.join('/ifs/rcgroups/ccgd/bmw35/analysis/breakmer/breakmer_reports/', projectId + '_breakmer')
     filterFn = os.path.join(resultsDir, 'filters.txt')
     filterList = filters(filterFn)
 
-    resD = format_results(os.path.join(resultsDir, tumorSamplesFn), 'tumor', filterList)
+    resD = format_results(os.path.join(resultsDir, tumorSamplesFn), 'tumor', filterList, resultsDir, bedToolsPath)
     if normalSamplesFn != '':
-        normals = format_results(os.path.join(resultsDir, normalSamplesFn), 'normal', filterList)
+        normals = format_results(os.path.join(resultsDir, normalSamplesFn), 'normal', \
+                                 filterList, resultsDir, bedToolsPath)
 
     '''
     resD = {}
@@ -770,13 +782,13 @@ if __name__ == "__main__":
     annotate_recs(resD, annoDictFs)
     '''
 
-    dataFrameFn = '%s_breakmer.df.txt' % projectId
-    reportFn = '%s_breakmer.txt' % projectId
-    filteredFn = '%s_breakmer.filtered.txt' % projectId
-    sampleSummaryFn = '%s_breakmer.sample_summary.txt' % projectId
-    targetSummaryFn = '%s_breakmer.gene_summary.txt' % projectId
-    circosLinkFn = '%s_circos_links.txt' % projectId
-    circosAnnoFn = '%s_circos_annos.txt' % projectId
+    dataFrameFn =  'BreaKmer_Reports/' + projectCode + '_breaKmerData/%s_breakmer.df.txt' % projectId
+    reportFn = 'BreaKmer_Reports/' + projectCode + '_breaKmerData/%s_breakmer.txt' % projectId
+    filteredFn = 'BreaKmer_Reports/' + projectCode + '_breaKmerData/%s_breakmer.filtered.txt' % projectId
+    sampleSummaryFn = 'BreaKmer_Reports/' + projectCode + '_breaKmerData/%s_breakmer.sample_summary.txt' % projectId
+    targetSummaryFn = 'BreaKmer_Reports/' + projectCode + '_breaKmerData/%s_breakmer.gene_summary.txt' % projectId
+    circosLinkFn = 'BreaKmer_Reports/' + projectCode + '_breaKmerData/%s_circos_links.txt' % projectId
+    circosAnnoFn = 'BreaKmer_Reports/' + projectCode + '_breaKmerData/%s_circos_annos.txt' % projectId
 
     outFileDict = {'report': reportFn,
                    'df': dataFrameFn,

@@ -118,6 +118,7 @@ def concordance_parser(concordanceDF, tumorSample, normalSample):
     :param normalSample: string for the normal sample name
     :return: dataframe with the relevant concordance information parsed into a usable format
     """
+    # TODO: output all NAs if there is no concordance file/data
     concordanceValue = concordanceDF[0][0].split(': ')[1]
     markersUsed = concordanceDF[0][1].split('Based on ')[1].split(' markers ')[0]
     markerThreshold = concordanceDF[0][1].split(': ')[1].split(' reads')[0]
@@ -283,7 +284,9 @@ if __name__ == "__main__":
                                                       ConPairConfig['java_path'])
         else:
             logger.warn("WARNING! File " + bamFilePath + " does not exist!!!")
-    # TODO: Currently no check to see that any pairs have pileups in order to move forward
+    # TODO: Currently no check to see that any single pairs have pileups in order to move forward \
+    #       the concern being that is there are 0 pairs to process through concordance/contamination
+    #       we may get some cryptic failur that takes a while to diagnose
     # the program gives a lot of warnings but will still generate an empty report.
 
     # next we need to run the concordance/contamination tools for all sample pairs
@@ -301,6 +304,9 @@ if __name__ == "__main__":
             if os.path.isfile(concordanceOutFile) and ConPairConfig['rewrite_previous_files'] == False:
                 logger.warn("Skipping generating concordance for file " + concordanceOutFile + " because it already exists")
             else:
+                # TODO: There is no check here to see if the concordance dies. If it does there is no message
+                #       indicating that it did not run (ex: if one of the samples have 0x coverage), which
+                #       means the sample won't show up in the report and will be confusing
                 run_concordance.verify_concordance(ConPairConfig['conpair_directory'], tumorPileupFile, normalPileupFile,
                                                    concordanceOutFile)
             # run ConPair contamination tool

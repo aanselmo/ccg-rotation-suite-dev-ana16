@@ -27,12 +27,15 @@ import pandas as pd
 
 # add special modules to the path
 sys.path.append('utils/sql')
-sys.path.append('utils/excel')
 sys.path.append('utils/general')
+sys.path.append('utils/BreaKmer')
 import dbConnect as db
-import excel_write as xls
+import datetime
 import general_functions as genFun
 import common_queries as com_queries
+import process_cohort_results as process_cohort
+# using openpyxl directly because we are editing, not creating, reports:
+import openpyxl as xl
 
 ##########################################
 ### globals, parsing and configuration ###
@@ -45,6 +48,7 @@ DEFAULT_CONFIGURATION_FILE = 'ccgd_rotation_scripts.config'
 DEFAULT_OUTPUT_DIRECTORY = os.getcwd() + '/BreaKmer_Reports'
 REARRANGE_FILE_PATTERN = "_Breakmer_0_0_6_rearrangement_svs.out"
 INDEL_FILE_PATTERN = "_Breakmer_0_0_6_indel_svs.out"
+now = datetime.datetime.now()
 yes = {'yes', 'y', 'ye', ''}
 no = {'no', 'n'}
 
@@ -73,6 +77,8 @@ except IOError:
     sys.exit()
 DBconfig = config['rikerDB']
 genConfig = config['general']
+bedToolsPath = genConfig['bedtools_path']
+RPath = genConfig['R_path']
 projectCode = args.project_code
 
 #####################################
@@ -96,15 +102,6 @@ def breaKmerDirectoriesFromProjectID(DBconn, project_id, breakmer_tool_id):
                  "where ap.qc_status_id = 1 and ap.aggregate_pair_project_id = %(proj_id)s"
     queryResults = DBconn.DBquery(querySTMT, {'proj_id' : project_id, 'breakmer_id': breakmer_tool_id})
     return queryResults
-
-# Need to query DB and get back the project code with the description
-# ex: SCB0020a gives back SCB0020a_RadioGenomicsB1
-def projectDescriptionQuery(DBconn, project_code):
-    querySTMT = "SELECT concat(project_code, '_', project_name) as projectDescription FROM project " +\
-                "where project_code = %(proj_code)s;"
-    queryResults = DBconn.DBquery(querySTMT, {'proj_code': project_code})
-    return queryResults
-
 
 ########################
 ### it's main() time ###
@@ -131,8 +128,12 @@ if __name__ == "__main__":
     project_id = projectIDQueryResults.project_id[0]
 
     # get project description
-    projectDescriptionQueryResults = projectDescriptionQuery(dbConn, projectCode)
+    projectDescriptionQueryResults = com_queries.projectDescriptionFromProjectCode(dbConn, projectCode)
     projectDescription = projectDescriptionQueryResults['projectDescription'][0]
+
+    # get number of samples from a project code
+    numberOfSamplesQueryResults = com_queries.numberOfSamplesFromProjectCode(dbConn, projectCode)
+    numberOfSamples = numberOfSamplesQueryResults['sampleCount'][0]
 
     # now query for the main breakmer files table
     breaKmerDirectoriesQueryResults = breaKmerDirectoriesFromProjectID(dbConn, project_id, DEFAULT_BREAKMER_TOOL_ID)
@@ -268,9 +269,70 @@ if __name__ == "__main__":
             tumorSampleListFile.write(("\t").join([projectDescription, aggPair]))
             tumorSampleListFile.write("\n")
 
+    # now we need to run process_cohort.py that Ryan made previously. This will go through the
+    # breakmer data on the file system and generate the necessary data for reporting
+    process_cohort.processCohortResults(projectDescription, projectCode, projectOutputDirectory, bedToolsPath)
+
+    # clean up the bkpt_*.bed files that appear. Going to remove them individually
+    # because if we remove things programatically or using patterns I am worried we'll
+    # delete something we want for whatever reason
+    brkptRemoveFiles = ['brkpt_cluster_anno_intersect.bed', 'brkpt_cytoband_anno.bed', \
+                        'brkpt_exon_anno_intersect.bed', 'brkpt_gene_anno_downstream.bed', \
+                        'brkpt_gene_anno_intersect.bed', 'brkpt_gene_anno_upstream.bed', \
+                        'brkpts.normal.bed', 'brkpts.tumor.bed']
+    [os.remove(removeFile) for removeFile in brkptRemoveFiles]
+
+    # move the summary file to the appropriate project specific folder
+    resultsSummaryFilePath = ''.join([projectOutputDirectory, "/", 'BreaKmer_Summary.txt'])
+    os.rename('BreaKmer_Summary.txt', resultsSummaryFilePath)
+
     ################# WORKFLOW PT 3 #############################
     ### we have all the data from the runs now, lets produce  ###
     ################## the report of the data ###################
+    # steps include running the generate_report.r
+    # script, finish putting data in its proper place.
+    # we're also gunna do this in a way people don't like, by running a shell command
+    # because we just wanna get this done. This report probably won't stick around too long
+    Rcmnd = RPath + " utils/BreaKmer/./generate_report.R " + projectCode + ' ' + projectOutputDirectory + '/'
+    print 'running R command: ' + Rcmnd
+    os.system(Rcmnd)
+
+    # now we just need to add the summary information to a summary tab
+    # start by reading in the relevant info:
+    inversion_count = indel_count =  rearrangement_count =  sample_count = \
+        sample_event_count = '0'
+    # read the file and check each line which aspect is corresponds to
+    with open(resultsSummaryFilePath) as summaryFile:
+        for line in summaryFile:
+            if 'samples with event' in line :
+                sample_event_count = line.split('\t')[1]
+            elif 'samples' in line:
+                sample_count = line.split('\t')[1]
+            elif 'indel' in line:
+                indel_count = line.split('\t')[1]
+            elif 'rearrangement events' in line:
+                rearrangement_count = line.split('\t')[1]
+            elif 'rearrangement' in line:
+                inversion_count = line.split('\t')[1]
+            else:
+                print 'unrecognized line in the summary file!\n'
+
+    # now add the sample data to the summary tab to the R generated report
+    fullReport = projectOutputDirectory + '/' + now.strftime("%y%m%d") + '_' + projectDescription + '_Breakmer_report.xlsx'
+    fullReportXL = xl.load_workbook(fullReport)
+    summaryWS = fullReportXL.worksheets[0]
+    summaryWS['B2'] = str(sample_count).rstrip("\n")
+    summaryWS['B3'] = str(sample_event_count).rstrip("\n")
+    summaryWS['B4'] = numberOfSamples
+    summaryWS['B5'] = str(rearrangement_count).rstrip("\n")
+    summaryWS['B6'] = str(inversion_count).rstrip("\n")
+    summaryWS['B7'] = str(indel_count).rstrip("\n")
+
+    # save our final workbook now that it is complete
+    fullReportXL.save(fullReport)
+    # TODO: file outputs project description and project code in the opposite
+    # order of what the normal report names in
+    # TODO: bold the top line of all sheets
 
 
 # EOF

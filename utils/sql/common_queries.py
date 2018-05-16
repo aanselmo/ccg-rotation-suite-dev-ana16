@@ -38,6 +38,25 @@ def projectSamplePairsFromProjectID(DBconn, project_id):
     # querySTMT =  ("SELECT * FROM received_sample WHERE project_id = '" + str(project_id) + "'")
     return queryResults
 
+# TODO: clean up
+# Need to query DB and get back the project code with the description
+# ex: SCB0020a gives back SCB0020a_RadioGenomicsB1
+def projectDescriptionFromProjectCode(DBconn, project_code):
+    querySTMT = "SELECT concat(project_code, '_', project_name) as projectDescription FROM project " +\
+                "where project_code = %(proj_code)s;"
+    queryResults = DBconn.DBquery(querySTMT, {'proj_code': project_code})
+    return queryResults
+
+# TODO: clean up
+# get the number of samples associated with a project based on the project code
+# ex: STS0001c gives back 10
+def numberOfSamplesFromProjectCode(DBconn, project_code):
+    querySTMT = "SELECT count(received_sample_id) as sampleCount FROM received_sample " +\
+                " where project_id = (select project_id from project where " +\
+                " project_code = %(proj_code)s);"
+    queryResults = DBconn.DBquery(querySTMT, {'proj_code': project_code})
+    return queryResults
+
 # get the aggregate pair information for a given project_id
 def aggregatePairTableFromProjectID(DBconn, project_id):
     querySTMT = "SELECT ap.*, ag1.received_sample_id as case_sample_id, ag1.aggregate_bam_file as case_sample_path, "\
