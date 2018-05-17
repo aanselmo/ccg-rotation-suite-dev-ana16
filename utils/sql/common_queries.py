@@ -42,7 +42,7 @@ def projectSamplePairsFromProjectID(DBconn, project_id):
 # Need to query DB and get back the project code with the description
 # ex: SCB0020a gives back SCB0020a_RadioGenomicsB1
 def projectDescriptionFromProjectCode(DBconn, project_code):
-    querySTMT = "SELECT concat(project_code, '_', project_name) as projectDescription FROM project " +\
+    querySTMT = "SELECT project_name as projectDescription FROM project " +\
                 "where project_code = %(proj_code)s;"
     queryResults = DBconn.DBquery(querySTMT, {'proj_code': project_code})
     return queryResults

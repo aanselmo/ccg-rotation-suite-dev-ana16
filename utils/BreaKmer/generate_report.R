@@ -46,7 +46,7 @@ project_name <- project_description <- dbGetQuery(riker, statement= paste("SELEC
 
 projectId <- paste(project_path,paste(project_code,project_name,sep="_"),sep="")
 
-fileName <- paste(project_path,paste(format(Sys.Date(),"%y%m%d"),project_code,project_name,sep="_"),sep="")
+fileName <- paste(project_path,paste(format(Sys.Date(),"%y%m%d"),project_name,project_code,sep="_"),sep="")
 
 #cat(paste(projectId, "breakmer.df.txt", sep='_'))
 

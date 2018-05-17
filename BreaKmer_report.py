@@ -17,6 +17,8 @@ __date__ = "May, 2018"
         and run it to generate the report data files
     3) generate the excel report based on the data files. 
 '''
+# TODO: Excel is a fucking asshole, so be sure to comment in the top of what version API
+# we are using to modify that in order to have some stability in the report we are generating
 
 #######################
 ### library imports ###
@@ -36,6 +38,7 @@ import common_queries as com_queries
 import process_cohort_results as process_cohort
 # using openpyxl directly because we are editing, not creating, reports:
 import openpyxl as xl
+from openpyxl.styles import Font, PatternFill
 
 ##########################################
 ### globals, parsing and configuration ###
@@ -129,7 +132,11 @@ if __name__ == "__main__":
 
     # get project description
     projectDescriptionQueryResults = com_queries.projectDescriptionFromProjectCode(dbConn, projectCode)
-    projectDescription = projectDescriptionQueryResults['projectDescription'][0]
+    Description = projectDescriptionQueryResults['projectDescription'][0]
+    projectDescription = "_".join([projectCode, Description])
+    # this gives us the directory names Ryans python script expects, but we also
+    # want the name that we will write to the output file which is the reverse:
+    revProjectDescription =  "_".join([Description, projectCode])
 
     # get number of samples from a project code
     numberOfSamplesQueryResults = com_queries.numberOfSamplesFromProjectCode(dbConn, projectCode)
@@ -318,7 +325,7 @@ if __name__ == "__main__":
                 print 'unrecognized line in the summary file!\n'
 
     # now add the sample data to the summary tab to the R generated report
-    fullReport = projectOutputDirectory + '/' + now.strftime("%y%m%d") + '_' + projectDescription + '_Breakmer_report.xlsx'
+    fullReport = projectOutputDirectory + '/' + now.strftime("%y%m%d") + '_' + revProjectDescription + '_Breakmer_report.xlsx'
     fullReportXL = xl.load_workbook(fullReport)
     summaryWS = fullReportXL.worksheets[0]
     summaryWS['B2'] = str(sample_count).rstrip("\n")
@@ -328,11 +335,14 @@ if __name__ == "__main__":
     summaryWS['B6'] = str(inversion_count).rstrip("\n")
     summaryWS['B7'] = str(indel_count).rstrip("\n")
 
+    # bold the first row of all sheets except for the circos and summary ones
+    for currSheet, sheetName in zip(fullReportXL, fullReportXL.sheetnames):
+        if 'circos' not in sheetName and 'Summary' not in sheetName:
+            for currCell in currSheet["1:1"]:
+                currCell.font = Font(name='Calibri', bold=True)
+                currCell.fill = PatternFill(fill_type=None)
+
     # save our final workbook now that it is complete
     fullReportXL.save(fullReport)
-    # TODO: file outputs project description and project code in the opposite
-    # order of what the normal report names in
-    # TODO: bold the top line of all sheets
-
 
 # EOF
