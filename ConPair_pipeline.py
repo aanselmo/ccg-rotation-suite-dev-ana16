@@ -36,7 +36,7 @@ __date__ = "Nov, 2017"
 #######################
 
 import pandas as pd
-import sys, imp, os, argparse, yaml
+import sys, os, argparse, yaml, datetime
 
 # add special modules to the path
 sys.path.append('utils/sql')
@@ -53,6 +53,7 @@ import general_functions as genFun
 DEFAULT_LOGGER_FILE = "logs/ConPairLogFile.log"
 DEFAULT_CONFIGURATION_FILE = 'ccgd_rotation_scripts.config'
 DEFAULT_OUTPUT_DIRECTORY = os.getcwd() + '/ConPair_Reports'
+now = datetime.datetime.now()
 
 # set up logger
 logger = genFun.getLogger(DEFAULT_LOGGER_FILE)
@@ -101,7 +102,6 @@ project_folder = args.output_folder + "/" + args.project_code
 pileup_output_dir = project_folder + "/pileups"
 concordance_output_dir = project_folder + "/concordance"
 contamination_output_dir = project_folder + "/contamination"
-conpair_report_fileName = project_folder + "/" + args.project_code + "_report.xlsx"
 
 ##################################################
 ### define any small script-specific functions ###
@@ -141,7 +141,7 @@ def contamination_parser(contaminationDF, tumorSample, normalSample):
       ConPair contamination output
     :param tumorSample: string for the tumor sample name
     :param normalSample: string for the normal sample name
-    :return: 
+    :return: dataframe with contamination data and tumor/sample names
     """
     # contamination tool doesn't report out contamination values
     # for tumors when there are too few loci with adequate coverage,
@@ -180,6 +180,13 @@ if __name__ == "__main__":
                  + DBconfig['schema'] + "!!! Exiting...")
         sys.exit()
     project_id = projectIDQueryResults.project_id[0]
+    # get project description too. Useful for naming the files in descriptive ways
+    projectDescriptionQueryResults = com_queries.projectDescriptionFromProjectCode(dbConn, args.project_code)
+    Description = projectDescriptionQueryResults['projectDescription'][0]
+    projectDescription = "_".join([Description, args.project_code])
+    conpairReportFileName = project_folder + '/' + now.strftime("%y%m%d") + '_' +\
+                            projectDescription + '_ConPair_report.xlsx'
+
     # make sure samples exist with pairs (tumor/normals) per individual
     projectSamplePairsQuery = com_queries.projectSamplePairsFromProjectID(dbConn, project_id)
     if projectSamplePairsQuery.empty:
@@ -379,7 +386,7 @@ if __name__ == "__main__":
                                                     how='left')
 
     # create excel file and write the data to it
-    conPairReport = xls.XLwrite(conpair_report_fileName,'ConPair_Report')
+    conPairReport = xls.XLwrite(conpairReportFileName,'ConPair_Report')
     conPairReport.writeTable(ConPairReportDataFrame,
                              styles={'normal sample contamination':'0.00%', 'tumor sample contamination':'0.00%'})
     conPairReport.save()
