@@ -136,7 +136,7 @@ if __name__ == "__main__":
     projectDescription = "_".join([projectCode, Description])
     # this gives us the directory names Ryans python script expects, but we also
     # want the name that we will write to the output file which is the reverse:
-    revProjectDescription =  "_".join([Description, projectCode])
+    revProjectDescription = "_".join([Description, projectCode])
 
     # get number of samples from a project code
     numberOfSamplesQueryResults = com_queries.numberOfSamplesFromProjectCode(dbConn, projectCode)
@@ -161,14 +161,19 @@ if __name__ == "__main__":
         print "All aggregate pairs have finished processing."
     else:
         print "Some aggregates have not finished processing. Specifically ag pairs: " + \
-              (", ").join(unFinishedAgPairs.aggregate_pair_name) +\
+              (", ").join(unFinishedAgPairs['aggregate_pair_name']) +\
               "\nContinue generating report with currently finished ags? Y/N"
         # raw_input returns the empty string for "enter"
         choice = raw_input().lower()
         if choice in no:
+            # note: This is a little convoluted, the query returns two aggregate_pair_id columns, the first is the
+            # one we want because the second is expected to be empty in this case (since it represents ag pairs without
+            # a processed breakmer analysis tool run). So we need .iloc[:,0] in pandas to access the first column with
+            # ag pair name, then need to convert all the values to strings from numbers
+            agPairIDString = (",").join([str(agPairID) for agPairID in unFinishedAgPairs.aggregate_pair_id.iloc[:,0]])
             print "nohup ./AggregatePairAnalysisforAnalysisTools.pm -AggregatePairId " + \
-                (", ").join(unFinishedAgPairs.aggregate_pair_id) +\
-                " -config ./Riker.ccgd.rcsgc.config &> log/AnalysisTools_" + \
+                  agPairIDString +\
+                  " -config ./Riker.ccgd.rcsgc.config &> log/AnalysisTools_" + \
                   projectCode + "_breakmer.txt &"
             sys.exit()
 
