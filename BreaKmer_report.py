@@ -172,7 +172,7 @@ if __name__ == "__main__":
             # ag pair name, then need to convert all the values to strings from numbers
             agPairIDString = (",").join([str(agPairID) for agPairID in unFinishedAgPairs.aggregate_pair_id.iloc[:,0]])
             print "nohup ./AggregatePairAnalysisforAnalysisTools.pm -AggregatePairId " + \
-                  agPairIDString +\
+                  agPairIDString + " -AnalysisTool Breakmer_0.0.6 " +\
                   " -config ./Riker.ccgd.rcsgc.config &> log/AnalysisTools_" + \
                   projectCode + "_breakmer.txt &"
             sys.exit()
