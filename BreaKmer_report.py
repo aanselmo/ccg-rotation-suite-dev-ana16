@@ -16,6 +16,11 @@ __date__ = "May, 2018"
     2) create symlinks from the output of the breakmer run so we can run the process_cohort.py script
         and run it to generate the report data files
     3) generate the excel report based on the data files. 
+    
+    NOTE: this script is a stop-gap measure meant to avoid 'manually' generating a script through multiple
+    time consuming steps. It is not meant to be fully polished production ready and maybe has a few shortcuts here and
+    there. Off the top of my head, I think there is no check to see if there are any indel/rearrangements, and the
+    script may not successfully generate and empty file if there are no events found.
 '''
 # TODO: Excel is a fucking asshole, so be sure to comment in the top of what version API
 # we are using to modify that in order to have some stability in the report we are generating
