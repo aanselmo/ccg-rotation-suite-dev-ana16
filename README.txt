@@ -21,4 +21,4 @@ Notes: When Mahesh was here briefly he attempted a rewrite into python using sna
 may be esoteric for some new analysts (implied requirement being that we want to keep everything in common libraries/languages) and makes some
 added steps for running scripts that was actually simpler in R. Additionally some of his code mixed hardcoded aspects with abstracted functions,
 we want to abstract and document as much as possible. That said, his project Metriq will be used as a starting point for the code/structure
-we want to replicate. 
+we want to replicate.

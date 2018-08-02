@@ -74,11 +74,11 @@ __date__ = "Jan, 2018"
 ### library imports ###
 #######################
 
-import pandas as pd
 import sys, imp, os, argparse, yaml
-from pybedtools import BedTool
 
 # add special modules to the path
+sys.path.append('utils/interval-libs')
+sys.path.append('utils/general')
 import general_functions as genFun
 
 ##########################################
@@ -100,13 +100,16 @@ parser.add_argument('--vendor', '-v', help='bait set vendor (one of: Agilent)',
                     type=str, default='Agilent')
 parser.add_argument('--baitset_name', '-n', help='name for the baitset',
                     type=str, required=True)
+parser.add_argument('--feature', '-f', help='specify feature type for listed folders, After the '\
+                                            'flag specify the feature (str) then the child folders exhibiting '\
+                                            'the feature (comma-seperated-list)', nargs=2, action='append')
 parser.add_argument('--input_directory', '-d', help='input directory for bait set bed files',
                     type=str, required=True)
 parser.add_argument('--output_folder', '-o', help='folder to output the results to',
                     default=DEFAULT_OUTPUT_DIRECTORY, type=str)
 parser.add_argument('--config', '-c', help='configuration file to use',
                     default=DEFAULT_CONFIGURATION_FILE, type=str)
-parser.add_argument('--version', action='version', version='Make_Agilent_Interval_file.py ver 1.0')
+parser.add_argument('--version', action='version', version='Make_Intervals.py ver 1.0')
 args = parser.parse_args()
 
 ### import configurations from configuration file ###
@@ -137,20 +140,7 @@ designsToFeatures = {}
 
 if __name__ == "__main__":
 
-    # check to see if the bait set directory already exists in the output
-    # directory, warn if it exists
-    if not os.path.exists(baitset_output_folder):
-        os.mkdir(baitset_output_folder)
-    else:
-        logger.warn("Bait set output folder " + baitset_output_folder + " already exists")
 
-    # for feature type create an output folder, but check and warn if it already exists
-    for featureType in designsToFeatures:
-        currFeatureOutputDir = baitset_output_folder + '/' + featureType + '_intervalFiles'
-        if not os.path.exists(currFeatureOutputDir):
-            os.mkdir(currFeatureOutputDir)
-        else:
-            logger.warn("Bait set feature output folder " + currFeatureOutputDir + " already exists")
 
     #### Agilent specific stuff here, abstract this to a specific
     # need to search for all subfolders in the input directory

@@ -12,6 +12,9 @@ __date__ = "April, 2018"
     about the quality of the normals.
     
     Currently does not support replacing samples each iterations (bootstrapping).
+    Note: Not production quality code, kluged to get the funcitonality out. 
+    TODO: want to add automatic removal/keeping of normals that either fail/pass stringent
+    criteria across all iterations.
 '''
 
 #######################

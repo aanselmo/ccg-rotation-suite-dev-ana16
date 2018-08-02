@@ -8,6 +8,10 @@ __author__ = "Bruce Wollison"
 __date__ = "May, 2018"
 
 '''
+    WARNING: This script relies on an old script utils/BreaKmer/generate_report.R which
+    requires an R instance with the libraries RMySQL and XLConnect. Additionally this 
+    script has DB connetions with credentials stored in plain-text. Distribute with caution.
+    
     Description: This script will generate a breakmer report for a given project
     
     Workflow is broken into 3 steps:
@@ -22,7 +26,7 @@ __date__ = "May, 2018"
     there. Off the top of my head, I think there is no check to see if there are any indel/rearrangements, and the
     script may not successfully generate and empty file if there are no events found.
 '''
-# TODO: Excel is a fucking asshole, so be sure to comment in the top of what version API
+# TODO: Excel is an asshole, so be sure to comment in the top of what version API
 # we are using to modify that in order to have some stability in the report we are generating
 
 #######################
@@ -156,6 +160,7 @@ if __name__ == "__main__":
               DBconfig['schema'] + "!!! Exiting..."
         sys.exit()
 
+    #### Checking to make sure all directories are good for processing ####
     # ag pairs exist, but the breakmer run may not be successful, or finished, so lets make sure:
     unFinishedAgPairs = breaKmerDirectoriesQueryResults[ \
         (breaKmerDirectoriesQueryResults['status_id'] != 1) | \
@@ -181,6 +186,14 @@ if __name__ == "__main__":
                   " -config ./Riker.ccgd.rcsgc.config &> log/AnalysisTools_" + \
                   projectCode + "_breakmer.txt &"
             sys.exit()
+        else:
+            # we need to remove the unfinished aggregate pairs from any downstream processing
+            # we will remove these from the breaKmerDirectoriesQueryResults
+            # TODO: this is a copy+paste solution. Should take the inds of unFinishedAgPairs and reuse
+            # the list of inds here
+            breaKmerDirectoriesQueryResults = breaKmerDirectoriesQueryResults[ \
+                (breaKmerDirectoriesQueryResults['status_id'] == 1) | \
+                (breaKmerDirectoriesQueryResults['annotation_status_id'] == 1)]
 
     # check that all the files are available on the file system
     noLongerAvailableBreaKmerRuns = breaKmerDirectoriesQueryResults[ \
@@ -198,6 +211,15 @@ if __name__ == "__main__":
         choice = raw_input().lower()
         if choice in no:
             sys.exit()
+        else:
+            # we need to remove the not available aggregate pairs from any downstream processing
+            # we will remove these from the breaKmerDirectoriesQueryResults
+            # TODO: this is a copy+paste solution. Should take the inds of noLongerAvailableBreakmerRuns and reuse
+            # the list of inds here
+            breaKmerDirectoriesQueryResults = breaKmerDirectoriesQueryResults[ \
+                (breaKmerDirectoriesQueryResults['data_location_id'] == 1) & \
+                (breaKmerDirectoriesQueryResults['status_id'] == 1) & \
+                (breaKmerDirectoriesQueryResults['annotation_status_id'] == 1)]
 
     # important to abstract out of this step anything specific to the query
     # in the future we will likely want multiple paths through workflow pt1, one where
