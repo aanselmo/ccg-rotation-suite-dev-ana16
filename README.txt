@@ -27,4 +27,5 @@ Setup on ccgd-build
 ===================
 1. Download Miniconda2: https://conda.io/miniconda.html
 2. Install miniconda2 to the /usr/local/miniconda2 directory.
+3. /usr/local/miniconda2/bin/pip install --upgrade pip
 3. /usr/local/miniconda2/bin/pip install -r requirements.txt
