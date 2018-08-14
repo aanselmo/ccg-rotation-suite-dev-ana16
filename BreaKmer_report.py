@@ -126,7 +126,7 @@ if __name__ == "__main__":
     ### Check the DB to see what we need to do with this project ###
 
     # make a DB connection
-    dbConn = db.DBconnect(DBconfig)
+    dbConn = db.DBConnect(DBconfig)
 
     # get the necessary project/sample information
     # start by getting the project_id from the project code
