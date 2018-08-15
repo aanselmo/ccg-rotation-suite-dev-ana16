@@ -40,7 +40,7 @@ import pandas as pd
 sys.path.append('utils/sql')
 sys.path.append('utils/general')
 sys.path.append('utils/BreaKmer')
-import dbConnect as db
+import utils.sql.dbConnect as db
 import datetime
 import general_functions as genFun
 import common_queries as com_queries
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     ### Check the DB to see what we need to do with this project ###
 
     # make a DB connection
-    dbConn = db.DBConnect(DBconfig)
+    dbConn = db.DBconnect(DBconfig)
 
     # get the necessary project/sample information
     # start by getting the project_id from the project code
