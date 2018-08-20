@@ -40,7 +40,7 @@ import pandas as pd
 sys.path.append('utils/sql')
 sys.path.append('utils/general')
 sys.path.append('utils/BreaKmer')
-import dbConnect as db
+import utils.sql.dbConnect as db
 import datetime
 import general_functions as genFun
 import common_queries as com_queries

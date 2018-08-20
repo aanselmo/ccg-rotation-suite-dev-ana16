@@ -1,0 +1,22 @@
+# These are requirements for the BreaKmer_report.py script
+
+#YAML package
+pyyaml==3.13
+
+# Requirements for pandas:
+pytz==2018.5
+numpy==1.13.3
+python-dateutil==2.7.3
+
+# Pandas, itself:
+pandas==0.23.3
+
+# To connect to the riker database:
+mysqlclient==1.3.13
+
+# Requirements for openpyxl:
+jdcal==1.4
+et-xmlfile==1.0.1
+
+# To work with excel documents:
+openpyxl==2.5.4

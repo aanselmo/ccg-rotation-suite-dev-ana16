@@ -22,3 +22,11 @@ may be esoteric for some new analysts (implied requirement being that we want to
 added steps for running scripts that was actually simpler in R. Additionally some of his code mixed hardcoded aspects with abstracted functions,
 we want to abstract and document as much as possible. That said, his project Metriq will be used as a starting point for the code/structure
 we want to replicate.
+
+Setup on ccgd-build
+===================
+1. Download Miniconda2: https://conda.io/miniconda.html
+2. Install miniconda2 to the /usr/local/miniconda2 directory.
+3. /usr/local/miniconda2/bin/pip install --upgrade pip
+4. /usr/local/miniconda2/bin/pip install -r requirements.txt
+5. sudo yum install BEDTools
