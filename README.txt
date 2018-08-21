@@ -29,4 +29,11 @@ Setup on ccgd-build
 2. Install miniconda2 to the /usr/local/miniconda2 directory.
 3. /usr/local/miniconda2/bin/pip install --upgrade pip
 4. /usr/local/miniconda2/bin/pip install -r requirements.txt
-5. sudo yum install BEDTools
+5. Install bedtools (version 2.17.0): https://bedtools.readthedocs.io/en/latest/content/installation.html
+   a. git clone  https://github.com/arq5x/bedtools2.git
+   b. cd bedtools2
+   c. git checkout 5e4507c54355a4a38c6d3e7497a2836a123c6655 (NOTE: This corresponds to version 2.17.0. There is no
+      git-tag in the commit, but the version number is in the comment if you want to check.)
+   d. make
+   e. Update the ccgd-rotation-suite/ccgd_rotation_scripts.config file to point to the new bedtools2/bin/bedtools 
+      binary file.
