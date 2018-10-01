@@ -1,4 +1,4 @@
-#!/usr/local/miniconda3/bin/python
+#!/usr/local/miniconda3/bin/pytho:
 """
 This script has the purpose of creating a co-mutation plot. See the following URL for reference:
 https://iovs.arvojournals.org/article.aspx?articleid=2650631. There will be genes on the y-axis and sample names on
@@ -29,23 +29,27 @@ import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 
+COL_SAMPLE_NAME = 'sample_name'
+COL_GENE = 'gene'
+COL_MUTATION_TYPE = 'mutation_type'
+
 def setup_arguments():
   """
   This is the function that sets up the flags and the arguements you can pass to the script.
   :author: Neil A. Patel
   """
-  aParser = argparse.ArgumentParser("Assigns reaction conditions to samples based on sample UDFs.")
-  aParser.add_argument('-f', '--file', action='store', dest='file_input_data', required=True, 
+  a_parser = argparse.ArgumentParser("Get's the arguments for the comutation_plot tool.")
+  a_parser.add_argument('-f', '--file', action='store', dest='file_input_data', required=True, 
       help='Please supply a csv file that has "sample_name, gene, mutation_type" in the title.')
-  aParser.add_argument('-o', '--order', action='store', dest='order_priority', required=False,
+  a_parser.add_argument('-o', '--order', action='store', dest='order_priority', required=False,
       help='This is an option if you want to supply how colors overwrite each other in one square of the heatmap.'
       + 'For example, let\'s say you have mutation_types A, B, C, and D. You want C\'s color to overwrite the' 
       + 'other colors, you would supply 3,1,2,4 as a comma separated list with no spaces.'
     )
-  aParser.add_argument('-g', '--log', action='store', dest='log_file_name', required=False,
-      help="This is the log file.")
+  a_parser.add_argument('-g', '--log', action='store', dest='log_file_name', required=False, 
+      default="LogGenerateCoMutationPlot.log", help="This is the log file.")
 
-  return aParser.parse_args()
+  return a_parser.parse_args()
 
 def heatmap(data, row_labels, col_labels, ax=None,
             cbar_kw={}, cbarlabel="", **kwargs):
@@ -92,38 +96,88 @@ def heatmap(data, row_labels, col_labels, ax=None,
 
   return im, cbar
 
+def get_prioritized_mutation_types(list_mutation_types, order_priority):
+  """
+  If there is 2 types of mutations for 1 gene, overwrite one with the other. This is done by alphabetical
+  order by default (e.g. indel, nonsense, missense, synonymous, ...). You can also supply the order with the
+  order_priority.
+  """
+  mutation_types_in_priority = list(set(list_mutation_types))  # We need the unique values.
+  mutation_types_in_priority.sort()  # Put in alphabetical order.
+
+  if order_priority:
+    order_priority = order_priority.split(",")
+    # Convert the string list to an int list so we can use them as indexes for the mutation_types_in_priority list.
+    order_priority = list(map(int, order_priority))
+    compare_priority_length = len(order_priority) - len(mutation_types_in_priority)
+    if compare_priority_length > 0:
+      ERROR_TO_PRINT = ("There are {0} more numbers supplied in the --order flag than there are mutation_types in"
+          + " the csv.".format(compare_priority_length))
+      raise IndexError(ERROR_TO_PRINT)
+      logging.error(ERROR_TO_PRINT)
+    elif compare_priority_length < 0:
+      ERROR_TO_PRINT = ("There are {0} fewer numbers supplied in the --order flag than there are mutation_types in"
+          + " the csv.".format(-1 * compare_priority_length))
+      raise IndexError(ERROR_TO_PRINT)
+      logging.error(ERROR_TO_PRINT)
+    else:
+      mutation_types_in_priority.sort(key=order_priority)
+
 
 def main():
-  args = setup_arguments()
   LOGGING_FORMAT = "[%(filename)s:%(lineno)s] %(asctime)s %(message)s"
+  MARK_BOTH_DUPLICATES_AS_TRUE = False
+
+  args = setup_arguments()
   # This is a conditional variable assignment. There is a default log file of LogGenerateCoMutationPlot.log 
   # if it is not supplied. 
-  log_file = args.log_file_name if args.log_file_name else "LogGenerateCoMutationPlot.log" 
   logging.basicConfig(filename=log_file, level=logging.DEBUG, format=LOGGING_FORMAT)
   df_gene_to_mutation_types = pd.read_csv(args.input_file_name)
+  logging.info("Starting generation of co-mutation plot: " + str(args))
 
-  # If there is 2 types of mutations for 1 gene, overwrite one with the other. This is done by alphabetical
-  # order by default (e.g. indel, nonsense, missense, synonymous, ...). You can also supply the order with the
+  bool_series_duplicate_rows = df_gene_to_mutation_types.duplicated(subset=[COL_SAMPLE_NAME, COL_GENE],
+      keep=MARK_BOTH_DUPLICATES_AS_TRUE)
+  mutation_types_in_priority = df_gene_to_mutation_types.loc[:, COL_MUTATION_TYPE].tolist()
+  mutation_types_in_priority = get_prioritized_mutation_types(mutation_types_in_priority, args.order_priority)
+
+  # First, get the clean ones that don't have duplicates.
+  df_mutation_types_to_plot = df_gene_to_mutation_types[~bool_series_duplicate_rows.values, :]
+  # Then, loop through and add the priority ones of the duplicates.
+  num_mut_types = len(mutation_types_in_priority)
+  mutation_type_indices_to_loop =  num_mut_types - 1
+  for mutation_type_index in mutation_type_indices_to_loop:
+    mutation_type = mutation_types_in_priority[mutation_type_index]
+    df_mutation_types_to_plot.append(df_gene_to_mutation_types.loc[bool_series_duplicate_rows 
+        & df_gene_to_mutation_types.loc[:, COL_MUTATION_TYPE] == mutation_type])
+    bool_series_duplicate_rows = df_mutation_types_to_plot.duplicated(subset=[COL_SAMPLE_NAME, COL_GENE],
+      keep='first')
+    df_mutation_types_to_plot = df_mutation_types_to_plot[bool_series_duplicate_rows, :]
+  
   fig, ax3 = plt.subplots()
 
-  data = np.random.randn(6, 6)
-  y = ["Prod. {}".format(i) for i in range(10, 70, 10)]
-  x = ["Cycle {}".format(i) for i in range(1, 7)]
+  y_labels_genes = list(set(df_mutation_types_to_plot.loc[:, COL_GENE].tolist()))
+  x_labels_samples = list(set(df_mutation_types_to_plot.loc[:, COL_SAMPLE_NAME].tolist()))
+  a_mut_types = np.array(mutation_types_in_priority)
+  for mutation_type in mutation_types_in_priority:
+    df_mutation_types_to_plot.loc[mutation_type, COL_MUTATION_TYPE] = mutation_types_in_priority.index(mutation_type)
+  array_2d_mutation_types = df_mutation_types_to_plot.pivot(index=COL_GENE, columns=COL_SAMPLE_NAME, 
+      values=COL_MUTATION_TYPE)
 
-  qrates = np.array(list("ABCDEFG"))
+
 
   # The data itself is categorical. Here we use a :class:`matplotlib.colors.BoundaryNorm` to get the data into classes
   # and use this to colorize the plot, but also to obtain the class labels from an array of classes.
-  norm = matplotlib.colors.BoundaryNorm(np.linspace(-3.5, 3.5, 8), 7)
-  fmt = matplotlib.ticker.FuncFormatter(lambda x, pos: qrates[::-1][norm(x)])
+  norm = matplotlib.colors.BoundaryNorm(np.linspace(0.5, num_mut_types+0.5, 
+      num_mut_types+1, num_mut_types))
+  fmt = matplotlib.ticker.FuncFormatter(lambda x, pos: a_mut_types[::-1][norm(x)])
 
-  im, _ = heatmap(data, y, x, ax=ax3,
-                  cmap=plt.get_cmap("tab10", 7), norm=norm,
-                  cbar_kw=dict(ticks=np.arange(-3, 4), format=fmt),
-                  cbarlabel="Quality Rating")
+  im, _ = heatmap(array_2d_mutation_types, y_labels_genes, x_labels_samples, ax=ax3,
+                  cmap=plt.get_cmap("tab10", num_mut_types), norm=norm,
+                  cbar_kw=dict(ticks=np.arange(0, num_mut_types+1), format=fmt),
+                  cbarlabel="Mutational Types")
 
   plt.show()
-
+  logging.info("End generation of co-mutation plot.")
 
 if __name__ == '__main__':
   main()
