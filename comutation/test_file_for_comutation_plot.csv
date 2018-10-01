@@ -1,0 +1,8 @@
+sample_name, gene, mutation_Type
+sample1, KRAS, missense
+sample1, KRAS, synonymous
+sample2, TP53, missense
+sample3, TP53, missense
+sample4, TP53, nonsense
+sample5, KRAS, nonsense
+sample5, TP53, nonsense
