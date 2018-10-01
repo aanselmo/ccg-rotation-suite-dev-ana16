@@ -5,10 +5,10 @@ https://iovs.arvojournals.org/article.aspx?articleid=2650631. There will be gene
 the y-axis.
 
 Input data is a CSV that is formatted as the following:
-sample_name, gene, mutation_Type
-sample1, KRAS, missense
-sample1, KRAS, synonymous
-sample2, TP53, missense
+sample_name,gene,mutation_type
+sample1,KRAS,missense
+sample1,KRAS,synonymous
+sample2,TP53,missense
 
 Set priority.
 
@@ -122,6 +122,7 @@ def get_prioritized_mutation_types(list_mutation_types, order_priority):
       logging.error(ERROR_TO_PRINT)
     else:
       mutation_types_in_priority.sort(key=order_priority)
+  return mutation_types_in_priority
 
 
 def main():
@@ -131,8 +132,8 @@ def main():
   args = setup_arguments()
   # This is a conditional variable assignment. There is a default log file of LogGenerateCoMutationPlot.log 
   # if it is not supplied. 
-  logging.basicConfig(filename=log_file, level=logging.DEBUG, format=LOGGING_FORMAT)
-  df_gene_to_mutation_types = pd.read_csv(args.input_file_name)
+  logging.basicConfig(filename=args.log_file_name, level=logging.DEBUG, format=LOGGING_FORMAT)
+  df_gene_to_mutation_types = pd.read_csv(args.file_input_data)
   logging.info("Starting generation of co-mutation plot: " + str(args))
 
   bool_series_duplicate_rows = df_gene_to_mutation_types.duplicated(subset=[COL_SAMPLE_NAME, COL_GENE],
@@ -141,25 +142,28 @@ def main():
   mutation_types_in_priority = get_prioritized_mutation_types(mutation_types_in_priority, args.order_priority)
 
   # First, get the clean ones that don't have duplicates.
-  df_mutation_types_to_plot = df_gene_to_mutation_types[~bool_series_duplicate_rows.values, :]
+  df_mutation_types_to_plot = df_gene_to_mutation_types.loc[~bool_series_duplicate_rows.values, :]
   # Then, loop through and add the priority ones of the duplicates.
   num_mut_types = len(mutation_types_in_priority)
   mutation_type_indices_to_loop =  num_mut_types - 1
-  for mutation_type_index in mutation_type_indices_to_loop:
+  for mutation_type_index in range(0, mutation_type_indices_to_loop):
     mutation_type = mutation_types_in_priority[mutation_type_index]
-    df_mutation_types_to_plot.append(df_gene_to_mutation_types.loc[bool_series_duplicate_rows 
-        & df_gene_to_mutation_types.loc[:, COL_MUTATION_TYPE] == mutation_type])
-    bool_series_duplicate_rows = df_mutation_types_to_plot.duplicated(subset=[COL_SAMPLE_NAME, COL_GENE],
-      keep='first')
-    df_mutation_types_to_plot = df_mutation_types_to_plot[bool_series_duplicate_rows, :]
+    df_mutation_types_to_plot = df_mutation_types_to_plot.append(df_gene_to_mutation_types.loc[
+        bool_series_duplicate_rows & (df_gene_to_mutation_types.loc[:, COL_MUTATION_TYPE] == mutation_type)])
+    if not df_mutation_types_to_plot.empty:
+      bool_series_duplicate_rows = df_mutation_types_to_plot.duplicated(subset=[COL_SAMPLE_NAME, COL_GENE],
+        keep='last')
+      # Don't Keep the last, actually. I want the bool_series to look like F, F, F, F, T so I can then just flip it, 
+      # and remove the ones I don't need.
+      df_mutation_types_to_plot = df_mutation_types_to_plot.loc[~bool_series_duplicate_rows, :]
   
   fig, ax3 = plt.subplots()
-
   y_labels_genes = list(set(df_mutation_types_to_plot.loc[:, COL_GENE].tolist()))
   x_labels_samples = list(set(df_mutation_types_to_plot.loc[:, COL_SAMPLE_NAME].tolist()))
   a_mut_types = np.array(mutation_types_in_priority)
   for mutation_type in mutation_types_in_priority:
-    df_mutation_types_to_plot.loc[mutation_type, COL_MUTATION_TYPE] = mutation_types_in_priority.index(mutation_type)
+    df_mutation_types_to_plot.loc[(df_mutation_types_to_plot.loc[:, COL_MUTATION_TYPE] == mutation_type), 
+        COL_MUTATION_TYPE] = mutation_types_in_priority.index(mutation_type)
   array_2d_mutation_types = df_mutation_types_to_plot.pivot(index=COL_GENE, columns=COL_SAMPLE_NAME, 
       values=COL_MUTATION_TYPE)
 
