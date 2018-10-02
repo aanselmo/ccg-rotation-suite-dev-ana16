@@ -10,10 +10,8 @@ sample1,KRAS,missense
 sample1,KRAS,synonymous
 sample2,TP53,missense
 
-Set priority.
-
-Set colors.
-
+Unfortunately, you cannot have multiple colors in each square of the gridplot. Therefore, you have to set priority.
+Please see the -h flag for help on the --order argument.
 """
 __docformat__ = "reStructuredText"
 __author__ = "Neil A. Patel and Bruce Wollison"
@@ -28,13 +26,15 @@ import numpy as np
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
+import dill
 
 COL_SAMPLE_NAME = 'sample_name'
 COL_GENE = 'gene'
 COL_MUTATION_TYPE = 'mutation_type'
 
 MUT_TYPE_NO_MUTATION = 'no_mutation'
-
+MARK_BOTH_DUPLICATES_AS_TRUE = False
+COLOR_MAP = 'tab10'
 
 def setup_arguments():
   """
@@ -127,25 +127,20 @@ def get_prioritized_mutation_types(list_mutation_types, order_priority):
       logging.error(ERROR_TO_PRINT)
     else:
       mutation_types_in_priority.sort(key=order_priority)
+    logging.debug("Mutation Types: " + mutation_types_in_priority + "; Order: " 
+        + range(0, len(mutation_types_in_priority)-1))
   return mutation_types_in_priority
 
 
-def main():
-  LOGGING_FORMAT = "[%(filename)s:%(lineno)s] %(asctime)s %(message)s"
-  MARK_BOTH_DUPLICATES_AS_TRUE = False
-
-  args = setup_arguments()
-  # This is a conditional variable assignment. There is a default log file of LogGenerateCoMutationPlot.log 
-  # if it is not supplied. 
-  logging.basicConfig(filename=args.log_file_name, level=logging.DEBUG, format=LOGGING_FORMAT)
-  df_gene_to_mutation_types = pd.read_csv(args.file_input_data)
-  logging.info("Starting generation of co-mutation plot: " + str(args))
-
+def remove_lower_priority_duplicates(df_gene_to_mutation_types, mutation_types_in_priority):
+  """
+  Let's say the mutation_types are "non, mis, syn" and the priorities are "3, 1, 2". That means that the priority
+  order is "syn, non, mis". That means that the square for the color in the heatmap will be "syn" even if there are
+  mutations for non and mis in the the same gene. The lower priorities mutation_types are removed here in this
+  function so they are not graphed.
+  """
   bool_series_duplicate_rows = df_gene_to_mutation_types.duplicated(subset=[COL_SAMPLE_NAME, COL_GENE],
       keep=MARK_BOTH_DUPLICATES_AS_TRUE)
-  mutation_types_in_priority = df_gene_to_mutation_types.loc[:, COL_MUTATION_TYPE].tolist()
-  mutation_types_in_priority = get_prioritized_mutation_types(mutation_types_in_priority, args.order_priority)
-
   # First, get the clean ones that don't have duplicates.
   df_mutation_types_to_plot = df_gene_to_mutation_types.loc[~bool_series_duplicate_rows.values, :]
   # Then, loop through and add the priority ones of the duplicates.
@@ -161,17 +156,48 @@ def main():
       # Don't Keep the last, actually. I want the bool_series to look like F, F, F, F, T so I can then just flip it, 
       # and remove the ones I don't need (which are the lower priority duplicates).
       df_mutation_types_to_plot = df_mutation_types_to_plot.loc[~bool_series_duplicate_rows, :]
-  
+  return df_mutation_types_to_plot
+
+
+def convert_to_2d_array_for_heatmap(df_mutation_types_to_plot, mutation_types_in_priority):
+  """
+  The csv data is converted to a 2D array that looks similar to the heatmap. The outputed array looks like the 
+  following:
+        Sample1 Sample2 Sample3
+  TP53  1       0       3
+  BRAF  3       2       0
+  There are no x or y axis labels because it's an numpy array. The numbers in the core of the data are the
+  indexes in the mutation_types_in_priority. Also, any gene/sample pair that had no mutation is filled in
+  with 0. This no_mutation is added to the mutation_types_in_priority also and returned.
+  """
   for mutation_type in mutation_types_in_priority:
     df_mutation_types_to_plot.loc[(df_mutation_types_to_plot.loc[:, COL_MUTATION_TYPE] == mutation_type), 
         COL_MUTATION_TYPE] = mutation_types_in_priority.index(mutation_type)
   array_2d_mutation_types = df_mutation_types_to_plot.pivot(index=COL_GENE, columns=COL_SAMPLE_NAME, 
       values=COL_MUTATION_TYPE)
   array_2d_mutation_types = array_2d_mutation_types + 1
-  array_2d_mutation_types = array_2d_mutation_types.fillna(value=0).values
   mutation_types_in_priority = [MUT_TYPE_NO_MUTATION] + mutation_types_in_priority
-  num_mut_types = num_mut_types + 1 
+  array_2d_mutation_types = array_2d_mutation_types.fillna(
+      value=mutation_types_in_priority.index(MUT_TYPE_NO_MUTATION)).values
+  return (array_2d_mutation_types, mutation_types_in_priority)
 
+def main():
+  LOGGING_FORMAT = "[%(filename)s:%(lineno)s] %(asctime)s %(message)s"
+  args = setup_arguments()
+  logging.basicConfig(filename=args.log_file_name, level=logging.DEBUG, format=LOGGING_FORMAT)
+  df_gene_to_mutation_types = pd.read_csv(args.file_input_data)
+
+  logging.info("Starting generation of co-mutation plot: " + str(args))
+  mutation_types = df_gene_to_mutation_types.loc[:, COL_MUTATION_TYPE].tolist()
+  logging.info("Retrieving priority of mutation_types.")
+  mutation_types_in_priority = get_prioritized_mutation_types(mutation_types, args.order_priority)
+  logging.info("Removing lower priority duplicates.")
+  df_mutation_types_to_plot = remove_lower_priority_duplicates(df_gene_to_mutation_types, mutation_types_in_priority)
+  (array_2d_mutation_types, mutation_types_in_priority) = convert_to_2d_array_for_heatmap(
+      df_mutation_types_to_plot, mutation_types_in_priority)
+  num_mut_types = len(mutation_types_in_priority)
+
+  logging.info("Graphing the heatmap.")
   fig, ax3 = plt.subplots()
   y_labels_genes = list(set(df_mutation_types_to_plot.loc[:, COL_GENE].tolist()))
   x_labels_samples = list(set(df_mutation_types_to_plot.loc[:, COL_SAMPLE_NAME].tolist()))
@@ -182,7 +208,7 @@ def main():
   boundary_between_colors = matplotlib.colors.BoundaryNorm(np.linspace(-0.5, num_mut_types-0.5, 
       num_mut_types+1), num_mut_types)
   fmt = matplotlib.ticker.FuncFormatter(lambda x, pos: a_mut_types[boundary_between_colors(x)])
-  plot_color_map = plt.get_cmap("tab10", num_mut_types)
+  plot_color_map = plt.get_cmap(COLOR_MAP, num_mut_types)
   plot_color_map.colors[mutation_types_in_priority.index(MUT_TYPE_NO_MUTATION)] = np.array([1, 1, 1, 1])  # Set white.
 
   im, _ = heatmap(array_2d_mutation_types, y_labels_genes, x_labels_samples, ax=ax3,
@@ -190,7 +216,13 @@ def main():
                   cbar_kw=dict(ticks=np.arange(0, num_mut_types+1), format=fmt),
                   cbarlabel="Mutational Types")
 
-  plt.show()
+  # I'm pickling the figure so you can load it and modify it later. Use code like the following to load it:
+  # import dill
+  # import matplotlib.pyplot as plt
+  # ax = dill.load(open('test_file_for_comutation_plot_chart.pickle', 'rb'))
+  # plt.show()
+  dill.dump(ax3, open((args.file_input_data[:-4] + "_chart.pickle"), 'wb'))
+  plt.savefig(args.file_input_data[:-4] + "_chart.png")
   logging.info("End generation of co-mutation plot.")
 
 if __name__ == '__main__':
