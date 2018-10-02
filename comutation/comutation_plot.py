@@ -33,6 +33,9 @@ COL_SAMPLE_NAME = 'sample_name'
 COL_GENE = 'gene'
 COL_MUTATION_TYPE = 'mutation_type'
 
+MUT_TYPE_NO_MUTATION = 'no_mutation'
+
+
 def setup_arguments():
   """
   This is the function that sets up the flags and the arguements you can pass to the script.
@@ -51,7 +54,8 @@ def setup_arguments():
 
   return a_parser.parse_args()
 
-def heatmap(data, row_labels, col_labels, ax=None,
+
+def heatmap(data, row_labels, col_labels, ax=None, cmap=None,
             cbar_kw={}, cbarlabel="", **kwargs):
   """
   Create a heatmap from a numpy array and two lists of labels.
@@ -68,7 +72,7 @@ def heatmap(data, row_labels, col_labels, ax=None,
       ax = plt.gca()
 
   # Plot the heatmap
-  im = ax.imshow(data, **kwargs)
+  im = ax.imshow(data, cmap=cmap, **kwargs)
 
   # Create colorbar
   cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
@@ -95,6 +99,7 @@ def heatmap(data, row_labels, col_labels, ax=None,
   ax.tick_params(which="minor", bottom=False, left=False)
 
   return im, cbar
+
 
 def get_prioritized_mutation_types(list_mutation_types, order_priority):
   """
@@ -154,29 +159,34 @@ def main():
       bool_series_duplicate_rows = df_mutation_types_to_plot.duplicated(subset=[COL_SAMPLE_NAME, COL_GENE],
         keep='last')
       # Don't Keep the last, actually. I want the bool_series to look like F, F, F, F, T so I can then just flip it, 
-      # and remove the ones I don't need.
+      # and remove the ones I don't need (which are the lower priority duplicates).
       df_mutation_types_to_plot = df_mutation_types_to_plot.loc[~bool_series_duplicate_rows, :]
   
-  fig, ax3 = plt.subplots()
-  y_labels_genes = list(set(df_mutation_types_to_plot.loc[:, COL_GENE].tolist()))
-  x_labels_samples = list(set(df_mutation_types_to_plot.loc[:, COL_SAMPLE_NAME].tolist()))
-  a_mut_types = np.array(mutation_types_in_priority)
   for mutation_type in mutation_types_in_priority:
     df_mutation_types_to_plot.loc[(df_mutation_types_to_plot.loc[:, COL_MUTATION_TYPE] == mutation_type), 
         COL_MUTATION_TYPE] = mutation_types_in_priority.index(mutation_type)
   array_2d_mutation_types = df_mutation_types_to_plot.pivot(index=COL_GENE, columns=COL_SAMPLE_NAME, 
       values=COL_MUTATION_TYPE)
+  array_2d_mutation_types = array_2d_mutation_types + 1
+  array_2d_mutation_types = array_2d_mutation_types.fillna(value=0).values
+  mutation_types_in_priority = [MUT_TYPE_NO_MUTATION] + mutation_types_in_priority
+  num_mut_types = num_mut_types + 1 
 
-
-
+  fig, ax3 = plt.subplots()
+  y_labels_genes = list(set(df_mutation_types_to_plot.loc[:, COL_GENE].tolist()))
+  x_labels_samples = list(set(df_mutation_types_to_plot.loc[:, COL_SAMPLE_NAME].tolist()))
+  a_mut_types = np.array(mutation_types_in_priority)
+  
   # The data itself is categorical. Here we use a :class:`matplotlib.colors.BoundaryNorm` to get the data into classes
   # and use this to colorize the plot, but also to obtain the class labels from an array of classes.
-  norm = matplotlib.colors.BoundaryNorm(np.linspace(0.5, num_mut_types+0.5, 
-      num_mut_types+1, num_mut_types))
-  fmt = matplotlib.ticker.FuncFormatter(lambda x, pos: a_mut_types[::-1][norm(x)])
+  boundary_between_colors = matplotlib.colors.BoundaryNorm(np.linspace(-0.5, num_mut_types-0.5, 
+      num_mut_types+1), num_mut_types)
+  fmt = matplotlib.ticker.FuncFormatter(lambda x, pos: a_mut_types[boundary_between_colors(x)])
+  plot_color_map = plt.get_cmap("tab10", num_mut_types)
+  plot_color_map.colors[mutation_types_in_priority.index(MUT_TYPE_NO_MUTATION)] = np.array([1, 1, 1, 1])  # Set white.
 
   im, _ = heatmap(array_2d_mutation_types, y_labels_genes, x_labels_samples, ax=ax3,
-                  cmap=plt.get_cmap("tab10", num_mut_types), norm=norm,
+                  cmap=plot_color_map, norm=boundary_between_colors,
                   cbar_kw=dict(ticks=np.arange(0, num_mut_types+1), format=fmt),
                   cbarlabel="Mutational Types")
 
