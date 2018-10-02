@@ -126,9 +126,10 @@ def get_prioritized_mutation_types(list_mutation_types, order_priority):
       raise IndexError(ERROR_TO_PRINT)
       logging.error(ERROR_TO_PRINT)
     else:
-      mutation_types_in_priority.sort(key=order_priority)
-    logging.debug("Mutation Types: " + mutation_types_in_priority + "; Order: " 
-        + range(0, len(mutation_types_in_priority)-1))
+      mutation_order_dict = dict(zip(mutation_types_in_priority, order_priority))
+      mutation_types_in_priority.sort(key=mutation_order_dict.get)
+  logging.debug("Mutation Types: " + str(mutation_types_in_priority) + "; Order: " 
+      + str(list(range(0, len(mutation_types_in_priority)))))
   return mutation_types_in_priority
 
 
@@ -159,27 +160,26 @@ def remove_lower_priority_duplicates(df_gene_to_mutation_types, mutation_types_i
   return df_mutation_types_to_plot
 
 
-def convert_to_2d_array_for_heatmap(df_mutation_types_to_plot, mutation_types_in_priority):
+def convert_to_2d_df_for_heatmap(df_mutation_types_to_plot, mutation_types_in_priority):
   """
-  The csv data is converted to a 2D array that looks similar to the heatmap. The outputed array looks like the 
+  The csv data is converted to a 2D dataframe that looks similar to the heatmap. The outputed array looks like the 
   following:
         Sample1 Sample2 Sample3
   TP53  1       0       3
   BRAF  3       2       0
-  There are no x or y axis labels because it's an numpy array. The numbers in the core of the data are the
-  indexes in the mutation_types_in_priority. Also, any gene/sample pair that had no mutation is filled in
-  with 0. This no_mutation is added to the mutation_types_in_priority also and returned.
+  The numbers in the core of the data are the indexes in the mutation_types_in_priority. Also, any gene/sample pair 
+  that had no mutation is filled in with 0. This no_mutation is added to the mutation_types_in_priority also and 
+  returned.
   """
   for mutation_type in mutation_types_in_priority:
     df_mutation_types_to_plot.loc[(df_mutation_types_to_plot.loc[:, COL_MUTATION_TYPE] == mutation_type), 
         COL_MUTATION_TYPE] = mutation_types_in_priority.index(mutation_type)
-  array_2d_mutation_types = df_mutation_types_to_plot.pivot(index=COL_GENE, columns=COL_SAMPLE_NAME, 
+  df_2d_mutation_types = df_mutation_types_to_plot.pivot(index=COL_GENE, columns=COL_SAMPLE_NAME, 
       values=COL_MUTATION_TYPE)
-  array_2d_mutation_types = array_2d_mutation_types + 1
+  df_2d_mutation_types = df_2d_mutation_types + 1
   mutation_types_in_priority = [MUT_TYPE_NO_MUTATION] + mutation_types_in_priority
-  array_2d_mutation_types = array_2d_mutation_types.fillna(
-      value=mutation_types_in_priority.index(MUT_TYPE_NO_MUTATION)).values
-  return (array_2d_mutation_types, mutation_types_in_priority)
+  df_2d_mutation_types = df_2d_mutation_types.fillna(value=mutation_types_in_priority.index(MUT_TYPE_NO_MUTATION))
+  return (df_2d_mutation_types, mutation_types_in_priority)
 
 def main():
   LOGGING_FORMAT = "[%(filename)s:%(lineno)s] %(asctime)s %(message)s"
@@ -193,14 +193,15 @@ def main():
   mutation_types_in_priority = get_prioritized_mutation_types(mutation_types, args.order_priority)
   logging.info("Removing lower priority duplicates.")
   df_mutation_types_to_plot = remove_lower_priority_duplicates(df_gene_to_mutation_types, mutation_types_in_priority)
-  (array_2d_mutation_types, mutation_types_in_priority) = convert_to_2d_array_for_heatmap(
+  (df_2d_mutation_types, mutation_types_in_priority) = convert_to_2d_df_for_heatmap(
       df_mutation_types_to_plot, mutation_types_in_priority)
   num_mut_types = len(mutation_types_in_priority)
 
   logging.info("Graphing the heatmap.")
   fig, ax3 = plt.subplots()
-  y_labels_genes = list(set(df_mutation_types_to_plot.loc[:, COL_GENE].tolist()))
-  x_labels_samples = list(set(df_mutation_types_to_plot.loc[:, COL_SAMPLE_NAME].tolist()))
+  y_labels_genes = list(df_2d_mutation_types.index.tolist())
+  x_labels_samples = list(df_2d_mutation_types.columns.tolist())
+  array_2d_mutation_types = df_2d_mutation_types.values
   a_mut_types = np.array(mutation_types_in_priority)
   
   # The data itself is categorical. Here we use a :class:`matplotlib.colors.BoundaryNorm` to get the data into classes
