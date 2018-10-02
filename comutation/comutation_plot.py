@@ -117,12 +117,12 @@ def get_prioritized_mutation_types(list_mutation_types, order_priority):
     compare_priority_length = len(order_priority) - len(mutation_types_in_priority)
     if compare_priority_length > 0:
       ERROR_TO_PRINT = ("There are {0} more numbers supplied in the --order flag than there are mutation_types in"
-          + " the csv.".format(compare_priority_length))
+          + " the csv.").format(compare_priority_length)
       raise IndexError(ERROR_TO_PRINT)
       logging.error(ERROR_TO_PRINT)
     elif compare_priority_length < 0:
       ERROR_TO_PRINT = ("There are {0} fewer numbers supplied in the --order flag than there are mutation_types in"
-          + " the csv.".format(-1 * compare_priority_length))
+          + " the csv.").format(-1 * compare_priority_length)
       raise IndexError(ERROR_TO_PRINT)
       logging.error(ERROR_TO_PRINT)
     else:
