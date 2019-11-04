@@ -183,7 +183,7 @@ if __name__ == "__main__":
             agPairIDString = (",").join([str(agPairID) for agPairID in unFinishedAgPairs.aggregate_pair_id.iloc[:,0]])
             print "nohup ./AggregatePairAnalysisforAnalysisTools.pm -AggregatePairId " + \
                   agPairIDString + " -AnalysisTool Breakmer_0.0.6 " +\
-                  " -config ./Riker.ccgd.rcsgc.config &> log/AnalysisTools_" + \
+                  " -config ./Riker.ccgd.argos.config &> log/AnalysisTools_" + \
                   projectCode + "_breakmer.txt &"
             sys.exit()
         else:
