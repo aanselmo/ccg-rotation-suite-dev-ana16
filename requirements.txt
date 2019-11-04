@@ -20,3 +20,6 @@ et-xmlfile==1.0.1
 
 # To work with excel documents:
 openpyxl==2.5.4
+
+# For co-mutation plot:
+dill==0.2.8.2
