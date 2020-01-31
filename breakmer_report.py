@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 """
   WARNING: This script relies on an old script utils/BreaKmer/generate_report.R which
   requires an R instance with the libraries RMySQL and XLConnect. Additionally this
@@ -58,20 +57,18 @@ def setup_arguments():
   This is the function that sets up the flags and the arguements you can pass to the script.
   :author: Bruce Wollison, Neil A. Patel
   """
-  parser = argparse.ArgumentParser(description='This script generates reports for BreaKmer based on '\
-                                       'the given project code.',
-                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser = argparse.ArgumentParser(description=('This script generates reports for BreaKmer based on '
+                                   + 'the given project code.'),
+                                   formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   parser.add_argument('--project_code', '-p', help='Project code to generate the report off of',
-              type=str, required=True)
-  parser.add_argument('--ignore', '-i', help='Creates report regardless of what errors would otherwise'\
-                                     ' cause the script to die.',
-              type=bool, default=False)
+                      type=str, required=True)
+  parser.add_argument('--ignore', '-i', help=('Creates report regardless of what errors would otherwise'
+                      + 'cause the script to die.'),
+                      type=bool, default=False)
   parser.add_argument('--config', '-c', help='configuration file to use',
-              default=DEFAULT_CONFIGURATION_FILE, type=str)
-  parser.add_argument('--version', action='version', version='Breakmer_report.py ver 1.0')
+                      default=DEFAULT_CONFIGURATION_FILE, type=str)
   args = parser.parse_args()
   return args
-
 
 
 def breaKmerDirectoriesFromProjectID(DBconn, project_id, breakmer_tool_id):
@@ -106,8 +103,8 @@ def main():
   bedToolsPath = genConfig['bedtools_path']
   RPath = genConfig['R_path']
   projectCode = args.project_code
+  
   print 'BreaKmer_report.py started'
-
   ################# WORKFLOW PT 1 ################################
   ### Check the DB to see what we need to do with this project ###
 
