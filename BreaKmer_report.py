@@ -21,10 +21,8 @@
     script may not successfully generate and empty file if there are no events found.
 """
 
-
 __author__ = "Bruce Wollison, Neil A. Patel"
 __credits__ = ["Bruce Wollison", "Neil A. Patel"]
-
 
 import sys, os, argparse, yaml, shutil, fnmatch
 import pandas as pd
@@ -38,56 +36,37 @@ import utils.BreaKmer.process_cohort_results as process_cohort
 import openpyxl as xl
 from openpyxl.styles import Font, PatternFill
 
-
 # 'id' in the riker DB that points to the current breakmer run tool
 # likely won't change often or ever
 DEFAULT_BREAKMER_TOOL_ID = '13'
 # default config file needed for connecting to the DB info
 DEFAULT_CONFIGURATION_FILE = 'ccgd_rotation_scripts.config'
-DEFAULT_OUTPUT_DIRECTORY = os.getcwd() + '/BreaKmer_Reports'
+DEFAULT_OUTPUT_DIRECTORY = './BreaKmer_Reports'
 REARRANGE_FILE_PATTERN = "_Breakmer_0_0_6_rearrangement_svs.out"
 INDEL_FILE_PATTERN = "_Breakmer_0_0_6_indel_svs.out"
-now = datetime.datetime.now()
 YES = {'yes', 'y', 'ye', ''}
 NO = {'no', 'n'}
 
-### handle command line interface with argparse ###
-parser = argparse.ArgumentParser(description='This script generates reports for BreaKmer based on '\
-                                             'the given project code.',
-                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--project_code', '-p', help='Project code to generate the report off of',
-                    type=str, required=True)
-parser.add_argument('--ignore', '-i', help='Creates report regardless of what errors would otherwise'\
-                                           ' cause the script to die.',
-                    type=bool, default=False)
-parser.add_argument('--config', '-c', help='configuration file to use',
-                    default=DEFAULT_CONFIGURATION_FILE, type=str)
-parser.add_argument('--version', action='version', version='Breakmer_report.py ver 1.0')
-args = parser.parse_args()
 
-### import configurations from configuration file ###
-print "Reading in configuration file " + args.config
-try:
-    with open(args.config, 'r') as ymlfile:
-        config = yaml.load(ymlfile)
-except IOError:
-    # whoa whats happening bros? File might not exist, or some other IO error
-    print "Error reading configuration file!"
-    sys.exit()
-DBconfig = config['rikerDB']
-genConfig = config['general']
-bedToolsPath = genConfig['bedtools_path']
-RPath = genConfig['R_path']
-projectCode = args.project_code
+def setup_arguments():
+   """                                                                                                                   
+  This is the function that sets up the flags and the arguements you can pass to the script.
+  :author: Bruce Wollison, Neil A. Patel
+  """   
+  parser = argparse.ArgumentParser(description='This script generates reports for BreaKmer based on '\
+                                               'the given project code.',
+                                   formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser.add_argument('--project_code', '-p', help='Project code to generate the report off of',
+                      type=str, required=True)
+  parser.add_argument('--ignore', '-i', help='Creates report regardless of what errors would otherwise'\
+                                             ' cause the script to die.',
+                      type=bool, default=False)
+  parser.add_argument('--config', '-c', help='configuration file to use',
+                      default=DEFAULT_CONFIGURATION_FILE, type=str)
+  parser.add_argument('--version', action='version', version='Breakmer_report.py ver 1.0')
+  args = parser.parse_args()
+  return args
 
-#####################################
-## small script specific functions ##
-#####################################
-
-
-################################
-### mysql queires we'll need ###
-################################
 
 # get a panda dataframe using the project ID
 # returns all complete aggregate pairs for a project and their associated completed breakmer runs
@@ -102,11 +81,23 @@ def breaKmerDirectoriesFromProjectID(DBconn, project_id, breakmer_tool_id):
     queryResults = DBconn.DBquery(querySTMT, {'proj_id' : project_id, 'breakmer_id': breakmer_tool_id})
     return queryResults
 
-########################
-### it's main() time ###
-########################
 
-if __name__ == "__main__":
+def main():
+    args = setup_arguments()
+    ### import configurations from configuration file ###
+    print "Reading in configuration file " + args.config
+    try:
+        with open(args.config, 'r') as ymlfile:
+            config = yaml.load(ymlfile)
+    except IOError:
+        # whoa whats happening bros? File might not exist, or some other IO error
+        print "Error reading configuration file!"
+        sys.exit()
+    DBconfig = config['rikerDB']
+    genConfig = config['general']
+    bedToolsPath = genConfig['bedtools_path']
+    RPath = genConfig['R_path']
+    projectCode = args.project_code
     print 'BreaKmer_report.py started'
 
     ################# WORKFLOW PT 1 ################################
@@ -344,6 +335,7 @@ if __name__ == "__main__":
                 print 'unrecognized line in the summary file!\n'
 
     # now add the sample data to the summary tab to the R generated report
+    now = datetime.datetime.now()
     fullReport = projectOutputDirectory + '/' + now.strftime("%y%m%d") + '_' + revProjectDescription + '_Breakmer_report.xlsx'
     fullReportXL = xl.load_workbook(fullReport)
     summaryWS = fullReportXL.worksheets[0]
@@ -364,4 +356,5 @@ if __name__ == "__main__":
     # save our final workbook now that it is complete
     fullReportXL.save(fullReport)
 
-# EOF
+if __name__ == "__main__":
+  main()
