@@ -30,9 +30,9 @@ import yaml
 import shutil
 import fnmatch
 import pandas as pd
+import datetime
 
 import utils.sql.dbConnect as db
-import datetime
 import utils.general.general_functions as genFun
 import utils.sql.common_queries as com_queries
 import utils.BreaKmer.process_cohort_results as process_cohort
@@ -53,7 +53,7 @@ NO = {'no', 'n'}
 
 
 def setup_arguments():
-   """
+  """
   This is the function that sets up the flags and the arguements you can pass to the script.
   :author: Bruce Wollison, Neil A. Patel
   """
