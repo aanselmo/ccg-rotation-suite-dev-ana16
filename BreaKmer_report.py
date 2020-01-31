@@ -1,13 +1,7 @@
 #!/usr/bin/env python
-# alt shebang for cluster: !/apps/python-2.7.10/bin/python
-# version 1.0
-# tested with python 2.7.13
-# sorry :(
 
-__author__ = "Bruce Wollison"
-__date__ = "May, 2018"
 
-'''
+"""
     WARNING: This script relies on an old script utils/BreaKmer/generate_report.R which
     requires an R instance with the libraries RMySQL and XLConnect. Additionally this 
     script has DB connetions with credentials stored in plain-text. Distribute with caution.
@@ -25,33 +19,26 @@ __date__ = "May, 2018"
     time consuming steps. It is not meant to be fully polished production ready and maybe has a few shortcuts here and
     there. Off the top of my head, I think there is no check to see if there are any indel/rearrangements, and the
     script may not successfully generate and empty file if there are no events found.
-'''
-# TODO: Excel is an asshole, so be sure to comment in the top of what version API
-# we are using to modify that in order to have some stability in the report we are generating
+"""
 
-#######################
-### library imports ###
-#######################
+
+__author__ = "Bruce Wollison, Neil A. Patel"
+__credits__ = ["Bruce Wollison", "Neil A. Patel"]
+
 
 import sys, os, argparse, yaml, shutil, fnmatch
 import pandas as pd
 
-# add special modules to the path
-sys.path.append('utils/sql')
-sys.path.append('utils/general')
-sys.path.append('utils/BreaKmer')
 import utils.sql.dbConnect as db
 import datetime
-import general_functions as genFun
-import common_queries as com_queries
-import process_cohort_results as process_cohort
+import utils.general.general_functions as genFun
+import utils.sql.common_queries as com_queries
+import utils.BreaKmer.process_cohort_results as process_cohort
 # using openpyxl directly because we are editing, not creating, reports:
 import openpyxl as xl
 from openpyxl.styles import Font, PatternFill
 
-##########################################
-### globals, parsing and configuration ###
-##########################################
+
 # 'id' in the riker DB that points to the current breakmer run tool
 # likely won't change often or ever
 DEFAULT_BREAKMER_TOOL_ID = '13'
@@ -61,8 +48,8 @@ DEFAULT_OUTPUT_DIRECTORY = os.getcwd() + '/BreaKmer_Reports'
 REARRANGE_FILE_PATTERN = "_Breakmer_0_0_6_rearrangement_svs.out"
 INDEL_FILE_PATTERN = "_Breakmer_0_0_6_indel_svs.out"
 now = datetime.datetime.now()
-yes = {'yes', 'y', 'ye', ''}
-no = {'no', 'n'}
+YES = {'yes', 'y', 'ye', ''}
+NO = {'no', 'n'}
 
 ### handle command line interface with argparse ###
 parser = argparse.ArgumentParser(description='This script generates reports for BreaKmer based on '\
@@ -175,7 +162,7 @@ if __name__ == "__main__":
               "\nContinue generating report with currently finished ags? Y/N"
         # raw_input returns the empty string for "enter"
         choice = raw_input().lower()
-        if choice in no:
+        if choice in NO:
             # note: This is a little convoluted, the query returns two aggregate_pair_id columns, the first is the
             # one we want because the second is expected to be empty in this case (since it represents ag pairs without
             # a processed breakmer analysis tool run). So we need .iloc[:,0] in pandas to access the first column with
@@ -209,7 +196,7 @@ if __name__ == "__main__":
               "\nContinue generating report with currently finished ags? Y/N"
         # raw_input returns the empty string for "enter"
         choice = raw_input().lower()
-        if choice in no:
+        if choice in NO:
             sys.exit()
         else:
             # we need to remove the not available aggregate pairs from any downstream processing
@@ -249,7 +236,7 @@ if __name__ == "__main__":
               "\nDelete current BreaKmer results directory to Continue? Y/N"
         # raw_input returns the empty string for "enter"
         choice = raw_input().lower()
-        if choice in yes:
+        if choice in YES:
             shutil.rmtree(projectOutputDirectory)
             os.mkdir(projectOutputDirectory)
         else:
