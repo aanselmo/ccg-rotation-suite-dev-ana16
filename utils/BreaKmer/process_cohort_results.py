@@ -754,9 +754,9 @@ def processCohortResults(projectId, projectCode, resultsDir, bedToolsPath):
     filterFn = os.path.join(resultsDir, 'filters.txt')
     filterList = filters(filterFn)
 
-    resD = format_results(os.path.join(resultsDir, tumorSamplesFn), 'tumor', filterList, resultsDir, bedToolsPath)
+    resD = format_results(tumorSamplesFn, 'tumor', filterList, resultsDir, bedToolsPath)
     if normalSamplesFn != '':
-        normals = format_results(os.path.join(resultsDir, normalSamplesFn), 'normal', \
+        normals = format_results(normalSamplesFn, 'normal', \
                                  filterList, resultsDir, bedToolsPath)
 
     '''
