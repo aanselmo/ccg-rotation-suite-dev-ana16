@@ -34,6 +34,6 @@ def AgilentToIntervals(agilentParentDir, folderToFeature=None):
     for root, dirs, files in os.walk(agilentParentDir):
         for file in files:
             if file.endswith(INTERVAL_FILE_PATTERN):
-                print(os.path.join(root, file))
+                print((os.path.join(root, file)))
 
 # EOF

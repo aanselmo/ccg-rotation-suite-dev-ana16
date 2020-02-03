@@ -66,7 +66,7 @@ def split_list(alist, wanted_parts=1):
 ########################
 
 if __name__ == "__main__":
-    print 'RobustCNV_PON_automation.py started'
+    print('RobustCNV_PON_automation.py started')
 
     # open configuration file and read the necessary info
     # we want to get the project name so we can give meaningful names to
@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
     # define the normals for each iteration by creating a random order of indexes
     # for pulling samples from normalSamples and splitting it up
-    iterationInds = range(0, len(normalSamples))
+    iterationInds = list(range(0, len(normalSamples)))
     random.shuffle(iterationInds)
     iterationInds = split_list(iterationInds, args.iterations)
 
@@ -183,6 +183,6 @@ if __name__ == "__main__":
             shutil.move(oldFileDest, newFileDest)
 
     logFile.write("Script finished\n")
-    print 'RobustCNV_PON_automation.py finished'
+    print('RobustCNV_PON_automation.py finished')
 
 # EOF

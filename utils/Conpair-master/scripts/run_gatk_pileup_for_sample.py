@@ -24,11 +24,11 @@ def run_gatk_pileup_for_sample(CONPAIR_DIR, GATK, BAM_FILE, OUTFILE, JAVAPATH,
                                xmx_java=None):
 
     if not os.path.exists(BAM_FILE):
-        print('ERROR: Specified bamfile {0} cannot be found.'.format(BAM_FILE))
+        print(('ERROR: Specified bamfile {0} cannot be found.'.format(BAM_FILE)))
         sys.exit(1)
 
     if not os.path.exists(GATK):
-        print('ERROR: GATK jar {0} cannot be find.'.format(GATK))
+        print(('ERROR: GATK jar {0} cannot be find.'.format(GATK)))
         sys.exit(2)
 
     if MARKER_FILE == None:
@@ -36,20 +36,20 @@ def run_gatk_pileup_for_sample(CONPAIR_DIR, GATK, BAM_FILE, OUTFILE, JAVAPATH,
             'GRCh37.autosomes.phase3_shapeit2_mvncall_integrated.20130502.SNV.genotype.sselect_v4_MAF_0.4_LD_0.8.bed')
 
     if not os.path.exists(MARKER_FILE):
-        print('ERROR: Marker file {0} cannot be find.'.format(MARKER_FILE))
+        print(('ERROR: Marker file {0} cannot be find.'.format(MARKER_FILE)))
         sys.exit(2)
 
     if REFERENCE == None:
         REFERENCE = os.path.join(CONPAIR_DIR, 'data', 'genomes', 'human_g1k_v37.fa')
 
     if not os.path.exists(REFERENCE):
-        print('ERROR: Reference genome {0} cannot be find.'.format(REFERENCE))
+        print(('ERROR: Reference genome {0} cannot be find.'.format(REFERENCE)))
         sys.exit(3)
 
     if JAVA_TEMP != None:
         JAVA_TEMP = "-Djava.io.tmpdir={}".format(JAVA_TEMP)
         if not os.path.isdir(JAVA_TEMP):
-            os.makedirs(JAVA_TEMP, 0770)
+            os.makedirs(JAVA_TEMP, 0o770)
     else:
         JAVA_TEMP = ""
 

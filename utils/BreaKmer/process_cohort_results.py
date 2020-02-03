@@ -39,7 +39,7 @@ class filters():
         for line in filterF.readlines():
             line = line.strip()
             targetName, svType, descriptions = line.split(" ")
-            self.filters.append(filter(targetName, svType, descriptions))
+            self.filters.append(list(filter(targetName, svType, descriptions)))
 
     def check_rec(self, rec):
         filterCheck = False
@@ -458,7 +458,7 @@ def process_bed_anno(f, d, tag):
             metaVals[0] = linesplit[10]
         elif tag == 'cluster':
             metaVals[0] = '0'
-            print linesplit
+            print(linesplit)
             metaVals[1] = linesplit[11]
         elif tag.find('gene') > -1:
             metaVals[0] = int(linesplit[-1])
@@ -741,7 +741,7 @@ def format_results(sampleListFn, sampleType, filterList, resultsDir, bedToolsPat
                 descriptions = rec.svDescription
                 if rec.type.find("rearr") > -1:
                     descriptions = rec.format_trl_str()
-                filterList.filters.append(filter(rec.targetName, rec.type, descriptions))
+                filterList.filters.append(list(filter(rec.targetName, rec.type, descriptions)))
     return resD
 
 # bmw35: refactored this to be a function so we can call it with an import

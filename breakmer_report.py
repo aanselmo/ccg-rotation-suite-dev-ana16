@@ -90,13 +90,13 @@ def breaKmerDirectoriesFromProjectID(DBconn, project_id, breakmer_tool_id):
 def main():
   args = setup_arguments()
   ### import configurations from configuration file ###
-  print "Reading in configuration file " + args.config
+  print("Reading in configuration file " + args.config)
   try:
     with open(args.config, 'r') as ymlfile:
       config = yaml.load(ymlfile)
   except IOError:
     # whoa whats happening bros? File might not exist, or some other IO error
-    print "Error reading configuration file!"
+    print("Error reading configuration file!")
     sys.exit()
   DBconfig = config['rikerDB']
   genConfig = config['general']
@@ -104,7 +104,7 @@ def main():
   RPath = genConfig['R_path']
   projectCode = args.project_code
   
-  print 'BreaKmer_report.py started'
+  print('BreaKmer_report.py started')
   ################# WORKFLOW PT 1 ################################
   ### Check the DB to see what we need to do with this project ###
 
@@ -117,8 +117,8 @@ def main():
 
   # make sure something was returned, AKA project code exists in DB
   if projectIDQueryResults.empty:
-    print "Error, project code " + projectCode + " does not exist in " +\
-        DBconfig['schema'] + "!!! Exiting..."
+    print("Error, project code " + projectCode + " does not exist in " +\
+        DBconfig['schema'] + "!!! Exiting...")
     sys.exit()
   project_id = projectIDQueryResults.project_id[0]
 
@@ -139,8 +139,8 @@ def main():
 
   # make sure something was returned, AKA aggregate pairs exist exists in DB
   if breaKmerDirectoriesQueryResults.empty:
-    print "Error, no aggregate pairs exist for project  " + projectCode + " in " +\
-        DBconfig['schema'] + "!!! Exiting..."
+    print("Error, no aggregate pairs exist for project  " + projectCode + " in " +\
+        DBconfig['schema'] + "!!! Exiting...")
     sys.exit()
 
   #### Checking to make sure all directories are good for processing ####
@@ -151,23 +151,23 @@ def main():
   # if subsetting on unfinished breakmer runs returns nothing, then all breakmer runs are done
   # kinda a round-a-bout way of doing it really
   if unFinishedAgPairs.empty:
-    print "All aggregate pairs have finished processing."
+    print("All aggregate pairs have finished processing.")
   else:
-    print "Some aggregates have not finished processing. Specifically ag pairs: " + \
+    print("Some aggregates have not finished processing. Specifically ag pairs: " + \
         (", ").join(unFinishedAgPairs['aggregate_pair_name']) +\
-        "\nContinue generating report with currently finished ags? Y/N"
+        "\nContinue generating report with currently finished ags? Y/N")
     # raw_input returns the empty string for "enter"
-    choice = raw_input().lower()
+    choice = input().lower()
     if choice in NO:
       # note: This is a little convoluted, the query returns two aggregate_pair_id columns, the first is the
       # one we want because the second is expected to be empty in this case (since it represents ag pairs without
       # a processed breakmer analysis tool run). So we need .iloc[:,0] in pandas to access the first column with
       # ag pair name, then need to convert all the values to strings from numbers
       agPairIDString = (",").join([str(agPairID) for agPairID in unFinishedAgPairs.aggregate_pair_id.iloc[:,0]])
-      print "nohup ./AggregatePairAnalysisforAnalysisTools.pm -AggregatePairId " + \
+      print("nohup ./AggregatePairAnalysisforAnalysisTools.pm -AggregatePairId " + \
           agPairIDString + " -AnalysisTool Breakmer_0.0.6 " +\
           " -config ./Riker.ccgd.rcsgc.config &> log/AnalysisTools_" + \
-          projectCode + "_breakmer.txt &"
+          projectCode + "_breakmer.txt &")
       sys.exit()
     else:
       # we need to remove the unfinished aggregate pairs from any downstream processing
@@ -187,11 +187,11 @@ def main():
   if not noLongerAvailableBreaKmerRuns.empty:
     # seems like we got some backed up data we are trying to make a report from
     # warn that we are missing things on the file system we need for the full report
-    print "Some breaKmer outputs have already been backed up. Specifically ag pairs: " + \
+    print("Some breaKmer outputs have already been backed up. Specifically ag pairs: " + \
         (", ").join(noLongerAvailableBreaKmerRuns.aggregate_pair_name) + \
-        "\nContinue generating report with currently finished ags? Y/N"
+        "\nContinue generating report with currently finished ags? Y/N")
     # raw_input returns the empty string for "enter"
-    choice = raw_input().lower()
+    choice = input().lower()
     if choice in NO:
       sys.exit()
     else:
@@ -228,10 +228,10 @@ def main():
   else:
     # warn that the directory already exists and that we would want to
     # overwrite everything.
-    print "This script appears to already have been run on this project. " + \
-        "\nDelete current BreaKmer results directory to Continue? Y/N"
+    print("This script appears to already have been run on this project. " + \
+        "\nDelete current BreaKmer results directory to Continue? Y/N")
     # raw_input returns the empty string for "enter"
-    choice = raw_input().lower()
+    choice = input().lower()
     if choice in YES:
       shutil.rmtree(projectOutputDirectory)
       os.mkdir(projectOutputDirectory)
@@ -242,8 +242,8 @@ def main():
   # that way Ryans other script can find them on the file system and extract the needed info
   for aggPairName,directoryToLink in zip(breaKmerPerantDirectories['aggregate_pair_name'], \
                                    breaKmerPerantDirectories['output_file']):
-    print "creating symlinks for aggregate pair" + aggPairName +\
-      " using directory " + directoryToLink
+    print("creating symlinks for aggregate pair" + aggPairName +\
+      " using directory " + directoryToLink)
     # for each parent dir path, create one of each symlink needed (indel, rearrangement, outputfolder)
     # first collect all the file paths we need fro the breakmer output
     breaKmerOutputDirectoryPath = directoryToLink + "/output"
@@ -251,8 +251,8 @@ def main():
     if os.path.exists(breaKmerOutputDirectoryPath):
       allBreakmerFiles = os.listdir(breaKmerOutputDirectoryPath)
     else:
-      print "Warning!!!! Did not find the following expected output directory:\n" + \
-          breaKmerOutputDirectoryPath + "\nCheck this before continuing"
+      print("Warning!!!! Did not find the following expected output directory:\n" + \
+          breaKmerOutputDirectoryPath + "\nCheck this before continuing")
       sys.exit()
     rearrangementOutPath = [returnPath for returnPath in allBreakmerFiles if REARRANGE_FILE_PATTERN in returnPath]
     indelOutPath = [returnPath for returnPath in allBreakmerFiles if INDEL_FILE_PATTERN in returnPath]
@@ -316,7 +316,7 @@ def main():
   # we're also gunna do this in a way people don't like, by running a shell command
   # because we just wanna get this done. This report probably won't stick around too long
   Rcmnd = RPath + " utils/BreaKmer/./generate_report.R " + projectCode + ' ' + projectOutputDirectory + '/'
-  print 'running R command: ' + Rcmnd
+  print('running R command: ' + Rcmnd)
   os.system(Rcmnd)
 
   # now we just need to add the summary information to a summary tab
@@ -337,7 +337,7 @@ def main():
       elif 'rearrangement' in line:
         inversion_count = line.split('\t')[1]
       else:
-        print 'unrecognized line in the summary file!\n'
+        print('unrecognized line in the summary file!\n')
 
   # now add the sample data to the summary tab to the R generated report
   now = datetime.datetime.now()
