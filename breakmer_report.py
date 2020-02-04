@@ -28,7 +28,6 @@ import os
 import argparse
 import yaml
 import shutil
-import fnmatch
 import pandas as pd
 import datetime
 
