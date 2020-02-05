@@ -100,7 +100,7 @@ def get_project_information(projectCode, dbConn):
   project_name = projectDescriptionQueryResults['project_name'][0]
   numberOfSamplesQueryResults = com_queries.count_number_of_samples_in_project(dbConn, projectCode)
   numberOfSamples = numberOfSamplesQueryResults['sampleCount'][0]
-  return tuple(project_id, project_name, numberOfSamples)
+  return (project_id, project_name, numberOfSamples)
 
 
 def prompt_and_filter_unfinished_agg_pairs(breaKmerDirectoriesQueryResults): 
@@ -137,7 +137,7 @@ def prompt_and_filter_unfinished_agg_pairs(breaKmerDirectoriesQueryResults):
   return breaKmerDirectoriesQueryResults
 
 
-def prompt_and_filter_missing_breakmer_dirs(breaKmerDirectoriesQueryResults)
+def prompt_and_filter_missing_breakmer_dirs(breaKmerDirectoriesQueryResults):
   # check that all the files are available on the file system
   noLongerAvailableBreaKmerRuns = breaKmerDirectoriesQueryResults[ \
     (breaKmerDirectoriesQueryResults['data_location_id'] != 1) & \
@@ -187,7 +187,7 @@ def prompt_and_create_output_dir(projectCode):
   return projectOutputDirectory
 
 
-def update_mount_point_prefix(breaKmerDirectoriesQueryResults):
+def update_mount_point_prefix(breaKmerDirectoriesQueryResults, mount_point):
   """
   The database has the location of output files for breakmer. However, depending on where you mount the storage unit
   for these files on a different server or your desktop, the prefix/parent directories will change for the path.
@@ -203,7 +203,7 @@ def update_mount_point_prefix(breaKmerDirectoriesQueryResults):
   breakmerParentDirectories = breaKmerDirectoriesQueryResults[['aggregate_pair_name','output_file']]
   newBreaKmerParentDir = []
   for parentDir in breakmerParentDirectories['output_file']:
-    newDir = genFun.replaceWCommonSubStr(genConfig['isilon_project_directory'], parentDir)
+    newDir = genFun.replaceWCommonSubStr(mount_point, parentDir)
     newBreaKmerParentDir.append(newDir)
   breakmerParentDirectories['output_file'] = newBreaKmerParentDir
   return breakmerParentDirectories
@@ -248,7 +248,7 @@ def create_breakmer_file_links(projectOutputDirectory, breakmerParentDirectories
       os.symlink(("/").join([breaKmerOutputDirectoryPath, rearrangementOutPath[0]]), rearrangementSymLinkDest)
 
 
-def create_sample_list_files(projectOutputDirectory, projectCode, breakmerParentDirectories):
+def create_sample_list_files(projectOutputDirectory, projectCode, breakmerParentDirectories, projectDescription):
   """
   Create the filters file, normal file, and tumors file. These are neede for running the
   process_cohort_results.py script. After we do this, lets run that script to generate the desired
@@ -272,7 +272,7 @@ def create_sample_list_files(projectOutputDirectory, projectCode, breakmerParent
       tumorSampleListFile.write("\n")
 
 
-def add_event_counts_to_summary(resultsSummaryFilePath, summaryWS):
+def add_event_counts_to_summary(resultsSummaryFilePath, summaryWS, numberOfSamples):
   """
   now we just need to add the summary information to a summary tab
   start by reading in the relevant info.
@@ -329,6 +329,7 @@ def main():
   genConfig = config['general']
   bedToolsPath = genConfig['bedtools_path']
   RPath = genConfig['R_path']
+  mount_point = genConfig['isilon_project_directory']
   projectCode = args.project_code
   
   print('BreaKmer_report.py started')
@@ -346,10 +347,10 @@ def main():
 
   breaKmerDirectoriesQueryResults = prompt_and_filter_unfinished_agg_pairs(breaKmerDirectoriesQueryResults)
   breaKmerDirectoriesQueryResults = prompt_and_filter_missing_breakmer_dirs(breaKmerDirectoriesQueryResults)
-  breakmerParentDirectories = update_mount_point_prefix(breaKmerDirectoriesQueryResults)
+  breakmerParentDirectories = update_mount_point_prefix(breaKmerDirectoriesQueryResults, mount_point)
   projectOutputDirectory = prompt_and_create_output_dir(projectCode)
   create_breakmer_file_links(projectOutputDirectory, breakmerParentDirectories)
-  create_sample_list_files(projectOutputDirectory, projectCode, breakmerParentDirectories) 
+  create_sample_list_files(projectOutputDirectory, projectCode, breakmerParentDirectories, projectDescription) 
 
   # This will go through the breakmer data on the file system and generate the necessary data for reporting
   process_cohort.processCohortResults(projectDescription, projectCode, projectOutputDirectory, bedToolsPath)
@@ -368,7 +369,7 @@ def main():
       + '_Breakmer_report.xlsx')
   fullReportXL = xl.load_workbook(fullReport)
   summaryWS = fullReportXL.worksheets[0]
-  summaryWS = add_event_counts_to_summary(resultsSummaryFilePath, summaryWS)
+  summaryWS = add_event_counts_to_summary(resultsSummaryFilePath, summaryWS, numberOfSamples)
 
   # bold the first row of all sheets except for the circos and summary ones
   for currSheet, sheetName in zip(fullReportXL, fullReportXL.sheetnames):
