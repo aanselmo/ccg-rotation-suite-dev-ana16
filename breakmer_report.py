@@ -28,7 +28,6 @@ import os
 import argparse
 import yaml
 import shutil
-import fnmatch
 import pandas as pd
 import datetime
 
@@ -87,75 +86,33 @@ def breaKmerDirectoriesFromProjectID(DBconn, project_id, breakmer_tool_id):
   return queryResults
 
 
-def main():
-  args = setup_arguments()
-  ### import configurations from configuration file ###
-  print("Reading in configuration file " + args.config)
-  try:
-    with open(args.config, 'r') as ymlfile:
-      config = yaml.load(ymlfile)
-  except IOError:
-    # whoa whats happening bros? File might not exist, or some other IO error
-    print("Error reading configuration file!")
-    sys.exit()
-  DBconfig = config['rikerDB']
-  genConfig = config['general']
-  bedToolsPath = genConfig['bedtools_path']
-  RPath = genConfig['R_path']
-  projectCode = args.project_code
-  
-  print('BreaKmer_report.py started')
-  ################# WORKFLOW PT 1 ################################
-  ### Check the DB to see what we need to do with this project ###
-
-  # make a DB connection
-  dbConn = db.DBconnect(DBconfig)
-
-  # get the necessary project/sample information
-  # start by getting the project_id from the project code
-  projectIDQueryResults = com_queries.projectIDFromProjectCode(dbConn, projectCode)
-
-  # make sure something was returned, AKA project code exists in DB
+def get_project_information(projectCode, dbConn):
+  """
+  Gets basic project information from the project_code.
+  :return: a tuple of project_id, project_name, and number of samples in the project.
+  """
+  projectIDQueryResults = com_queries.get_project_id_from_code(dbConn, projectCode)
   if projectIDQueryResults.empty:
-    print("Error, project code " + projectCode + " does not exist in " +\
-        DBconfig['schema'] + "!!! Exiting...")
-    sys.exit()
-  project_id = projectIDQueryResults.project_id[0]
-
-  # get project description
-  projectDescriptionQueryResults = com_queries.projectDescriptionFromProjectCode(dbConn, projectCode)
-  Description = projectDescriptionQueryResults['projectDescription'][0]
-  projectDescription = "_".join([projectCode, Description])
-  # this gives us the directory names Ryans python script expects, but we also
-  # want the name that we will write to the output file which is the reverse:
-  revProjectDescription = "_".join([Description, projectCode])
-
-  # get number of samples from a project code
-  numberOfSamplesQueryResults = com_queries.numberOfSamplesFromProjectCode(dbConn, projectCode)
+    raise("Error, project code " + projectCode + " does not exist in " + DBconfig['schema'] + "!!! Exiting...")
+  else:
+    project_id = projectIDQueryResults.project_id[0]
+  projectDescriptionQueryResults = com_queries.get_project_name_from_code(dbConn, projectCode)
+  project_name = projectDescriptionQueryResults['project_name'][0]
+  numberOfSamplesQueryResults = com_queries.count_number_of_samples_in_project(dbConn, projectCode)
   numberOfSamples = numberOfSamplesQueryResults['sampleCount'][0]
+  return (project_id, project_name, numberOfSamples)
 
-  # now query for the main breakmer files table
-  breaKmerDirectoriesQueryResults = breaKmerDirectoriesFromProjectID(dbConn, project_id, DEFAULT_BREAKMER_TOOL_ID)
 
-  # make sure something was returned, AKA aggregate pairs exist exists in DB
-  if breaKmerDirectoriesQueryResults.empty:
-    print("Error, no aggregate pairs exist for project  " + projectCode + " in " +\
-        DBconfig['schema'] + "!!! Exiting...")
-    sys.exit()
-
-  #### Checking to make sure all directories are good for processing ####
-  # ag pairs exist, but the breakmer run may not be successful, or finished, so lets make sure:
-  unFinishedAgPairs = breaKmerDirectoriesQueryResults[ \
-    (breaKmerDirectoriesQueryResults['status_id'] != 1) | \
-    (breaKmerDirectoriesQueryResults['annotation_status_id'] != 1)]
-  # if subsetting on unfinished breakmer runs returns nothing, then all breakmer runs are done
-  # kinda a round-a-bout way of doing it really
+def prompt_and_filter_unfinished_agg_pairs(breaKmerDirectoriesQueryResults): 
+  unFinishedAgPairs = breaKmerDirectoriesQueryResults[
+      (breaKmerDirectoriesQueryResults['status_id'] != 1) | 
+      (breaKmerDirectoriesQueryResults['annotation_status_id'] != 1)]
   if unFinishedAgPairs.empty:
     print("All aggregate pairs have finished processing.")
   else:
-    print("Some aggregates have not finished processing. Specifically ag pairs: " + \
-        (", ").join(unFinishedAgPairs['aggregate_pair_name']) +\
-        "\nContinue generating report with currently finished ags? Y/N")
+    print("Some aggregates have not finished processing. Specifically ag pairs: "
+          + (", ").join(unFinishedAgPairs['aggregate_pair_name'])
+          + "\nContinue generating report with currently finished ags? Y/N")
     # raw_input returns the empty string for "enter"
     choice = input().lower()
     if choice in NO:
@@ -164,20 +121,23 @@ def main():
       # a processed breakmer analysis tool run). So we need .iloc[:,0] in pandas to access the first column with
       # ag pair name, then need to convert all the values to strings from numbers
       agPairIDString = (",").join([str(agPairID) for agPairID in unFinishedAgPairs.aggregate_pair_id.iloc[:,0]])
-      print("nohup ./AggregatePairAnalysisforAnalysisTools.pm -AggregatePairId " + \
-          agPairIDString + " -AnalysisTool Breakmer_0.0.6 " +\
-          " -config ./Riker.ccgd.argos.config &> log/AnalysisTools_" + \
-          projectCode + "_breakmer.txt &")
+      print("nohup ./AggregatePairAnalysisforAnalysisTools.pm -AggregatePairId "
+          + agPairIDString + " -AnalysisTool Breakmer_0.0.6 "
+          + " -config ./Riker.ccgd.argos.config &> log/AnalysisTools_"
+          + projectCode + "_breakmer.txt &")
       sys.exit()
     else:
       # we need to remove the unfinished aggregate pairs from any downstream processing
       # we will remove these from the breaKmerDirectoriesQueryResults
       # TODO: this is a copy+paste solution. Should take the inds of unFinishedAgPairs and reuse
       # the list of inds here
-      breaKmerDirectoriesQueryResults = breaKmerDirectoriesQueryResults[ \
-        (breaKmerDirectoriesQueryResults['status_id'] == 1) | \
-        (breaKmerDirectoriesQueryResults['annotation_status_id'] == 1)]
+      breaKmerDirectoriesQueryResults = breaKmerDirectoriesQueryResults[
+          (breaKmerDirectoriesQueryResults['status_id'] == 1) |
+          (breaKmerDirectoriesQueryResults['annotation_status_id'] == 1)]
+  return breaKmerDirectoriesQueryResults
 
+
+def prompt_and_filter_missing_breakmer_dirs(breaKmerDirectoriesQueryResults):
   # check that all the files are available on the file system
   noLongerAvailableBreaKmerRuns = breaKmerDirectoriesQueryResults[ \
     (breaKmerDirectoriesQueryResults['data_location_id'] != 1) & \
@@ -185,8 +145,6 @@ def main():
     (breaKmerDirectoriesQueryResults['annotation_status_id'] == 1)]
 
   if not noLongerAvailableBreaKmerRuns.empty:
-    # seems like we got some backed up data we are trying to make a report from
-    # warn that we are missing things on the file system we need for the full report
     print("Some breaKmer outputs have already been backed up. Specifically ag pairs: " + \
         (", ").join(noLongerAvailableBreaKmerRuns.aggregate_pair_name) + \
         "\nContinue generating report with currently finished ags? Y/N")
@@ -203,25 +161,14 @@ def main():
         (breaKmerDirectoriesQueryResults['data_location_id'] == 1) & \
         (breaKmerDirectoriesQueryResults['status_id'] == 1) & \
         (breaKmerDirectoriesQueryResults['annotation_status_id'] == 1)]
+  return breaKmerDirectoriesQueryResults
 
-  # important to abstract out of this step anything specific to the query
-  # in the future we will likely want multiple paths through workflow pt1, one where
-  # we don't hit Riker but go off user input of starting directories when we
-  # are running something outside of the DB
-  # additionally we are also replacing the DB name with any local paths to the isilon
-  # that we define in the config.
-  breaKmerPerantDirectories = breaKmerDirectoriesQueryResults[['aggregate_pair_name','output_file']]
-  newBreaKmerParentDir = []
-  for parentDir in breaKmerPerantDirectories['output_file']:
-    newDir = genFun.replaceWCommonSubStr(genConfig['isilon_project_directory'], parentDir)
-    newBreaKmerParentDir.append(newDir)
-  breaKmerPerantDirectories['output_file'] = newBreaKmerParentDir
 
-  ################# WORKFLOW PT 2 #############################
-  ### replaces Ryans link_breakmer_files.rcprime.py script  ###
-  ### will also create some files to simplify the workflow ####
-
-  # create new folder for this project
+def prompt_and_create_output_dir(projectCode):
+  """
+  Creates the directory where links will be made to breakmer files. Prompts the user whether to delete the directory
+  if it already exists.
+  """
   projectOutputDirectory = DEFAULT_OUTPUT_DIRECTORY + "/" + projectCode + "_breaKmerData"
   if not os.path.exists(projectOutputDirectory):
     os.mkdir(projectOutputDirectory)
@@ -237,11 +184,38 @@ def main():
       os.mkdir(projectOutputDirectory)
     else:
       sys.exit()
+  return projectOutputDirectory
 
-  # need to make links for the following files: "*rearrangement_svs.out", "*indel_svs.out", "output/"
-  # that way Ryans other script can find them on the file system and extract the needed info
-  for aggPairName,directoryToLink in zip(breaKmerPerantDirectories['aggregate_pair_name'], \
-                                   breaKmerPerantDirectories['output_file']):
+
+def update_mount_point_prefix(breaKmerDirectoriesQueryResults, mount_point):
+  """
+  The database has the location of output files for breakmer. However, depending on where you mount the storage unit
+  for these files on a different server or your desktop, the prefix/parent directories will change for the path.
+  This function updates the paths for these breakmer output folders.
+  
+  important to abstract out of this step anything specific to the query
+  in the future we will likely want multiple paths through workflow pt1, one where
+  we don't hit Riker but go off user input of starting directories when we
+  are running something outside of the DB
+  additionally we are also replacing the DB name with any local paths to the isilon
+  that we define in the config.
+  """
+  breakmerParentDirectories = breaKmerDirectoriesQueryResults[['aggregate_pair_name','output_file']]
+  newBreaKmerParentDir = []
+  for parentDir in breakmerParentDirectories['output_file']:
+    newDir = genFun.replaceWCommonSubStr(mount_point, parentDir)
+    newBreaKmerParentDir.append(newDir)
+  breakmerParentDirectories['output_file'] = newBreaKmerParentDir
+  return breakmerParentDirectories
+
+
+def create_breakmer_file_links(projectOutputDirectory, breakmerParentDirectories):
+  """
+  need to make links for the following files: "*rearrangement_svs.out", "*indel_svs.out", "output/"
+  that way Ryans other script can find them on the file system and extract the needed info
+  """
+  for aggPairName,directoryToLink in zip(breakmerParentDirectories['aggregate_pair_name'], \
+                                   breakmerParentDirectories['output_file']):
     print("creating symlinks for aggregate pair" + aggPairName +\
       " using directory " + directoryToLink)
     # for each parent dir path, create one of each symlink needed (indel, rearrangement, outputfolder)
@@ -273,9 +247,15 @@ def main():
                                "_Breakmer_0_0_6_rearrangement_svs.out"
       os.symlink(("/").join([breaKmerOutputDirectoryPath, rearrangementOutPath[0]]), rearrangementSymLinkDest)
 
-  # create the filters file, normal file, and tumors file. These are neede for running the
-  # process_cohort_results.py script. After we do this, lets run that script to generate the desired
-  # output
+
+def create_sample_list_files(projectOutputDirectory, projectCode, breakmerParentDirectories, projectDescription):
+  """
+  Create the filters file, normal file, and tumors file. These are neede for running the
+  process_cohort_results.py script. After we do this, lets run that script to generate the desired
+  output. The normal file contains the list of normal samples (samples that we can use to filter out variants
+  and that we do not want the variants listed out for. Historically, we have left this blank so the collaborator
+  can see the variants in the normals and do their own filtering.
+  """
   filterListFile = projectOutputDirectory + "/" +  "filters.txt"
   open(filterListFile, 'a').close()
   # Note: we have decided in CCGD not to make use of normal samples for filtering
@@ -287,40 +267,16 @@ def main():
   # it is just a list of aggregate_pair_names and paths
   tumorSampleList = projectOutputDirectory +  "/" +  projectCode + "_tumors.txt"
   with open(tumorSampleList, 'w') as tumorSampleListFile:
-    for aggPair in breaKmerPerantDirectories['aggregate_pair_name']:
+    for aggPair in breakmerParentDirectories['aggregate_pair_name']:
       tumorSampleListFile.write(("\t").join([projectDescription, aggPair]))
       tumorSampleListFile.write("\n")
 
-  # now we need to run process_cohort.py that Ryan made previously. This will go through the
-  # breakmer data on the file system and generate the necessary data for reporting
-  process_cohort.processCohortResults(projectDescription, projectCode, projectOutputDirectory, bedToolsPath)
 
-  # clean up the bkpt_*.bed files that appear. Going to remove them individually
-  # because if we remove things programatically or using patterns I am worried we'll
-  # delete something we want for whatever reason
-  brkptRemoveFiles = ['brkpt_cluster_anno_intersect.bed', 'brkpt_cytoband_anno.bed', \
-                'brkpt_exon_anno_intersect.bed', 'brkpt_gene_anno_downstream.bed', \
-                'brkpt_gene_anno_intersect.bed', 'brkpt_gene_anno_upstream.bed', \
-                'brkpts.normal.bed', 'brkpts.tumor.bed']
-  [os.remove(removeFile) for removeFile in brkptRemoveFiles]
-
-  # move the summary file to the appropriate project specific folder
-  resultsSummaryFilePath = ''.join([projectOutputDirectory, "/", 'BreaKmer_Summary.txt'])
-  os.rename('BreaKmer_Summary.txt', resultsSummaryFilePath)
-
-  ################# WORKFLOW PT 3 #############################
-  ### we have all the data from the runs now, lets produce  ###
-  ################## the report of the data ###################
-  # steps include running the generate_report.r
-  # script, finish putting data in its proper place.
-  # we're also gunna do this in a way people don't like, by running a shell command
-  # because we just wanna get this done. This report probably won't stick around too long
-  Rcmnd = RPath + " utils/BreaKmer/./generate_report.R " + projectCode + ' ' + projectOutputDirectory + '/'
-  print('running R command: ' + Rcmnd)
-  os.system(Rcmnd)
-
-  # now we just need to add the summary information to a summary tab
-  # start by reading in the relevant info:
+def add_event_counts_to_summary(resultsSummaryFilePath, summaryWS, numberOfSamples):
+  """
+  now we just need to add the summary information to a summary tab
+  start by reading in the relevant info.
+  """
   inversion_count = indel_count =  rearrangement_count =  sample_count = \
     sample_event_count = '0'
   # read the file and check each line which aspect is corresponds to
@@ -338,18 +294,82 @@ def main():
         inversion_count = line.split('\t')[1]
       else:
         print('unrecognized line in the summary file!\n')
-
-  # now add the sample data to the summary tab to the R generated report
-  now = datetime.datetime.now()
-  fullReport = projectOutputDirectory + '/' + now.strftime("%y%m%d") + '_' + revProjectDescription + '_Breakmer_report.xlsx'
-  fullReportXL = xl.load_workbook(fullReport)
-  summaryWS = fullReportXL.worksheets[0]
   summaryWS['B2'] = str(sample_count).rstrip("\n")
   summaryWS['B3'] = str(sample_event_count).rstrip("\n")
   summaryWS['B4'] = numberOfSamples
   summaryWS['B5'] = str(rearrangement_count).rstrip("\n")
   summaryWS['B6'] = str(inversion_count).rstrip("\n")
   summaryWS['B7'] = str(indel_count).rstrip("\n")
+  return summaryWS
+
+
+def remove_bkpt_bed_files():
+  """
+  clean up the bkpt_*.bed files that appear. Going to remove them individually
+  because if we remove things programatically or using patterns I am worried we'll
+  delete something we want for whatever reason
+  """
+  brkptRemoveFiles = ['brkpt_cluster_anno_intersect.bed', 'brkpt_cytoband_anno.bed',
+                'brkpt_exon_anno_intersect.bed', 'brkpt_gene_anno_downstream.bed',
+                'brkpt_gene_anno_intersect.bed', 'brkpt_gene_anno_upstream.bed',
+                'brkpts.normal.bed', 'brkpts.tumor.bed']
+  [os.remove(removeFile) for removeFile in brkptRemoveFiles]
+
+
+def main():
+  args = setup_arguments()
+  print("Reading in configuration file " + args.config)
+  try:
+    with open(args.config, 'r') as ymlfile:
+      config = yaml.load(ymlfile)
+  except IOError:
+    print("Error reading configuration file!")
+    sys.exit()
+  DBconfig = config['rikerDB']
+  genConfig = config['general']
+  bedToolsPath = genConfig['bedtools_path']
+  RPath = genConfig['R_path']
+  mount_point = genConfig['isilon_project_directory']
+  projectCode = args.project_code
+  
+  print('BreaKmer_report.py started')
+  dbConn = db.DBconnect(DBconfig)
+  project_id, Description, numberOfSamples = get_project_information(projectCode, dbConn)
+
+  projectDescription = "_".join([projectCode, Description])
+  revProjectDescription = "_".join([Description, projectCode])
+  
+  breaKmerDirectoriesQueryResults = breaKmerDirectoriesFromProjectID(dbConn, project_id, DEFAULT_BREAKMER_TOOL_ID)
+  if breaKmerDirectoriesQueryResults.empty:
+    print("Error, no aggregate pairs exist for project  " + projectCode + " in " +
+          DBconfig['schema'] + "!!! Exiting...")
+    sys.exit()
+
+  breaKmerDirectoriesQueryResults = prompt_and_filter_unfinished_agg_pairs(breaKmerDirectoriesQueryResults)
+  breaKmerDirectoriesQueryResults = prompt_and_filter_missing_breakmer_dirs(breaKmerDirectoriesQueryResults)
+  breakmerParentDirectories = update_mount_point_prefix(breaKmerDirectoriesQueryResults, mount_point)
+  projectOutputDirectory = prompt_and_create_output_dir(projectCode)
+  create_breakmer_file_links(projectOutputDirectory, breakmerParentDirectories)
+  create_sample_list_files(projectOutputDirectory, projectCode, breakmerParentDirectories, projectDescription) 
+
+  # This will go through the breakmer data on the file system and generate the necessary data for reporting
+  process_cohort.processCohortResults(projectDescription, projectCode, projectOutputDirectory, bedToolsPath)
+  remove_bkpt_bed_files()
+
+  # move the summary file to the appropriate project specific folder
+  resultsSummaryFilePath = ''.join([projectOutputDirectory, "/", 'BreaKmer_Summary.txt'])
+  os.rename('BreaKmer_Summary.txt', resultsSummaryFilePath)
+
+  Rcmnd = RPath + " utils/BreaKmer/./generate_report.R " + projectCode + ' ' + projectOutputDirectory + '/'
+  print('running R command: ' + Rcmnd)
+  os.system(Rcmnd)
+
+  now = datetime.datetime.now()
+  fullReport = (projectOutputDirectory + '/' + now.strftime("%y%m%d") + '_' + revProjectDescription
+      + '_Breakmer_report.xlsx')
+  fullReportXL = xl.load_workbook(fullReport)
+  summaryWS = fullReportXL.worksheets[0]
+  summaryWS = add_event_counts_to_summary(resultsSummaryFilePath, summaryWS, numberOfSamples)
 
   # bold the first row of all sheets except for the circos and summary ones
   for currSheet, sheetName in zip(fullReportXL, fullReportXL.sheetnames):
@@ -360,6 +380,7 @@ def main():
 
   # save our final workbook now that it is complete
   fullReportXL.save(fullReport)
+
 
 if __name__ == "__main__":
   main()
