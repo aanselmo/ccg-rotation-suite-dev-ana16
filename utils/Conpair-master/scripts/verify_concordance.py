@@ -35,16 +35,16 @@ def verify_concordance(CONPAIR_DIR, tumor_pileup, normal_pileup,
         sys.exit(1)
 
     if not os.path.exists(tumor_pileup):
-        print('ERROR: Input tumor file {0} cannot be found.'.format(tumor_pileup))
+        print(('ERROR: Input tumor file {0} cannot be found.'.format(tumor_pileup)))
         sys.exit(1)
 
     if not os.path.exists(normal_pileup):
-        print('ERROR: Input normal file {0} cannot be found.'.format(normal_pileup))
+        print(('ERROR: Input normal file {0} cannot be found.'.format(normal_pileup)))
         sys.exit(1)
 
 
     if not os.path.exists(MARKER_FILE):
-        print('ERROR: Marker file {0} cannot be find.'.format(MARKER_FILE))
+        print(('ERROR: Marker file {0} cannot be find.'.format(MARKER_FILE)))
         sys.exit(2)
 
     Markers = get_markers(MARKER_FILE)
@@ -72,18 +72,18 @@ def verify_concordance(CONPAIR_DIR, tumor_pileup, normal_pileup,
             discordant += 1
 
     if concordant + discordant == 0:
-        print(
+        print((
         'WARNING: There are no shared markers between the tumor and the normal samples ' +
         'that meet the specified coverage requirements ({0})\nIs the coverage of your ' +
-        'samples high enough?\nSkipping Concordance...'.format(COVERAGE_THRESHOLD))
+        'samples high enough?\nSkipping Concordance...'.format(COVERAGE_THRESHOLD)))
         return
 
     if outfile == "-":
-        print round(float(concordant) / (concordant + discordant), 3)
-        print "Based on " + str(concordant + discordant) + "/" + str(
-            len(Markers)) + " markers (coverage per marker threshold: " + str(COVERAGE_THRESHOLD) + " reads)"
-        print "Minimum mappinq quality: " + str(MMQ)
-        print "Minimum base quality: " + str(MBQ)
+        print(round(float(concordant) / (concordant + discordant), 3))
+        print("Based on " + str(concordant + discordant) + "/" + str(
+            len(Markers)) + " markers (coverage per marker threshold: " + str(COVERAGE_THRESHOLD) + " reads)")
+        print("Minimum mappinq quality: " + str(MMQ))
+        print("Minimum base quality: " + str(MBQ))
     else:
         outfile = open(outfile, 'w')
         outfile.write("Concordance: " + str(round(100.0 * float(concordant) / (concordant + discordant), 2)) + "%\n")

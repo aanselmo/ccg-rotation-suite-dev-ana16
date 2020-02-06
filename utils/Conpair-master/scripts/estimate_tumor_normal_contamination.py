@@ -35,18 +35,18 @@ def estimate_tumor_normal_contamination(CONPAIR_DIR, tumor_pileup, normal_pileup
         sys.exit(1)
 
     if not os.path.exists(tumor_pileup):
-        print('ERROR: Input tumor file {0} cannot be find.'.format(tumor_pileup))
+        print(('ERROR: Input tumor file {0} cannot be find.'.format(tumor_pileup)))
         sys.exit(1)
 
     if not os.path.exists(normal_pileup):
-        print('ERROR: Input normal file {0} cannot be find.'.format(normal_pileup))
+        print(('ERROR: Input normal file {0} cannot be find.'.format(normal_pileup)))
         sys.exit(1)
 
     if MARKER_FILE==None:
         MARKER_FILE = os.path.join(CONPAIR_DIR, 'data', 'markers', 'GRCh37.autosomes.phase3_shapeit2_mvncall_integrated.20130502.SNV.genotype.sselect_v4_MAF_0.4_LD_0.8.txt')
 
     if not os.path.exists(MARKER_FILE):
-        print('ERROR: Marker file {0} cannot be find.'.format(MARKER_FILE))
+        print(('ERROR: Marker file {0} cannot be find.'.format(MARKER_FILE)))
         sys.exit(2)
 
     def drange(start, stop, step):
@@ -127,7 +127,7 @@ def estimate_tumor_normal_contamination(CONPAIR_DIR, tumor_pileup, normal_pileup
     ### PRINTING THE NORMAL RESULTS
 
     if outfile == "-":
-        print("Normal sample contamination level: " + str(round(100.0*optimal_val, 3)) + "%")
+        print(("Normal sample contamination level: " + str(round(100.0*optimal_val, 3)) + "%"))
     else:
         outfile.write("Normal sample contamination level: " + str(round(100.0*optimal_val, 3)) + "%\n")
 
@@ -199,7 +199,7 @@ def estimate_tumor_normal_contamination(CONPAIR_DIR, tumor_pileup, normal_pileup
     ### PRINTING THE TUMOR RESULTS
 
     if outfile == "-":
-        print("Tumor sample contamination level: " + str(round(100.0*optimal_val,3)) + "%")
+        print(("Tumor sample contamination level: " + str(round(100.0*optimal_val,3)) + "%"))
     else:
         outfile.write("Tumor sample contamination level: " + str(round(100.0*optimal_val,3)) + "%\n")
         outfile.close()

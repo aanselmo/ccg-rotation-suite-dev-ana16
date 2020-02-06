@@ -187,7 +187,7 @@ class XLwrite:
             topRowInd = bottomRowInd - len(pandaTable.index)
             # check for matching col names between the pandaTable and
             # in supplies styles dict, then set the column style
-            for colMatch, styleToSetColTo in styles.iteritems():
+            for colMatch, styleToSetColTo in styles.items():
                 if colMatch in list(pandaTable.columns.values):
                     colLetter = colNumToExcelColLetter(pandaTable.columns.get_loc(colMatch))
                     self.setColStyle(colLetter, topRowInd, bottomRowInd, styleToSetColTo)

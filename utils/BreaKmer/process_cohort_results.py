@@ -39,7 +39,7 @@ class filters():
         for line in filterF.readlines():
             line = line.strip()
             targetName, svType, descriptions = line.split(" ")
-            self.filters.append(filter(targetName, svType, descriptions))
+            self.filters.append(list(filter(targetName, svType, descriptions)))
 
     def check_rec(self, rec):
         filterCheck = False
@@ -48,9 +48,6 @@ class filters():
 
         keepIndel = True
         if rec.type == "indel":
-            #print rec.values
-            #print rec.segments[0].annoVals, abs(int(rec.segments[0].annoVals['exon'][1]))
-            #print rec.svDescription, rec.svDescription.find(',')
             if abs(int(rec.segments[0].annoVals['exon'][1])) > 0 and rec.svDescription.find(',') == -1:
                 keepIndel = False  
             #print keepIndel
@@ -122,7 +119,7 @@ class segment():
 
 class breakmerRec():
     def __init__(self, subProjId, sampleId, recIter, values):
-        '''
+        """
         1. genes - comma-delimited list
         2. target_breakpoints - comma delimited list
         3. align_cigar  - comma delimited list
@@ -136,7 +133,7 @@ class breakmerRec():
         10. breakpoint_coverages - comma delimited list entry for each breakpoint
         11. contig_id - string <target name>_<contig id>
         12. contig_seq - contig sequence
-        '''
+        """
         self.subProjId = subProjId
         self.sampleId = sampleId
         self.recId = 'B' + str(recIter)
@@ -193,32 +190,6 @@ class breakmerRec():
         for seg in self.segments:
             segVals, geneNames, geneGeneStatus = seg.get_meta_vals()
             segGeneNames.append(geneNames)
-            '''
-            # Segment meta values encode the annotation and realigment values
-            # s1=chr+cytoband:bp:gene_name:distance:strand:repeat_overlap:uniq_align_metric, s2=...
-            segVals = ['seg' + str(seg.segId+1) + '=' + seg.chr + seg.annoVals['cyto'][0], seg.bp]
-            geneVals = ''
-            geneGeneStatus = 'gene-gene'
-            if 'cluster' in seg.annoVals:
-                print seg.annoVals['cluster']
-                geneVals += ":".join(seg.annoVals['cluster'])
-                segGeneNames.append(seg.annoVals['cluster'][0])
-                geneGeneStatus = 'gene-gene'
-            else:
-                if abs(seg.annoVals['gene_up'][1]) > 0:
-                    # Segment lands in another gene
-                    geneVals += ":".join([str(x) for x in seg.annoVals['gene_up']])
-                    geneVals += '|' + ":".join([str(x) for x in seg.annoVals['gene_down']])
-                    segGeneNames.append("|".join([seg.annoVals['gene_up'][0], seg.annoVals['gene_down'][0]]))
-                    geneGeneStatus = 'gene-intergenic'
-                else:
-                    geneVals += ":".join([str(x) for x in seg.annoVals['gene_up']])
-                    segGeneNames.append(seg.annoVals['gene_up'][0])
-                    geneGeneStatus = 'gene-gene'
-            segVals.append(geneVals)
-            segVals.append(seg.repOverlap)
-            segVals.append(seg.uniqAlign)
-            '''
             segMeta.append(":".join([str(x) for x in segVals]))
         segGeneNames.sort()
         return ",".join(segMeta), ','.join(segGeneNames), geneGeneStatus
@@ -254,33 +225,6 @@ class breakmerRec():
             links.append(targetLink + "\t" + "\t".join(['hs' + seg.chr.replace('chr',''), bp, bp, self.sampleId]))
         return links, anno 
 
-    '''
-    def get_trl_partner_genes(self):
-        partnerGeneVals = []
-        partnerGeneNames = []
-        for seg in self.segments:
-            segVals = []
-            # Segment is outside of target region
-            segVals.append(seg.chr + seg.annoVals['cyto'][0])
-            geneVals = ''
-            if 'cluster' in seg.annoVals:
-                geneVals += ":".join(seg.annoVals['cluster']) 
-                partnerGeneNames.append(seg.annoVals['cluster'][0])
-            else:
-                if abs(seg.annoVals['gene_up'][1]) > 0:
-                    # Segment lands in another gene
-                    geneVals += ":".join([str(x) for x in seg.annoVals['gene_up']])
-                    geneVals += '|' + ":".join([str(x) for x in seg.annoVals['gene_down']])
-                    partnerGeneNames.append("|".join([seg.annoVals['gene_up'][0], seg.annoVals['gene_down'][0]]))
-                else:
-                    geneVals += ":".join([str(x) for x in seg.annoVals['gene_up']])
-                    partnerGeneNames.append(seg.annoVals['gene_up'][0])
-            segVals.append(geneVals)
-            partnerGeneVals.append('s' + str(seg.segId) + "=" + ":".join(segVals))
-        partnerGeneNames.sort()
-        return ",".join(partnerGeneVals), ','.join(partnerGeneNames)
-    '''
-
     def get_segment_strands(self):
         strands = []
         for seg in self.segments:
@@ -303,20 +247,6 @@ class breakmerRec():
                 break
         filter = filter or filterList.check_rec(self)
         return filter
-
-        '''
-        if self.type == 'indel':
-            aurka_indel = self.targetName == 'AURKA' and self.svDescription == '(I61)'
-            aurkc_indel = self.targetName == 'AURKC' and self.svDescription == '(D14,I1)'
-            notch2_indel = self.targetName == 'NOTCH2' and self.svDescription == '(I20)'
-            flt4_indel = self.targetName == 'FLT4' and self.svDescription == '(I22,D2)'
-            ptprd_indel = self.targetName == 'PTPRD' and self.svDescription == '(I21)'
-            hla_indel = self.targetName.find('HLA') > - 1
-
-            if aurka_indel or aurkc_indel or notch2_indel or flt4_indel or ptprd_indel or hla_indel:
-                filter = True
-        return filter
-        '''
 
     def get_rep_overlaps(self):
         repOverlaps = []
@@ -458,7 +388,7 @@ def process_bed_anno(f, d, tag):
             metaVals[0] = linesplit[10]
         elif tag == 'cluster':
             metaVals[0] = '0'
-            print linesplit
+            print(linesplit)
             metaVals[1] = linesplit[11]
         elif tag.find('gene') > -1:
             metaVals[0] = int(linesplit[-1])
@@ -741,7 +671,7 @@ def format_results(sampleListFn, sampleType, filterList, resultsDir, bedToolsPat
                 descriptions = rec.svDescription
                 if rec.type.find("rearr") > -1:
                     descriptions = rec.format_trl_str()
-                filterList.filters.append(filter(rec.targetName, rec.type, descriptions))
+                filterList.filters.append(list(filter(rec.targetName, rec.type, descriptions)))
     return resD
 
 # bmw35: refactored this to be a function so we can call it with an import
@@ -754,33 +684,10 @@ def processCohortResults(projectId, projectCode, resultsDir, bedToolsPath):
     filterFn = os.path.join(resultsDir, 'filters.txt')
     filterList = filters(filterFn)
 
-    resD = format_results(os.path.join(resultsDir, tumorSamplesFn), 'tumor', filterList, resultsDir, bedToolsPath)
+    resD = format_results(tumorSamplesFn, 'tumor', filterList, resultsDir, bedToolsPath)
     if normalSamplesFn != '':
-        normals = format_results(os.path.join(resultsDir, normalSamplesFn), 'normal', \
+        normals = format_results(normalSamplesFn, 'normal', \
                                  filterList, resultsDir, bedToolsPath)
-
-    '''
-    resD = {}
-    for line in sampleListF.readlines():
-        line = line.strip()
-        subProjId, sampleId = line.split("\t")
-        outFs = glob(jp(resultsDir, sampleId + '*svs.out'))
-        resD[sampleId] = {'recs':[], 'values':[]}
-        recIter = 1
-        resD[sampleId]['values'] = [subProjId, sampleId]
-        for outF in outFs:
-            recIter = process_res(subProjId, sampleId, outF, resD[sampleId]['recs'], recIter)
-
-    fbed = open('brkpts.bed', 'w')
-    for sid in resD:
-        for rec in resD[sid]['recs']:
-            rec.write_brkpt_bed(fbed)
-    fbed.close()
-
-    filterList = filters(filterFn)
-    annoDictFs = run_bedtools('brkpts.bed')
-    annotate_recs(resD, annoDictFs)
-    '''
 
     dataFrameFn =  'BreaKmer_Reports/' + projectCode + '_breaKmerData/%s_breakmer.df.txt' % projectId
     reportFn = 'BreaKmer_Reports/' + projectCode + '_breaKmerData/%s_breakmer.txt' % projectId
@@ -793,8 +700,6 @@ def processCohortResults(projectId, projectCode, resultsDir, bedToolsPath):
     outFileDict = {'report': reportFn,
                    'df': dataFrameFn,
                    'filtered': filteredFn,
-                   # 'sample': sampleSummaryFn,
-                   # 'target': targetSummaryFn,
                    'link': circosLinkFn,
                    'anno': circosAnnoFn}
 
