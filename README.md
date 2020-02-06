@@ -23,12 +23,13 @@ added steps for running scripts that was actually simpler in R. Additionally som
 we want to abstract and document as much as possible. That said, his project Metriq will be used as a starting point for the code/structure
 we want to replicate.
 
-Setup on ccgd-build
+Setup on ccgd2
 ===================
-1. Download Miniconda2: https://conda.io/miniconda.html
-2. Install miniconda2 to the /usr/local/miniconda2 directory.
-3. /usr/local/miniconda2/bin/pip install --upgrade pip
-4. /usr/local/miniconda2/bin/pip install -r requirements.txt
+1. Install CentOS 7 Dependency: yum install mariadb-devel
+1. Download Miniconda3: https://conda.io/miniconda.html
+2. Install miniconda3 to the /usr/local/miniconda3 directory.
+3. sudo -H /usr/local/miniconda3/bin/pip install --upgrade pip
+4. sudo -H /usr/local/miniconda3/bin/pip install -r requirements.txt
 5. Install bedtools (version 2.17.0): https://bedtools.readthedocs.io/en/latest/content/installation.html
    a. git clone  https://github.com/arq5x/bedtools2.git
    b. cd bedtools2
