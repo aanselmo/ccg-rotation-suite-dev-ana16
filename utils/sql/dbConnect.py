@@ -54,8 +54,18 @@ class DBconnect:
         self.port = DBConfigDict['port']
         self.user = DBConfigDict['user']
         self.passwd = DBConfigDict['password']
-        self.connection = mysql.connect(db=DBConfigDict['schema'], host=DBConfigDict['host'],
-                            port=DBConfigDict['port'], user=DBConfigDict['user'], passwd=DBConfigDict['password'])
+        
+        if (DBConfigDict['server_ca']):
+          self.server_ca = DBConfigDict['server_ca']
+          self.client_cert = DBConfigDict['client_cert']
+          self.client_key = DBConfigDict['client_key']
+          self.connection = mysql.connect(db=DBConfigDict['schema'], host=DBConfigDict['host'],
+              port=DBConfigDict['port'], user=DBConfigDict['user'], passwd=DBConfigDict['password'],
+              ssl={'ca' : DBConfigDict['server_ca'], 'key' : DBConfigDict['client_key'],
+                   'cert' : DBConfigDict['client_cert']})
+        else:
+          self.connection = mysql.connect(db=DBConfigDict['schema'], host=DBConfigDict['host'],
+              port=DBConfigDict['port'], user=DBConfigDict['user'], passwd=DBConfigDict['password'])
         # initiate connection to the db using the given credentials
         try:
             self.cursor = self.connection.cursor()
