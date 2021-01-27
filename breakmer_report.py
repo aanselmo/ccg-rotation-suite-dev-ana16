@@ -360,7 +360,9 @@ def main():
   resultsSummaryFilePath = ''.join([projectOutputDirectory, "/", 'BreaKmer_Summary.txt'])
   os.rename('BreaKmer_Summary.txt', resultsSummaryFilePath)
 
-  Rcmnd = RPath + " utils/BreaKmer/./generate_report.R " + projectCode + ' ' + projectOutputDirectory + '/'
+  Rcmnd = ("sudo docker run -it -v /home/nap24/bin/ccgd-rotation-suite:/mnt/ccgd-rotation-suite"
+          + " neil92/ccgd-rotation-scripts:3.16 bash -c 'cd /mnt/ccgd-rotation-suite && umask 002 &&"
+          + RPath + " utils/BreaKmer/generate_report.R " + projectCode + " " + projectOutputDirectory + "/'")
   print('running R command: ' + Rcmnd)
   os.system(Rcmnd)
 
