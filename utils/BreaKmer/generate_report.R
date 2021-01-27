@@ -14,7 +14,7 @@ project_code <- args[1]
 project_path <- args[2]
 
 require("XLConnect")
-require("RMySQL")
+library("RMariaDB")
 
 ############# global settings ##############################
 
@@ -25,8 +25,8 @@ projectPath <- "/media/isilon/Illumina/pipeline_riker/Project/"
 
 
 #Connect to riker using project code to retreive relevant info
-riker <- dbConnect(MySQL(), user="ccgd", password="cc9d_u53r", dbname="riker_db_july2013", host="ccgd2", client.flag=CLIENT_MULTI_STATEMENTS)
-riker_ver <- "riker_db_july2013"
+riker_ver <- "rikerDb"
+riker <- dbConnect(MariaDB(), default.file="./ssl/mysql.cnf", dbname=riker_ver)
 
 #profile database, when necessary
 #riker <- dbConnect(MySQL(), user="camd2", password="c4nc3r", dbname="riker_db_profile_production_may_2013", host="staging-camd.partners.org", client.flag=CLIENT_MULTI_STATEMENTS)

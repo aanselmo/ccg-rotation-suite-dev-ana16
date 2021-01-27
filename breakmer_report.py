@@ -103,7 +103,7 @@ def get_project_information(projectCode, dbConn):
   return (project_id, project_name, numberOfSamples)
 
 
-def prompt_and_filter_unfinished_agg_pairs(breaKmerDirectoriesQueryResults): 
+def prompt_and_filter_unfinished_agg_pairs(breaKmerDirectoriesQueryResults, projectCode): 
   unFinishedAgPairs = breaKmerDirectoriesQueryResults[
       (breaKmerDirectoriesQueryResults['status_id'] != 1) | 
       (breaKmerDirectoriesQueryResults['annotation_status_id'] != 1)]
@@ -345,7 +345,7 @@ def main():
           DBconfig['schema'] + "!!! Exiting...")
     sys.exit()
 
-  breaKmerDirectoriesQueryResults = prompt_and_filter_unfinished_agg_pairs(breaKmerDirectoriesQueryResults)
+  breaKmerDirectoriesQueryResults = prompt_and_filter_unfinished_agg_pairs(breaKmerDirectoriesQueryResults, projectCode)
   breaKmerDirectoriesQueryResults = prompt_and_filter_missing_breakmer_dirs(breaKmerDirectoriesQueryResults)
   breakmerParentDirectories = update_mount_point_prefix(breaKmerDirectoriesQueryResults, mount_point)
   projectOutputDirectory = prompt_and_create_output_dir(projectCode)
@@ -360,7 +360,9 @@ def main():
   resultsSummaryFilePath = ''.join([projectOutputDirectory, "/", 'BreaKmer_Summary.txt'])
   os.rename('BreaKmer_Summary.txt', resultsSummaryFilePath)
 
-  Rcmnd = RPath + " utils/BreaKmer/./generate_report.R " + projectCode + ' ' + projectOutputDirectory + '/'
+  Rcmnd = ("sudo docker run -it -v /home/nap24/bin/ccgd-rotation-suite:/mnt/ccgd-rotation-suite"
+          + " neil92/ccgd-rotation-scripts:3.16 bash -c 'cd /mnt/ccgd-rotation-suite && umask 002 &&"
+          + RPath + " utils/BreaKmer/generate_report.R " + projectCode + " " + projectOutputDirectory + "/'")
   print('running R command: ' + Rcmnd)
   os.system(Rcmnd)
 
