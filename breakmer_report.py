@@ -123,7 +123,7 @@ def prompt_and_filter_unfinished_agg_pairs(breaKmerDirectoriesQueryResults, proj
       agPairIDString = (",").join([str(agPairID) for agPairID in unFinishedAgPairs.aggregate_pair_id.iloc[:,0]])
       print("nohup ./AggregatePairAnalysisforAnalysisTools.pm -AggregatePairId "
           + agPairIDString + " -AnalysisTool Breakmer_0.0.6 "
-          + " -config ./Riker.ccgd.argos.config &> log/AnalysisTools_"
+          + " -config ./Riker.ccgd.clouddb.config &> log/AnalysisTools_"
           + projectCode + "_breakmer.txt &")
       sys.exit()
     else:
