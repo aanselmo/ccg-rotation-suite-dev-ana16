@@ -23,3 +23,7 @@ openpyxl==2.5.4
 
 # For co-mutation plot:
 dill==0.2.8.2
+
+# For low-coverage
+pyensembl==1.9.1
+simplejson==3.17.4
