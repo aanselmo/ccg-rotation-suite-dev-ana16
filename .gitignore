@@ -1,1 +1,11 @@
 *.pyc
+
+
+BreaKmer_Reports/*
+
+*.xlsx
+*.csv
+low-coverage/*
+*.png
+*.pickle
+*.log
