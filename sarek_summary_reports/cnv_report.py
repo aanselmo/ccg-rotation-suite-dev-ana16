@@ -9,9 +9,16 @@ __credits__ = ["Neil A. Patel"]
 
 import argparse
 import gzip
+from os import makedirs
+from datetime import date
+from os.path import dirname, abspath, basename, join
+from glob import glob
 import xlsxwriter
 import polars as pl
 import narwhals.stable.v2 as nw
+
+
+AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
 
 
 def setup_arguments():
@@ -21,6 +28,7 @@ def setup_arguments():
   parser.add_argument("-p", "--project", dest="project_code", type=str, default="",
                       help="The project code for the report. Used to generate filename with the project_code in it.")
   parser.add_argument("-r", "--reference", "genome_reference", type=str, default="GRCh37",
+                      choices=AVAILABLE_GENOME_VERSIONS,
                       help="The Genome Version. Options are 'GRCh37' or 'GRCh38'.")
   parser.add_argument("-b" "--bucket-folder", dest="bucket_folder", default="", type=str,
                       help=("The sarek base folder with all of the other files within it. You can either enter this"
@@ -48,6 +56,52 @@ def validate_arguments(args, parser: argparse.ArgumentParser):
   Validate that you entered in the arguments correctly. If they're not, it raises an error and the
   script exits.
   """
+  if args.bucket_folder:
+    if (args.mos_files or args.cnr_files or args.cns_files, args.gene_files, args.vcf_files):
+      parser.error("No files should be specified if --bucket-folder is specified.")
+
+
+def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], list[str], list[str], list[str]]:
+  """
+  Gather all the files.
+  :param args argparse.Namespace: All arguments for the script
+  :returns tuple[5 lists]: 5 lists of file paths (mos_files, cnr_files, cns_files, gene_files, vcf_files) 
+  """
+  mos_files = []
+  cnr_files = []
+  cns_files = []
+  gene_files = []
+  vcf_files = []
+  if not args.mos_files:
+    mos_files = glob(f"{args.bucket_folder}/reports/mosdepth/*/*.recal.mosdepth.summary.txt")
+  else:
+    mos_files = args.mos_files
+  
+  if not args.cnr_files:
+    cnr_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.cnr")
+  else:
+    cnr_files = args.cnr_files
+  
+  if not args.cns_files:
+    cns_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.cns")
+    # Remove call.cns files which are basically duplicates. In this case, we want the ones without call in filenames
+    # because they have more segment calls which will lower the median absolute deviation (MAD) scores.
+    for one_file in cns_files:
+      if "call" in one_file:
+        cns_files.remove(one_file)
+  else:
+    cns_files = args.cns_files
+  
+  if not args.gene_files:
+    gene_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.genemetrics.tsv")
+  else:
+    gene_files = args.gene_files
+  
+  if not args.vcf_files:
+    vcf_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.cnvcall.vcf")
+  else:
+    vcf_files = args.vcf_files
+  return (mos_files, cnr_files, cns_files, gene_files, vcf_files)
 
 
 def derive_chromosomal_arms(genome_version: str) -> nw.DataFrame:
@@ -56,9 +110,16 @@ def derive_chromosomal_arms(genome_version: str) -> nw.DataFrame:
   https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/cytoBand.txt.gz
   """
   l_genome = genome_version.lower()
+  cytoband_data = nw.from_native(pl.DataFrame({}))
   with gzip.open(f'{l_genome}CytoBand.txt.gz', 'rb') as cytoband_file:
-    nw.read_csv()
+    cytoband_data = pl.read_csv(cytoband_file, separator="\t", has_header=False)
     # Aggregate by arm substring
+    cytoband_data = nw.from_native(cytoband_data)
+    cytoband_data.columns = ["chromosome", "start", "end", "band", "stain"]
+    cytoband_data = cytoband_data.with_columns(arm=nw.col("band").str.slice(1))
+    cytoband_data = cytoband_data.drop("band", "stain")
+    cytoband_data.group_by("arm").agg(nw.col("start").min(), nw.col("end").max())
+  return cytoband_data
 
 
 def gather_qc_metrics() -> nw.DataFrame:
@@ -71,7 +132,7 @@ def graph_qc_metrics():
   """
   Create 2 QC graphs:
   1. Mean target coverage (MTC) histogram
-  2. Median absolute coverage (MAD) histogram.
+  2. Median absolute deviation (MAD) histogram.
   """
 
 
@@ -98,12 +159,19 @@ def main():
   Runs the whole script.
   """
   args = setup_arguments()
+  output_file_name = args.output_file_name
+  today = date.today().strftime('%Y%m%d')
+  if output_file_name == "output.xlsx" and args.project_code:
+    project_report_dir = f"{args.project_code}_Reports"
+    makedirs(project_report_dir, exist_ok=True)
+    output_file_name = join(project_report_dir, f"{today}_{args.project_code.lower()}_cnvkit_report.xlsx")
   chromosomal_arms = derive_chromosomal_arms(args.genome_version)
-  qc_metrics = gather_qc_metrics()
+  (mos_files, cnr_files, cns_files, gene_files, vcf_files) = gather_input_files(args)
+  qc_metrics = gather_qc_metrics(mos_files, cnr_files, cns_files)
   graph_qc_metrics()
-  cnv_variants = gather_cnv_variants()
-  gene_summary = summarize_gene_level()
-  arm_summary = summarize_chromosome_arm_level()
+  cnv_variants = gather_cnv_variants(vcf_files)
+  gene_summary = summarize_gene_level(gene_files)
+  arm_summary = summarize_chromosome_arm_level(chromosomal_arms, cnv_variants)
 
 
 if __name__ == "__main__":
