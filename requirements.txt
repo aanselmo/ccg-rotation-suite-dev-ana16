@@ -1,27 +1,11 @@
-# These are requirements for the BreaKmer_report.py script
-
-#YAML package
-pyyaml==3.13
-
-# Requirements for pandas:
-pytz==2018.5
-numpy==1.13.3
-python-dateutil==2.7.3
-
-# Pandas, itself:
-pandas==0.23.3
-
-# To connect to the riker database:
-mysqlclient==1.3.13
-
-# Requirements for openpyxl:
-jdcal==1.4
-et-xmlfile==1.0.1
-
-# To work with excel documents:
-openpyxl==2.5.4
+# Sarek script requirements
+xlsxwriter==3.2.9
+polars==1.36.1
+narwhals==2.14.0
+matplotlib==3.10.8
 
 # For co-mutation plot:
+pandas==0.23.3
 dill==0.2.8.2
 
 # For low-coverage
