@@ -9,3 +9,6 @@ low-coverage/*
 *.png
 *.pickle
 *.log
+
+# For trial and error scratch code I write.
+scratch/*
