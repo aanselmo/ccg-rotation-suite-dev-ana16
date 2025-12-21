@@ -18,7 +18,8 @@ import asyncio
 import xlsxwriter
 import polars as pl
 import narwhals.stable.v2 as nw
-from cnv_lib.qc import get_qc_metrics, graph_qc_metrics
+from cnv_lib.qc_sheet import get_qc_metrics, graph_qc_metrics
+from cnv_lib.variant_sheet import get_cnv_variants
 
 
 AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
@@ -50,6 +51,9 @@ def setup_arguments():
   parser.add_argument("-s" "--cns-files", "cns_files", default=[], action="extend", nargs="+",
                       help=("A list of paths to .cns files with segment calls in them. Use the most unfiltered ones"
                             + " i.e. the .cns files not .call.cns or .tumor_only.call.cns"))
+  parser.add_argument("-t" "--tumor-cns-files", "tumor_cns_files", default=[], action="extend", nargs="+",
+                      help=("A list of paths to .cns files with segment calls in them. Use the .tumor_only.call.cns."
+                            + "These files have a cn column (copy number calls)."))
   # Gene summary sheet
   parser.add_argument("-g" "--gene-files", "gene_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .genemetrics.tsv files with gene summaries in them.")
@@ -79,6 +83,7 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
   mos_files = []
   cnr_files = []
   cns_files = []
+  tumor_cns_files = []
   gene_files = []
   vcf_files = []
   if not args.mos_files:
@@ -98,6 +103,8 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
     for one_file in cns_files:
       if "call" in one_file:
         cns_files.remove(one_file)
+        if "tumor_only" in one_file:
+          tumor_cns_files.append(one_file)
   else:
     cns_files = args.cns_files
 
@@ -110,7 +117,7 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
     vcf_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.cnvcall.vcf")
   else:
     vcf_files = args.vcf_files
-  return (mos_files, cnr_files, cns_files, gene_files, vcf_files)
+  return (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files)
 
 
 def derive_chromosomal_arms(genome_version: str) -> nw.LazyFrame:
@@ -135,10 +142,6 @@ def derive_chromosomal_arms(genome_version: str) -> nw.LazyFrame:
   return cytoband_data.collect()
 
 
-def get_cnv_variants() -> nw.LazyFrame:
-  """
-  A dump of all the official CNV variants output by cnvkit.
-  """
 
 
 def summarize_gene_level() -> nw.LazyFrame:
@@ -165,24 +168,25 @@ async def main():
     makedirs(project_report_dir, exist_ok=True)
     output_file_name = join(project_report_dir, f"{today}_{args.project_code.lower()}_cnvkit_report.xlsx")
   chromosomal_arms = derive_chromosomal_arms(args.genome_version)
-  (mos_files, cnr_files, cns_files, gene_files, vcf_files) = gather_input_files(args)
+  (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files) = gather_input_files(args)
   qc_metrics = nw.from_native(pl.LazyFrame({}))
   cnv_variants = nw.from_native(pl.LazyFrame({}))
   gene_summary = nw.from_native(pl.LazyFrame({}))
   arm_summary = nw.from_native(pl.LazyFrame({}))
   if mos_files and cnr_files and cns_files:
     qc_task = asyncio.create_task(
-      get_qc_metrics(mos_files, cnr_files, cns_files, args.total_processes, args.bucket_dir)
+        get_qc_metrics(mos_files, cnr_files, cns_files, args.total_processes, args.bucket_dir)
     )
     qc_metrics = await qc_task
-    graph_qc_metrics(qc_metrics)
+    graph_qc_task = asyncio.create_task(graph_qc_metrics(qc_metrics))
   if vcf_files:
-    cnv_variants = get_cnv_variants(vcf_files)
+    cnv_variants = get_cnv_variants(vcf_files, tumor_cns_files, args.total_processes)
   if gene_files:
     gene_summary = summarize_gene_level(gene_files)
   if cnv_variants:
     arm_summary = summarize_chromosome_arm_level(chromosomal_arms, cnv_variants)
-
+  if mos_files and cnr_files and cns_files:
+    (mtc_hist_mem_loc, mad_hist_mem_loc) = await graph_qc_task
 
 if __name__ == "__main__":
   asyncio.run(main())

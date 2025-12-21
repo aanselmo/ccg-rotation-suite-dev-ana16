@@ -1,21 +1,21 @@
 #!/usr/local/miniforge3/bin/python
 
 """
-Gathers the QC Data for the CNV report.
+Gathers the data for the QC Sheet in the CNV report.
 """
 
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
-from os.path import dirname, abspath, basename, join
-from glob import glob
+from os.path import dirname
 from concurrent.futures import ProcessPoolExecutor
-import multiprocessing as mp
+from multiprocessing import get_context
 import asyncio
-import polars as pl
-import narwhals.stable.v2 as nw
 import subprocess
 import io
+import polars as pl
+import narwhals.stable.v2 as nw
+import matplotlib.pyplot as plt
 
 MOS_FILES_COL = "mos_files"
 CNR_FILES_COL = "cnr_files"
@@ -91,7 +91,7 @@ async def get_qc_metrics(
   just_cnr_cns = just_cnr_cns.drop_nulls().collect()
   cnvkit_task = asyncio.create_task(run_cnvkit_metrics(just_cnr_cns, bucket_dir))
   mtc_results = []
-  with ProcessPoolExecutor(max_workers=total_processes, mp_context=mp.get_context("spawn")) as read_files_pool:
+  with ProcessPoolExecutor(max_workers=total_processes, mp_context=get_context("spawn")) as read_files_pool:
     mtc_results = list(read_files_pool.map(get_one_sample_mtc, mos_files))
   mtc_df = nw.from_native(pl.LazyFrame(mtc_results, orient="row", schema=[MOS_FILES_COL, MTC_COL]))
   all_qc_data = all_qc_files.join(mtc_df, MOS_FILES_COL, how="full")
@@ -103,9 +103,20 @@ async def get_qc_metrics(
   return qc_metrics_without_filenames
 
 
-def graph_qc_metrics():
+async def graph_qc_metrics(qc_metrics: nw.DataFrame):
   """
   Create 2 QC graphs:
   1. Mean target coverage (MTC) histogram
   2. Median absolute deviation (MAD) histogram.
   """
+  plt.hist(qc_metrics.get_column(MTC_COL))
+  plt.ylabel("Number of Samples")
+  plt.xlabel("Mean Target Coverage (MTC)")
+  mtc_hist_mem_loc = io.BytesIO()
+  plt.savefig(mtc_hist_mem_loc, format="png")
+  plt.hist(qc_metrics.get_column(MTC_COL))
+  plt.ylabel("Number of Samples")
+  plt.xlabel("Median Absolute Deviation (MAD)")
+  mad_hist_mem_loc = io.BytesIO()
+  plt.savefig(mad_hist_mem_loc, format="png")
+  return (mtc_hist_mem_loc, mad_hist_mem_loc)
