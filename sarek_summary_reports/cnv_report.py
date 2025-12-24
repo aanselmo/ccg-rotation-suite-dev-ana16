@@ -13,13 +13,14 @@ from os import makedirs
 from datetime import date
 from os.path import dirname, abspath, basename, join
 from glob import glob
-from multiprocessing import get_context
 import asyncio
 import xlsxwriter
 import polars as pl
 import narwhals.stable.v2 as nw
 from cnv_lib.qc_sheet import get_qc_metrics, graph_qc_metrics
-from cnv_lib.variant_sheet import get_cnv_variants
+from cnv_lib.variant_sheet import get_cnv_variants, CHROMOSOME_COL, START_COL, END_COL
+from cnv_lib.gene_sheet import summarize_gene_level
+from cnv_lib.chromosome_sheet import summarize_chromosome_arm_level, ARM_COL
 
 
 AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
@@ -124,6 +125,9 @@ def derive_chromosomal_arms(genome_version: str) -> nw.LazyFrame:
   """
   Derives the chromosomal arms from USCS cytoband file. Downloaded from:
   https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/cytoBand.txt.gz
+  UCSC uses a half open system for coordinates for 0 based counting:
+  https://genome-blog.gi.ucsc.edu/blog/2016/12/12/the-ucsc-genome-browser-coordinate-counting-systems/
+  :return nw.LazyFrame: A dataframe with the columns "chromosome", "arm", "start", "end"
   """
   l_genome = genome_version.lower()
   cytoband_data = nw.from_native(pl.LazyFrame({}))
@@ -132,28 +136,14 @@ def derive_chromosomal_arms(genome_version: str) -> nw.LazyFrame:
         cytoband_file,
         separator="\t",
         has_header=False,
-        new_columns=["chromosome", "start", "end", "band", "stain"]
+        new_columns=[CHROMOSOME_COL, START_COL, END_COL, "band", "stain"]
     )
     # Aggregate by arm substring
     cytoband_data = nw.from_native(cytoband_data)
     cytoband_data = cytoband_data.with_columns(arm=nw.col("band").str.slice(offset=0, length=1))  # first letter: p/q
     cytoband_data = cytoband_data.drop("band", "stain")
-    cytoband_data = cytoband_data.group_by("chromosome", "arm").agg(nw.col("start").min(), nw.col("end").max())
+    cytoband_data = cytoband_data.group_by(CHROMOSOME_COL, ARM_COL).agg(nw.col(START_COL).min(), nw.col(END_COL).max())
   return cytoband_data.collect()
-
-
-
-
-def summarize_gene_level() -> nw.LazyFrame:
-  """
-  Summarizes all the calls (gains/losses) by gene.
-  """
-
-
-def summarize_chromosome_arm_level() -> nw.LazyFrame:
-  """
-  Summarizes all the calls (gains/losses) by chromosomal arm.
-  """
 
 
 async def main():
@@ -169,24 +159,33 @@ async def main():
     output_file_name = join(project_report_dir, f"{today}_{args.project_code.lower()}_cnvkit_report.xlsx")
   chromosomal_arms = derive_chromosomal_arms(args.genome_version)
   (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files) = gather_input_files(args)
+  qc_task: asyncio.Task | None = None
+  gene_summary_task: asyncio.Task | None = None
+  arm_summary_task: asyncio.Task | None = None
   qc_metrics = nw.from_native(pl.LazyFrame({}))
   cnv_variants = nw.from_native(pl.LazyFrame({}))
   gene_summary = nw.from_native(pl.LazyFrame({}))
   arm_summary = nw.from_native(pl.LazyFrame({}))
+  # Start Tasks with asyncio
   if mos_files and cnr_files and cns_files:
     qc_task = asyncio.create_task(
         get_qc_metrics(mos_files, cnr_files, cns_files, args.total_processes, args.bucket_dir)
     )
-    qc_metrics = await qc_task
-    graph_qc_task = asyncio.create_task(graph_qc_metrics(qc_metrics))
-  if vcf_files:
-    cnv_variants = get_cnv_variants(vcf_files, tumor_cns_files, args.total_processes)
   if gene_files:
-    gene_summary = summarize_gene_level(gene_files)
+    gene_summary_task = asyncio.create_task(summarize_gene_level(gene_files))
+  if vcf_files:
+    cnv_variants = await get_cnv_variants(vcf_files, tumor_cns_files, args.total_processes)
   if cnv_variants:
-    arm_summary = summarize_chromosome_arm_level(chromosomal_arms, cnv_variants)
-  if mos_files and cnr_files and cns_files:
-    (mtc_hist_mem_loc, mad_hist_mem_loc) = await graph_qc_task
+    arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(chromosomal_arms, cnv_variants))
+  # Await Tasks
+  if qc_task is not None:
+    qc_metrics = await qc_task
+    (mtc_hist_mem_loc, mad_hist_mem_loc) = await graph_qc_metrics(qc_metrics)
+  if gene_summary_task is not None:
+    gene_summary = await gene_summary_task
+  if arm_summary_task is not None:
+    arm_summary = await arm_summary_task
+  
 
 if __name__ == "__main__":
   asyncio.run(main())

@@ -3,5 +3,12 @@
   "editor.rulers": [
       120
   ],
-  "files.eol": "\n"
+  "files.eol": "\n",
+  "cSpell.words": [
+    "cnvkit",
+    "cytoband",
+    "sarek",
+    "xlabel",
+    "ylabel"
+  ]
 }

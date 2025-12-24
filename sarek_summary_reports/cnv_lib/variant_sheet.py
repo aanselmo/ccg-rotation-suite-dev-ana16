@@ -8,20 +8,19 @@ __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
 from os.path import dirname
-from concurrent.futures import ProcessPoolExecutor
-from multiprocessing import get_context
 import asyncio
-import subprocess
-import io
 import polars as pl
 import narwhals.stable.v2 as nw
-import matplotlib.pyplot as plt
 from qc_sheet import BASENAME_COL
 
 
 TUMOR_CNS_FILES_COL = "tumor_cns_files"
 VCF_FILES_COL = "vcf_files"
 SKIP_VCF_LINES = 19
+CHROMOSOME_COL = "chromosome"
+START_COL = "start"
+END_COL = "end"
+COPY_NUMBER_COL = "copy_number"
 
 
 def organize_variant_files(vcf_files: list[str], tumor_cns_files: list[str]) -> nw.LazyFrame:
@@ -45,17 +44,21 @@ def get_one_sample_variants(sample_files: tuple[str, str, str]) -> nw.LazyFrame:
   filtered_tumor_cns_df = tumor_cns_df.join(vcf_df, on=["chromosome", "start"], how="inner")
   filtered_tumor_cns_df = filtered_tumor_cns_df.with_columns(sample=basename)
   filtered_tumor_cns_df = filtered_tumor_cns_df.select((["sample"] + tumor_cns_df.columns))
+  filtered_tumor_cns_df = filtered_tumor_cns_df.remove(nw.col("chromosome") == "X" | nw.col("chromosome") == "Y" )
   return filtered_tumor_cns_df.collect()
 
 
-def get_cnv_variants(vcf_files: list[str], tumor_cns_files: list[str], total_processes=3) -> nw.LazyFrame:
+async def get_cnv_variants(vcf_files: list[str], tumor_cns_files: list[str]) -> nw.LazyFrame:
   """
   A dump of all the official CNV variants output by cnvkit.
+  :return nw.LazyFrame: A DataFrame with the columns: chromsome, start, end, gene, log2, basename, gene, ci_hi, ci_lo,
+      copy_number, depth, probes, weight.
   """
   all_variant_files = organize_variant_files(vcf_files, tumor_cns_files)
   rows_all_variant_files = all_variant_files.rows()
   all_variants = nw.from_native(pl.LazyFrame({}))
-  with ProcessPoolExecutor(max_workers=total_processes, mp_context=get_context("spawn")) as read_files_pool:
-    all_variants = list(read_files_pool.map(get_one_sample_variants, rows_all_variant_files))
-  all_variants = pl.concat(all_variants, how="vertical_relaxed")
+  for row in rows_all_variant_files:
+    one_sample_variants = get_one_sample_variants(row)
+    all_variants = nw.concat([all_variants, one_sample_variants], how="vertical")
+  all_variant_files.rename({"cn" : COPY_NUMBER_COL})
   return all_variants.collect()

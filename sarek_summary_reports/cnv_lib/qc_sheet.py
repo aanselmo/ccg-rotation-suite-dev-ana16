@@ -7,9 +7,7 @@ Gathers the data for the QC Sheet in the CNV report.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
-from os.path import dirname
-from concurrent.futures import ProcessPoolExecutor
-from multiprocessing import get_context
+from os.path import dirname, basename
 import asyncio
 import subprocess
 import io
@@ -22,7 +20,6 @@ CNR_FILES_COL = "cnr_files"
 CNS_FILES_COL = "cns_files"
 BASENAME_COL = "basename"
 MTC_COL = "Mean Target Coverage (MTC)"
-
 
 def organize_qc_files(
     mos_files: list[str],
@@ -37,8 +34,11 @@ def organize_qc_files(
   cns_df = nw.from_native(pl.LazyFrame({CNS_FILES_COL: cns_files}))
   mos_df = mos_df.with_columns(basename=nw.col(mos_df.col(
       MOS_FILES_COL).str.replace(".recal.mosdepth.summary.txt", "")))
+  mos_df = mos_df.with_columns(nw.col(BASENAME_COL).map_batches(lambda filename: basename(filename)))
   cnr_df = cnr_df.with_columns(basename=nw.col(cnr_df.col(CNR_FILES_COL).str.replace(".cnr", "")))
+  cnr_df = cnr_df.with_columns(nw.col(BASENAME_COL).map_batches(lambda filename: basename(filename)))
   cns_df = cns_df.with_columns(basename=nw.col(cns_df.col(CNS_FILES_COL).str.replace(".cns", "")))
+  cns_df = cns_df.with_columns(nw.col(BASENAME_COL).map_batches(lambda filename: basename(filename)))
   all_qc_files = mos_df.join(cnr_df, BASENAME_COL, how="full")
   all_qc_files = all_qc_files.join(cnr_df, BASENAME_COL, how="full")
   return all_qc_files.collect()
@@ -76,7 +76,6 @@ async def get_qc_metrics(
     mos_files: list[str],
     cnr_files: list[str],
     cns_files: list[str],
-    total_processes=3,
     bucket_dir=""
 ) -> nw.LazyFrame:
   """
@@ -91,8 +90,9 @@ async def get_qc_metrics(
   just_cnr_cns = just_cnr_cns.drop_nulls().collect()
   cnvkit_task = asyncio.create_task(run_cnvkit_metrics(just_cnr_cns, bucket_dir))
   mtc_results = []
-  with ProcessPoolExecutor(max_workers=total_processes, mp_context=get_context("spawn")) as read_files_pool:
-    mtc_results = list(read_files_pool.map(get_one_sample_mtc, mos_files))
+  for one_mos_file in mos_files:
+    one_sample_mtc = get_one_sample_mtc(one_mos_file)
+    mtc_results.append(one_sample_mtc)
   mtc_df = nw.from_native(pl.LazyFrame(mtc_results, orient="row", schema=[MOS_FILES_COL, MTC_COL]))
   all_qc_data = all_qc_files.join(mtc_df, MOS_FILES_COL, how="full")
   cnvkit_metrics = await cnvkit_task

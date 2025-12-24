@@ -5,7 +5,7 @@ narwhals==2.14.0
 matplotlib==3.10.8
 
 # For co-mutation plot:
-pandas==0.23.3
+pandas
 dill==0.2.8.2
 
 # For low-coverage
