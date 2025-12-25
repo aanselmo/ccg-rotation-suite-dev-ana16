@@ -17,10 +17,10 @@ import asyncio
 import xlsxwriter
 import polars as pl
 import narwhals.stable.v2 as nw
-from cnv_lib.qc_sheet import get_qc_metrics, graph_qc_metrics
-from cnv_lib.variant_sheet import get_cnv_variants, CHROMOSOME_COL, START_COL, END_COL
-from cnv_lib.gene_sheet import summarize_gene_level
-from cnv_lib.chromosome_sheet import summarize_chromosome_arm_level, ARM_COL
+from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
+from lib.cnv.variant_sheet import get_cnv_variants, CHROMOSOME_COL, START_COL, END_COL
+from lib.cnv.gene_sheet import summarize_gene_level
+from sarek_summary_reports.lib.cnv.chromosome_sheet import summarize_chromosome_arm_level, ARM_COL
 
 
 AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
@@ -115,13 +115,13 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
   return (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files)
 
 
-def derive_chromosomal_arms(genome_version: str) -> nw.LazyFrame:
+def derive_chromosomal_arms(genome_version: str) -> nw.DataFrame:
   """
   Derives the chromosomal arms from USCS cytoband file. Downloaded from:
   https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/cytoBand.txt.gz
   UCSC uses a half open system for coordinates for 0 based counting:
   https://genome-blog.gi.ucsc.edu/blog/2016/12/12/the-ucsc-genome-browser-coordinate-counting-systems/
-  :return nw.LazyFrame: A dataframe with the columns "chromosome", "arm", "start", "end"
+  :return nw.DataFrame: A dataframe with the columns "chromosome", "arm", "start", "end"
   """
   l_genome = genome_version.lower()
   cytoband_data = nw.from_native(pl.LazyFrame({}))
@@ -170,7 +170,7 @@ async def main():
   if vcf_files:
     cnv_variants = await get_cnv_variants(vcf_files, tumor_cns_files)
   if cnv_variants:
-    arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(chromosomal_arms, cnv_variants))
+    arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(chromosomal_arms.lazy(), cnv_variants.lazy()))
   # Await Tasks
   if qc_task is not None:
     qc_metrics = await qc_task
