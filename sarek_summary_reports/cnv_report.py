@@ -38,12 +38,6 @@ def setup_arguments():
   parser.add_argument("-b" "--bucket-folder", dest="bucket_folder", default="", type=str,
                       help=("The sarek base folder with all of the other files within it. You can either enter this"
                             + "or pass all the files individually."))
-  parser.add_argument("-p", "--processes", type=int, required=False, default=3, dest="total_processes",
-                      help=(
-                          "The number of processes to allocate for parallel jobs. I haven't added threads because"
-                          + " the documentation for google.cloud.storage says it's unlikely to change anything."
-                          + " The default is 3 because there are 4 cpu cores on the nextflow4 server."
-                      ))
   # These 3 types of files are for the QC metrics sheet
   parser.add_argument("-m" "--mos-files", "mos_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .recal.mosdepth.summary.txt files with mean coverage in them.")
@@ -162,19 +156,19 @@ async def main():
   qc_task: asyncio.Task | None = None
   gene_summary_task: asyncio.Task | None = None
   arm_summary_task: asyncio.Task | None = None
-  qc_metrics = nw.from_native(pl.LazyFrame({}))
-  cnv_variants = nw.from_native(pl.LazyFrame({}))
-  gene_summary = nw.from_native(pl.LazyFrame({}))
-  arm_summary = nw.from_native(pl.LazyFrame({}))
+  qc_metrics = nw.from_native(pl.DataFrame({}))
+  cnv_variants = nw.from_native(pl.DataFrame({}))
+  gene_summary = nw.from_native(pl.DataFrame({}))
+  arm_summary = nw.from_native(pl.DataFrame({}))
   # Start Tasks with asyncio
   if mos_files and cnr_files and cns_files:
     qc_task = asyncio.create_task(
-        get_qc_metrics(mos_files, cnr_files, cns_files, args.total_processes, args.bucket_dir)
+        get_qc_metrics(mos_files, cnr_files, cns_files, args.bucket_dir)
     )
   if gene_files:
     gene_summary_task = asyncio.create_task(summarize_gene_level(gene_files))
   if vcf_files:
-    cnv_variants = await get_cnv_variants(vcf_files, tumor_cns_files, args.total_processes)
+    cnv_variants = await get_cnv_variants(vcf_files, tumor_cns_files)
   if cnv_variants:
     arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(chromosomal_arms, cnv_variants))
   # Await Tasks

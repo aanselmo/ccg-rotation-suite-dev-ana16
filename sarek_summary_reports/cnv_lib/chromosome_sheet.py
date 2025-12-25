@@ -8,9 +8,6 @@ Gathers the data for the Summary Sheet by Chromosomal Arm in the CNV report.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
-from os.path import dirname, basename
-import asyncio
-import polars as pl
 import narwhals.stable.v2 as nw
 from qc_sheet import BASENAME_COL
 from variant_sheet import CHROMOSOME_COL, START_COL, END_COL, COPY_NUMBER_COL
@@ -19,38 +16,68 @@ from gene_sheet import GAIN_AND_LOSS_COL, GAIN_COL, LOSS_COL, DIPLOID
 ARM_COL = "arm"
 
 
-async def summarize_chromosome_arm_level(chromosomal_arms: nw.LazyFrame, cnv_variants: nw.LazyFrame) -> nw.LazyFrame:
+async def summarize_chromosome_arm_level(chromosomal_arms: nw.LazyFrame, cnv_variants: nw.LazyFrame) -> nw.DataFrame:
   """
   Summarizes all the calls (gains/losses) by chromosomal arm.
   :param cnv_variants nw.LazyFrame: All the variants in all samples excluding those on the X & Y chromosome.
   """
-  summary_chromosomal_arm = chromosomal_arms.with_columns(
-      nw.col(0).alias(GAIN_COL),
-      nw.col(0).alias(LOSS_COL),
-      nw.col(0).alias(GAIN_AND_LOSS_COL),
+  chromosomal_arms = chromosomal_arms.filter((nw.col(CHROMOSOME_COL) != "chrX") & (nw.col(CHROMOSOME_COL) != "chrY"))
+  chromosomal_arms = chromosomal_arms.with_columns(
+      nw.col(CHROMOSOME_COL).str.replace("chr", "").cast(nw.Int8).alias(CHROMOSOME_COL)
   )
-  all_samples = cnv_variants.select(nw.col(BASENAME_COL)).group_by(BASENAME_COL)
-  summary_chromosomal_arm = summary_chromosomal_arm.join(other=all_samples, how="cross")
-  for variant in cnv_variants.iter_rows():  # Or similar function
-    (chromosome, start, end, gene, log2, basename, gene, ci_hi, ci_lo,
-     copy_number, depth, probes, weight) = variant
-    column_to_add_to = ""
-    if copy_number > DIPLOID:
-      column_to_add_to = GAIN_COL
-    if copy_number < DIPLOID:
-      column_to_add_to = LOSS_COL
-    # Because of half-open coordinates:
-    # https://genome-blog.gi.ucsc.edu/blog/2016/12/12/the-ucsc-genome-browser-coordinate-counting-systems/
-    # +1 if cnv_variant.start is in between (>= or <) start & end of p arm
-    # +1 if cnv_variant.end is in between (>= or <) start & end of q arm
-    arm_to_add_to = ""
-    chromosomal_arms.filter((nw.col(CHROMOSOME_COL) == chromosome) & (nw.col(CHROMOSOME_COL) == chromosome))
-    summary_chromosomal_arm.with_columns(
-        pl.when(
-            (pl.col(BASENAME_COL) == basename)
-            & (pl.col(CHROMOSOME_COL) == chromosome)
-            & (pl.col(ARM_COL) == )
-        ).then(pl.col(column_to_add_to) + 1)
-        .otherwise(pl.col(column_to_add_to))
-        .alias(column_to_add_to)
-    )
+  # Drop some columns to save memory in the next step.
+  cnv_variants = cnv_variants.select([
+      nw.col(CHROMOSOME_COL),
+      nw.col(START_COL),
+      nw.col(END_COL),
+      nw.col(COPY_NUMBER_COL),
+      nw.col(BASENAME_COL)
+  ])
+  # The cross product is memory intensive, but computationally not. Easy for polars to do matrix math.
+  # I think it'll take less than 5 MB of memory
+  variants_per_arm = (cnv_variants.join(chromosomal_arms, how="cross"))
+  # Categorize gain or loss to sum later.
+  # Because of half-open coordinates:
+  # https://genome-blog.gi.ucsc.edu/blog/2016/12/12/the-ucsc-genome-browser-coordinate-counting-systems/
+  # +1 if cnv_variant.start is in between (>= or <) start & end of p arm
+  # +1 if cnv_variant.end is in between (>= or <) start & end of q arm
+  variants_per_arm = variants_per_arm.with_columns(
+      nw.when(
+          (nw.col(COPY_NUMBER_COL) > DIPLOID)
+          & (nw.col(CHROMOSOME_COL) == nw.col("chromosome_right"))
+          & (nw.col(START_COL) >= nw.col("start_right"))
+          & (nw.col(END_COL) < nw.col("end_right"))
+      ).then(1).otherwise(0).alias(GAIN_COL),
+      nw.when(
+          (nw.col(COPY_NUMBER_COL) < DIPLOID)
+          & (nw.col(CHROMOSOME_COL) == nw.col("chromosome_right"))
+          & (nw.col(START_COL) >= nw.col("start_right"))
+          & (nw.col(END_COL) < nw.col("end_right"))
+      ).then(1).otherwise(0).alias(LOSS_COL)
+  )
+  # Sum to create summary table.
+  variants_per_arm = variants_per_arm.group_by(BASENAME_COL, "chromosome_right", ARM_COL, "start_right", "end_right").agg(
+      nw.col(GAIN_COL).sum(),
+      nw.col(LOSS_COL).sum()
+  )
+  variants_per_arm = variants_per_arm.with_columns(
+      nw.when(nw.col(GAIN_COL) > 0).then(1).otherwise(0).alias(GAIN_COL),
+      nw.when(nw.col(LOSS_COL) > 0).then(1).otherwise(0).alias(LOSS_COL),
+  )
+  is_gain_and_loss = (nw.col(GAIN_COL) == 1) & (nw.col(LOSS_COL) == 1)
+  variants_per_arm = variants_per_arm.with_columns(
+      nw.when(is_gain_and_loss).then(1).otherwise(0).alias(GAIN_AND_LOSS_COL),
+      nw.when(is_gain_and_loss).then(0).otherwise(nw.col(GAIN_COL)).alias(GAIN_COL),
+      nw.when(is_gain_and_loss).then(0).otherwise(nw.col(LOSS_COL)).alias(LOSS_COL),
+  )
+  variants_per_arm = variants_per_arm.group_by("chromosome_right", ARM_COL, "start_right", "end_right").agg(
+      nw.col(GAIN_COL).sum(),
+      nw.col(LOSS_COL).sum(),
+      nw.col(GAIN_AND_LOSS_COL).sum(),
+  )
+  variants_per_arm = variants_per_arm.rename({
+      "chromosome_right": CHROMOSOME_COL,
+      "start_right": START_COL,
+      "end_right": END_COL
+  })
+  return variants_per_arm.collect()

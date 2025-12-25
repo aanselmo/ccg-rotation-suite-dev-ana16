@@ -22,7 +22,7 @@ LOSS_COL = "No. of Samples with Losses"
 GAIN_AND_LOSS_COL = "No. of Samples with Gains & Losses"
 
 
-def get_one_sample_variants(one_gene_file) -> nw.LazyFrame:
+def get_one_sample_variants(one_gene_file) -> nw.DataFrame:
   one_sample_gene_cnvs = nw.from_native(pl.scan_csv(one_gene_file, separator="\t", has_header=True, row_index_offset=0))
   # The last row has the mean target average
   one_sample_gene_cnvs = one_sample_gene_cnvs.remove(nw.col("chromosome") == "X" | nw.col("chromosome") == "Y")
@@ -40,7 +40,7 @@ def calculate_copy_number(original_df: nw.LazyFrame, log2col=LOG2_COL) -> nw.Laz
   return original_df
 
 
-def sum_cnv_numbers_by_gene(all_gene_cnvs: nw.LazyFrame) -> nw.LazyFrame:
+def sum_cnv_numbers_by_gene(all_gene_cnvs: nw.LazyFrame) -> nw.DataFrame:
   # Log 2 ratio means 2.0 to the power of the log2ratio
   all_gene_cnvs = calculate_copy_number(all_gene_cnvs, log2col=LOG2_COL)
   all_gene_summary = all_gene_cnvs.group_by(GENE_COL, BASENAME_COL).agg(
@@ -61,16 +61,16 @@ def sum_cnv_numbers_by_gene(all_gene_cnvs: nw.LazyFrame) -> nw.LazyFrame:
   return all_gene_summary.collect()
 
 
-async def summarize_gene_level(gene_files: list[str]) -> nw.LazyFrame:
+async def summarize_gene_level(gene_files: list[str]) -> nw.DataFrame:
   """
   Summarizes all the calls (gains/losses) by gene.
   :param gene_files list[str]: A list of file paths ending in .genemetrics.tsv
-  :return nw.LazyFrame: A data frame with the columns: gene, No. of Samples with Gains, No. of Samples with Losses,
+  :return nw.DataFrame: A data frame with the columns: gene, No. of Samples with Gains, No. of Samples with Losses,
       and No. of Samples with Gains & Losses.
   """
-  all_gene_cnvs = nw.from_native(pl.LazyFrame({}))
+  all_gene_cnvs = nw.from_native(pl.DataFrame({}))
   for one_gene_file in gene_files:
     one_sample_variants = get_one_sample_variants(one_gene_file)
     all_gene_cnvs = nw.concat([all_gene_cnvs, one_sample_variants], how="vertical")
-  all_gene_summary = sum_cnv_numbers_by_gene(all_gene_cnvs)
+  all_gene_summary = sum_cnv_numbers_by_gene(all_gene_cnvs.lazy())
   return all_gene_summary

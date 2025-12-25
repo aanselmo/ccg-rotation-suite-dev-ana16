@@ -23,7 +23,7 @@ END_COL = "end"
 COPY_NUMBER_COL = "copy_number"
 
 
-def organize_variant_files(vcf_files: list[str], tumor_cns_files: list[str]) -> nw.LazyFrame:
+def organize_variant_files(vcf_files: list[str], tumor_cns_files: list[str]) -> nw.DataFrame:
   """
   Organizes all the files by sample/basename into a DataFrame.
   """
@@ -36,7 +36,7 @@ def organize_variant_files(vcf_files: list[str], tumor_cns_files: list[str]) -> 
   return variant_files.collect()
 
 
-def get_one_sample_variants(sample_files: tuple[str, str, str]) -> nw.LazyFrame:
+def get_one_sample_variants(sample_files: tuple[str, str, str]) -> nw.DataFrame:
   (vcf_file, basename, tumor_cns_file) = sample_files
   vcf_df = nw.from_native(pl.scan_csv(vcf_file, separator="\t", has_header=True, skip_lines=SKIP_VCF_LINES))
   tumor_cns_df = nw.from_native(pl.scan_csv(tumor_cns_file, separator="\t", has_header=True))
@@ -48,15 +48,15 @@ def get_one_sample_variants(sample_files: tuple[str, str, str]) -> nw.LazyFrame:
   return filtered_tumor_cns_df.collect()
 
 
-async def get_cnv_variants(vcf_files: list[str], tumor_cns_files: list[str]) -> nw.LazyFrame:
+async def get_cnv_variants(vcf_files: list[str], tumor_cns_files: list[str]) -> nw.DataFrame:
   """
   A dump of all the official CNV variants output by cnvkit.
-  :return nw.LazyFrame: A DataFrame with the columns: chromsome, start, end, gene, log2, basename, gene, ci_hi, ci_lo,
+  :return nw.DataFrame: A DataFrame with the columns: chromsome, start, end, gene, log2, basename, gene, ci_hi, ci_lo,
       copy_number, depth, probes, weight.
   """
   all_variant_files = organize_variant_files(vcf_files, tumor_cns_files)
   rows_all_variant_files = all_variant_files.rows()
-  all_variants = nw.from_native(pl.LazyFrame({}))
+  all_variants = nw.from_native(pl.DataFrame({}))
   for row in rows_all_variant_files:
     one_sample_variants = get_one_sample_variants(row)
     all_variants = nw.concat([all_variants, one_sample_variants], how="vertical")
