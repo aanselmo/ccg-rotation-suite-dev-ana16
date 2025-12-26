@@ -11,7 +11,7 @@ from os.path import dirname
 import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
-from qc_sheet import BASENAME_COL
+from .qc_sheet import BASENAME_COL
 
 
 TUMOR_CNS_FILES_COL = "tumor_cns_files"

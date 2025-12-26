@@ -9,11 +9,35 @@ __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
 import narwhals.stable.v2 as nw
-from qc_sheet import BASENAME_COL
-from variant_sheet import CHROMOSOME_COL, START_COL, END_COL, COPY_NUMBER_COL
-from gene_sheet import GAIN_AND_LOSS_COL, GAIN_COL, LOSS_COL, DIPLOID
+from .qc_sheet import BASENAME_COL
+from .variant_sheet import CHROMOSOME_COL, START_COL, END_COL, COPY_NUMBER_COL
+from .gene_sheet import GAIN_AND_LOSS_COL, GAIN_COL, LOSS_COL, DIPLOID
 
 ARM_COL = "arm"
+
+def derive_chromosomal_arms(genome_version: str) -> nw.DataFrame:
+  """
+  Derives the chromosomal arms from USCS cytoband file. Downloaded from:
+  https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/cytoBand.txt.gz
+  UCSC uses a half open system for coordinates for 0 based counting:
+  https://genome-blog.gi.ucsc.edu/blog/2016/12/12/the-ucsc-genome-browser-coordinate-counting-systems/
+  :return nw.DataFrame: A dataframe with the columns "chromosome", "arm", "start", "end"
+  """
+  l_genome = genome_version.lower()
+  cytoband_data = nw.from_native(pl.LazyFrame({}))
+  with gzip.open(f'{l_genome}CytoBand.txt.gz', 'rb') as cytoband_file:
+    cytoband_data = pl.scan_csv(
+        cytoband_file,
+        separator="\t",
+        has_header=False,
+        new_columns=[CHROMOSOME_COL, START_COL, END_COL, "band", "stain"]
+    )
+    # Aggregate by arm substring
+    cytoband_data = nw.from_native(cytoband_data)
+    cytoband_data = cytoband_data.with_columns(arm=nw.col("band").str.slice(offset=0, length=1))  # first letter: p/q
+    cytoband_data = cytoband_data.drop("band", "stain")
+    cytoband_data = cytoband_data.group_by(CHROMOSOME_COL, ARM_COL).agg(nw.col(START_COL).min(), nw.col(END_COL).max())
+  return cytoband_data.collect()
 
 
 def reduce_data_memory(chromosomal_arms: nw.LazyFrame, cnv_variants: nw.LazyFrame) -> tuple[nw.LazyFrame, nw.LazyFrame]:
@@ -97,12 +121,13 @@ def sum_variants_per_arm(variants_per_arm: nw.LazyFrame) -> nw.LazyFrame:
   return variants_per_arm
 
 
-async def summarize_chromosome_arm_level(chromosomal_arms: nw.LazyFrame, cnv_variants: nw.LazyFrame) -> nw.DataFrame:
+async def summarize_chromosome_arm_level(genome_version: str, cnv_variants: nw.LazyFrame) -> nw.DataFrame:
   """
   Summarizes all the calls (gains/losses) by chromosomal arm.
   :param cnv_variants nw.LazyFrame: All the variants in all samples excluding those on the X & Y chromosome.
   """
-  (chromosomal_arms, cnv_variants) = reduce_data_memory(chromosomal_arms, cnv_variants)
+  chromosomal_arms = derive_chromosomal_arms(genome_version)
+  (chromosomal_arms, cnv_variants) = reduce_data_memory(chromosomal_arms.lazy(), cnv_variants)
   variants_per_arm = assign_variants_to_arms(chromosomal_arms, cnv_variants)
   variants_per_arm = sum_variants_per_arm(variants_per_arm)
   return variants_per_arm.collect()

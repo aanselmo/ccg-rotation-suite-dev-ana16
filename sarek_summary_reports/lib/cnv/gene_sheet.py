@@ -11,8 +11,8 @@ from os.path import dirname, basename
 import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
-from qc_sheet import BASENAME_COL
-from variant_sheet import COPY_NUMBER_COL
+from .qc_sheet import BASENAME_COL
+from .variant_sheet import COPY_NUMBER_COL
 
 GENE_COL = "gene"
 LOG2_COL = "log2"

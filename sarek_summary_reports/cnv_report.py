@@ -9,10 +9,11 @@ __credits__ = ["Neil A. Patel"]
 
 import argparse
 import gzip
+import sys
 from os import makedirs
-from datetime import date
 from os.path import dirname, abspath, basename, join
 from glob import glob
+from datetime import date
 import asyncio
 import xlsxwriter
 import polars as pl
@@ -20,7 +21,7 @@ import narwhals.stable.v2 as nw
 from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
 from lib.cnv.variant_sheet import get_cnv_variants, CHROMOSOME_COL, START_COL, END_COL
 from lib.cnv.gene_sheet import summarize_gene_level
-from sarek_summary_reports.lib.cnv.chromosome_sheet import summarize_chromosome_arm_level, ARM_COL
+from lib.cnv.chromosome_sheet import summarize_chromosome_arm_level, ARM_COL
 
 
 AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
@@ -32,28 +33,28 @@ def setup_arguments():
                       dest="output_file_name", help="The name of the output file. Overrides project_code argument.")
   parser.add_argument("-p", "--project", dest="project_code", type=str, default="",
                       help="The project code for the report. Used to generate filename with the project_code in it.")
-  parser.add_argument("-r", "--reference", "genome_reference", type=str, default="GRCh37",
+  parser.add_argument("-r", "--reference", dest="genome_reference", type=str, default="GRCh37",
                       choices=AVAILABLE_GENOME_VERSIONS,
                       help="The Genome Version. Options are 'GRCh37' or 'GRCh38'.")
   parser.add_argument("-b" "--bucket-folder", dest="bucket_folder", default="", type=str,
                       help=("The sarek base folder with all of the other files within it. You can either enter this"
                             + "or pass all the files individually."))
   # These 3 types of files are for the QC metrics sheet
-  parser.add_argument("-m" "--mos-files", "mos_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-m" "--mos-files", dest="mos_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .recal.mosdepth.summary.txt files with mean coverage in them.")
-  parser.add_argument("-r" "--cnr-files", "cnr_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-r" "--cnr-files", dest="cnr_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .cnr files with normalized log2 ratios in them.")
-  parser.add_argument("-s" "--cns-files", "cns_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-s" "--cns-files", dest="cns_files", default=[], action="extend", nargs="+",
                       help=("A list of paths to .cns files with segment calls in them. Use the most unfiltered ones"
                             + " i.e. the .cns files not .call.cns or .tumor_only.call.cns"))
-  parser.add_argument("-t" "--tumor-cns-files", "tumor_cns_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-t" "--tumor-cns-files", dest="tumor_cns_files", default=[], action="extend", nargs="+",
                       help=("A list of paths to .cns files with segment calls in them. Use the .tumor_only.call.cns."
                             + "These files have a cn column (copy number calls)."))
   # Gene summary sheet
-  parser.add_argument("-g" "--gene-files", "gene_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-g" "--gene-files", dest="gene_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .genemetrics.tsv files with gene summaries in them.")
   # Variant sheet
-  parser.add_argument("-v" "--vcf-files", "vcf_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-v" "--vcf-files", dest="vcf_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .vcf files with the actual variant calls in them.")
   validate_arguments(parser.parse_args(), parser)
   return parser.parse_args()
@@ -115,31 +116,6 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
   return (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files)
 
 
-def derive_chromosomal_arms(genome_version: str) -> nw.DataFrame:
-  """
-  Derives the chromosomal arms from USCS cytoband file. Downloaded from:
-  https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/cytoBand.txt.gz
-  UCSC uses a half open system for coordinates for 0 based counting:
-  https://genome-blog.gi.ucsc.edu/blog/2016/12/12/the-ucsc-genome-browser-coordinate-counting-systems/
-  :return nw.DataFrame: A dataframe with the columns "chromosome", "arm", "start", "end"
-  """
-  l_genome = genome_version.lower()
-  cytoband_data = nw.from_native(pl.LazyFrame({}))
-  with gzip.open(f'{l_genome}CytoBand.txt.gz', 'rb') as cytoband_file:
-    cytoband_data = pl.scan_csv(
-        cytoband_file,
-        separator="\t",
-        has_header=False,
-        new_columns=[CHROMOSOME_COL, START_COL, END_COL, "band", "stain"]
-    )
-    # Aggregate by arm substring
-    cytoband_data = nw.from_native(cytoband_data)
-    cytoband_data = cytoband_data.with_columns(arm=nw.col("band").str.slice(offset=0, length=1))  # first letter: p/q
-    cytoband_data = cytoband_data.drop("band", "stain")
-    cytoband_data = cytoband_data.group_by(CHROMOSOME_COL, ARM_COL).agg(nw.col(START_COL).min(), nw.col(END_COL).max())
-  return cytoband_data.collect()
-
-
 async def main():
   """
   Runs the whole script.
@@ -151,7 +127,6 @@ async def main():
     project_report_dir = f"{args.project_code}_Reports"
     makedirs(project_report_dir, exist_ok=True)
     output_file_name = join(project_report_dir, f"{today}_{args.project_code.lower()}_cnvkit_report.xlsx")
-  chromosomal_arms = derive_chromosomal_arms(args.genome_version)
   (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files) = gather_input_files(args)
   qc_task: asyncio.Task | None = None
   gene_summary_task: asyncio.Task | None = None
@@ -170,7 +145,7 @@ async def main():
   if vcf_files:
     cnv_variants = await get_cnv_variants(vcf_files, tumor_cns_files)
   if cnv_variants:
-    arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(chromosomal_arms.lazy(), cnv_variants.lazy()))
+    arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(args.genome_reference, cnv_variants.lazy()))
   # Await Tasks
   if qc_task is not None:
     qc_metrics = await qc_task
@@ -179,7 +154,11 @@ async def main():
     gene_summary = await gene_summary_task
   if arm_summary_task is not None:
     arm_summary = await arm_summary_task
-  
+  with xlsxwriter.Workbook(output_file_name) as workbook:
+    qc_metrics.to_native().write_excel(workbook=workbook, worksheet="QC Metrics")
+    cnv_variants.to_native().write_excel(workbook=workbook, worksheet="Copy Number Variants (CNV)")
+    gene_summary.to_native().write_excel(workbook=workbook, worksheet="Gene Level Summary")
+    arm_summary.to_native().write_excel(workbook=workbook, worksheet="Arm Level Summary")
 
 if __name__ == "__main__":
   asyncio.run(main())
