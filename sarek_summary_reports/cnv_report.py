@@ -36,25 +36,25 @@ def setup_arguments():
   parser.add_argument("-r", "--reference", dest="genome_reference", type=str, default="GRCh37",
                       choices=AVAILABLE_GENOME_VERSIONS,
                       help="The Genome Version. Options are 'GRCh37' or 'GRCh38'.")
-  parser.add_argument("-b" "--bucket-folder", dest="bucket_folder", default="", type=str,
+  parser.add_argument("-b", "--bucket-folder", dest="bucket_folder", default="", type=str,
                       help=("The sarek base folder with all of the other files within it. You can either enter this"
                             + "or pass all the files individually."))
   # These 3 types of files are for the QC metrics sheet
-  parser.add_argument("-m" "--mos-files", dest="mos_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-m", "--mos-files", dest="mos_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .recal.mosdepth.summary.txt files with mean coverage in them.")
-  parser.add_argument("-r" "--cnr-files", dest="cnr_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-c", "--cnr-files", dest="cnr_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .cnr files with normalized log2 ratios in them.")
-  parser.add_argument("-s" "--cns-files", dest="cns_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-s", "--cns-files", dest="cns_files", default=[], action="extend", nargs="+",
                       help=("A list of paths to .cns files with segment calls in them. Use the most unfiltered ones"
                             + " i.e. the .cns files not .call.cns or .tumor_only.call.cns"))
-  parser.add_argument("-t" "--tumor-cns-files", dest="tumor_cns_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-t", "--tumor-cns-files", dest="tumor_cns_files", default=[], action="extend", nargs="+",
                       help=("A list of paths to .cns files with segment calls in them. Use the .tumor_only.call.cns."
                             + "These files have a cn column (copy number calls)."))
   # Gene summary sheet
-  parser.add_argument("-g" "--gene-files", dest="gene_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-g", "--gene-files", dest="gene_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .genemetrics.tsv files with gene summaries in them.")
   # Variant sheet
-  parser.add_argument("-v" "--vcf-files", dest="vcf_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-v", "--vcf-files", dest="vcf_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .vcf files with the actual variant calls in them.")
   validate_arguments(parser.parse_args(), parser)
   return parser.parse_args()
@@ -66,8 +66,12 @@ def validate_arguments(args, parser: argparse.ArgumentParser):
   script exits.
   """
   if args.bucket_folder:
-    if (args.mos_files or args.cnr_files or args.cns_files, args.gene_files, args.vcf_files):
+    if (args.mos_files or args.cnr_files or args.cns_files or args.gene_files or args.vcf_files):
       parser.error("No files should be specified if --bucket-folder is specified.")
+  else:
+    if not (args.mos_files or args.cnr_files or args.cns_files or args.gene_files or args.vcf_files):
+      parser.error("Please specify a --bucket-folder or individual files (--mos-files, --cnr-files, --cns-files, "
+                   + "--tumor-cns-files, --gene-files, --vcf-files).")
 
 
 def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], list[str], list[str], list[str]]:
@@ -99,10 +103,16 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
     for one_file in cns_files:
       if "call" in one_file:
         cns_files.remove(one_file)
-        if "tumor_only" in one_file:
-          tumor_cns_files.append(one_file)
   else:
     cns_files = args.cns_files
+
+  if not args.tumor_cns_files:
+    tumor_cns_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.tumor_only.call.cns")
+    somatic_cns_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.somatic.call.cns")
+    germline_cns_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.germline.call.cns")
+    tumor_cns_files = tumor_cns_files + somatic_cns_files + germline_cns_files
+  else:
+    tumor_cns_files = args.tumor_cns_files
 
   if not args.gene_files:
     gene_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.genemetrics.tsv")
@@ -138,7 +148,7 @@ async def main():
   # Start Tasks with asyncio
   if mos_files and cnr_files and cns_files:
     qc_task = asyncio.create_task(
-        get_qc_metrics(mos_files, cnr_files, cns_files, args.bucket_dir)
+        get_qc_metrics(mos_files, cnr_files, cns_files, args.bucket_folder)
     )
   if gene_files:
     gene_summary_task = asyncio.create_task(summarize_gene_level(gene_files))

@@ -12,7 +12,7 @@ import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
 from .qc_sheet import BASENAME_COL
-from .variant_sheet import COPY_NUMBER_COL
+from .variant_sheet import COPY_NUMBER_COL, CHROMOSOME_COL
 
 GENE_COL = "gene"
 LOG2_COL = "log2"
@@ -25,7 +25,7 @@ GAIN_AND_LOSS_COL = "No. of Samples with Gains & Losses"
 def get_one_sample_variants(one_gene_file) -> nw.DataFrame:
   one_sample_gene_cnvs = nw.from_native(pl.scan_csv(one_gene_file, separator="\t", has_header=True, row_index_offset=0))
   # The last row has the mean target average
-  one_sample_gene_cnvs = one_sample_gene_cnvs.remove(nw.col("chromosome") == "X" | nw.col("chromosome") == "Y")
+  one_sample_gene_cnvs = one_sample_gene_cnvs.filter((nw.col(CHROMOSOME_COL) != "X") & (nw.col(CHROMOSOME_COL) != "Y"))
   one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(
       basename=nw.col(basename(one_gene_file).replace(".genemetrics.tsv", "")))
   return one_sample_gene_cnvs.collect()

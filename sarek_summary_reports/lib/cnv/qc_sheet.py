@@ -7,7 +7,7 @@ Gathers the data for the QC Sheet in the CNV report.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
-from os.path import dirname, basename
+from os.path import dirname, basename as get_basename
 import asyncio
 import subprocess
 import io
@@ -32,16 +32,23 @@ def organize_qc_files(
   mos_df = nw.from_native(pl.LazyFrame({MOS_FILES_COL: mos_files}))
   cnr_df = nw.from_native(pl.LazyFrame({CNR_FILES_COL: cnr_files}))
   cns_df = nw.from_native(pl.LazyFrame({CNS_FILES_COL: cns_files}))
-  mos_df = mos_df.with_columns(basename=nw.col(mos_df.col(
-      MOS_FILES_COL).str.replace(".recal.mosdepth.summary.txt", "")))
-  mos_df = mos_df.with_columns(nw.col(BASENAME_COL).map_batches(lambda filename: basename(filename)))
-  cnr_df = cnr_df.with_columns(basename=nw.col(cnr_df.col(CNR_FILES_COL).str.replace(".cnr", "")))
-  cnr_df = cnr_df.with_columns(nw.col(BASENAME_COL).map_batches(lambda filename: basename(filename)))
-  cns_df = cns_df.with_columns(basename=nw.col(cns_df.col(CNS_FILES_COL).str.replace(".cns", "")))
-  cns_df = cns_df.with_columns(nw.col(BASENAME_COL).map_batches(lambda filename: basename(filename)))
+  mos_df = mos_df.with_columns(nw.col(MOS_FILES_COL).str.replace(".recal.mosdepth.summary.txt", "").alias(BASENAME_COL))
+  cnr_df = cnr_df.with_columns(nw.col(cnr_df.col(CNR_FILES_COL).str.replace(".cnr", "")).alias(BASENAME_COL))
+  cns_df = cns_df.with_columns(nw.col(cns_df.col(CNS_FILES_COL).str.replace(".cns", "")).alias(BASENAME_COL))
+
+  mos_df = mos_df.collect().to_native().with_columns(
+      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename))
+  )
+  cnr_df = cnr_df.collect().to_native().with_columns(
+      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename))
+  )
+  cns_df = cns_df.collect().to_native().with_columns(
+      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename))
+  )
   all_qc_files = mos_df.join(cnr_df, BASENAME_COL, how="full")
   all_qc_files = all_qc_files.join(cnr_df, BASENAME_COL, how="full")
-  return all_qc_files.collect()
+  all_qc_files = nw.from_native(all_qc_files)
+  return all_qc_files
 
 
 def get_one_sample_mtc(one_mos_file: str) -> tuple[str, float]:
