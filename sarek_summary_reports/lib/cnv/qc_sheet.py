@@ -29,20 +29,20 @@ def organize_qc_files(
   """
   Organizes all the files by sample/basename into a DataFrame.
   """
-  mos_df = nw.from_native(pl.LazyFrame({MOS_FILES_COL: mos_files}))
-  cnr_df = nw.from_native(pl.LazyFrame({CNR_FILES_COL: cnr_files}))
-  cns_df = nw.from_native(pl.LazyFrame({CNS_FILES_COL: cns_files}))
+  mos_df = nw.from_native(pl.DataFrame({MOS_FILES_COL: mos_files}))
+  cnr_df = nw.from_native(pl.DataFrame({CNR_FILES_COL: cnr_files}))
+  cns_df = nw.from_native(pl.DataFrame({CNS_FILES_COL: cns_files}))
   mos_df = mos_df.with_columns(nw.col(MOS_FILES_COL).str.replace(".recal.mosdepth.summary.txt", "").alias(BASENAME_COL))
   cnr_df = cnr_df.with_columns(nw.col(cnr_df.col(CNR_FILES_COL).str.replace(".cnr", "")).alias(BASENAME_COL))
   cns_df = cns_df.with_columns(nw.col(cns_df.col(CNS_FILES_COL).str.replace(".cns", "")).alias(BASENAME_COL))
 
-  mos_df = mos_df.collect().to_native().with_columns(
+  mos_df = mos_df.to_native().with_columns(
       pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename))
   )
-  cnr_df = cnr_df.collect().to_native().with_columns(
+  cnr_df = cnr_df.to_native().with_columns(
       pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename))
   )
-  cns_df = cns_df.collect().to_native().with_columns(
+  cns_df = cns_df.to_native().with_columns(
       pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename))
   )
   all_qc_files = mos_df.join(cnr_df, BASENAME_COL, how="full")
@@ -61,7 +61,7 @@ def get_one_sample_mtc(one_mos_file: str) -> tuple[str, float]:
 async def run_cnvkit_metrics(just_cnr_cns: nw.DataFrame, bucket_dir) -> nw.DataFrame:
   """
   Run the cnvkit.py metrics command to get metrics.
-  :param just_cnr_cns nw.LazyFrame: A DataFrame with columns cnr_files cns_files that are sorted by sample name and
+  :param just_cnr_cns nw.DataFrame: A DataFrame with columns cnr_files cns_files that are sorted by sample name and
       correspond to each other. Also, the columns should have no null values.
   """
   cnr_files: list = just_cnr_cns.get_column(CNR_FILES_COL)
@@ -73,10 +73,10 @@ async def run_cnvkit_metrics(just_cnr_cns: nw.DataFrame, bucket_dir) -> nw.DataF
   )
   print(f"Running command: {docker_command.join(" ")}")
   cnvkit_stream = subprocess.run(docker_command, capture_output=True, text=True)
-  cnvkit_metrics = nw.from_native(pl.LazyFrame({}))
+  cnvkit_metrics = nw.from_native(pl.DataFrame({}))
   if cnvkit_stream.stdout:
     cnvkit_metrics = pl.scan_csv(io.StringIO(cnvkit_stream.stdout), has_header=True, separator="\t")
-  return cnvkit_metrics.collect()
+  return cnvkit_metrics
 
 
 async def get_qc_metrics(
@@ -93,13 +93,13 @@ async def get_qc_metrics(
     bucket_dir = dirname(dirname(dirname(mos_files[0])))
   all_qc_files = organize_qc_files(mos_files, cnr_files, cns_files)
   just_cnr_cns = all_qc_files.select(nw.col(CNR_FILES_COL), nw.col(CNS_FILES_COL))
-  just_cnr_cns = just_cnr_cns.drop_nulls().collect()
+  just_cnr_cns = just_cnr_cns.drop_nulls()
   cnvkit_task = asyncio.create_task(run_cnvkit_metrics(just_cnr_cns, bucket_dir))
   mtc_results = []
   for one_mos_file in mos_files:
     one_sample_mtc = get_one_sample_mtc(one_mos_file)
     mtc_results.append(one_sample_mtc)
-  mtc_df = nw.from_native(pl.LazyFrame(mtc_results, orient="row", schema=[MOS_FILES_COL, MTC_COL]))
+  mtc_df = nw.from_native(pl.DataFrame(mtc_results, orient="row", schema=[MOS_FILES_COL, MTC_COL]))
   all_qc_data = all_qc_files.join(mtc_df, MOS_FILES_COL, how="full")
   cnvkit_metrics = await cnvkit_task
   cnvkit_metrics = cnvkit_metrics.rename({"sample": CNR_FILES_COL})

@@ -28,19 +28,19 @@ def get_one_sample_variants(one_gene_file) -> nw.DataFrame:
   one_sample_gene_cnvs = one_sample_gene_cnvs.filter((nw.col(CHROMOSOME_COL) != "X") & (nw.col(CHROMOSOME_COL) != "Y"))
   one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(
       basename=nw.col(basename(one_gene_file).replace(".genemetrics.tsv", "")))
-  return one_sample_gene_cnvs.collect()
+  return one_sample_gene_cnvs
 
 
-def calculate_copy_number(original_df: nw.LazyFrame, log2col=LOG2_COL) -> nw.LazyFrame:
+def calculate_copy_number(original_df: nw.DataFrame, log2col=LOG2_COL) -> nw.DataFrame:
   """
   Take a DataFrame with log2 ratios and calculate the copy numbers.
-  :return nw.LazyFrame: return an uncollected LazyFrame with a new column of copy_number.
+  :return nw.DataFrame: return an uncollected DataFrame with a new column of copy_number.
   """
   original_df = original_df.with_columns((DIPLOID * (2.0 ** nw.col(log2col))).round(decimals=0).alias(COPY_NUMBER_COL))
   return original_df
 
 
-def sum_cnv_numbers_by_gene(all_gene_cnvs: nw.LazyFrame) -> nw.DataFrame:
+def sum_cnv_numbers_by_gene(all_gene_cnvs: nw.DataFrame) -> nw.DataFrame:
   # Log 2 ratio means 2.0 to the power of the log2ratio
   all_gene_cnvs = calculate_copy_number(all_gene_cnvs, log2col=LOG2_COL)
   all_gene_summary = all_gene_cnvs.group_by(GENE_COL, BASENAME_COL).agg(
@@ -58,7 +58,7 @@ def sum_cnv_numbers_by_gene(all_gene_cnvs: nw.LazyFrame) -> nw.DataFrame:
       nw.col(LOSS_COL).sum(),
       nw.col(GAIN_AND_LOSS_COL).sum()
   )
-  return all_gene_summary.collect()
+  return all_gene_summary
 
 
 async def summarize_gene_level(gene_files: list[str]) -> nw.DataFrame:

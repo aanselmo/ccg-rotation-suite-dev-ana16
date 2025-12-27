@@ -77,7 +77,6 @@ async def get_cnv_variants(vcf_files: list[str], tumor_cns_files: list[str]) -> 
   :return nw.DataFrame: A DataFrame with the columns: chromsome, start, end, gene, log2, basename, gene, ci_hi, ci_lo,
       copy_number, depth, probes, weight.
   """
-  start = time.perf_counter()
   all_variant_files = organize_variant_files(vcf_files, tumor_cns_files)
   rows_all_variant_files = all_variant_files.rows()
   all_variants = nw.from_native(pl.DataFrame({}))
@@ -85,6 +84,4 @@ async def get_cnv_variants(vcf_files: list[str], tumor_cns_files: list[str]) -> 
     one_sample_variants = get_one_sample_variants(joint_basename, vcf_file, tumor_cns_file)
     all_variants = nw.concat([all_variants, one_sample_variants], how="diagonal")
   all_variants = all_variants.rename({"cn" : COPY_NUMBER_COL})
-  stop = time.perf_counter()
-  print(f"Getting all Variants took: {stop - start:0.4f} seconds.")
   return all_variants

@@ -8,6 +8,8 @@ Gathers the data for the Summary Sheet by Chromosomal Arm in the CNV report.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
+import gzip
+import polars as pl
 import narwhals.stable.v2 as nw
 from .qc_sheet import BASENAME_COL
 from .variant_sheet import CHROMOSOME_COL, START_COL, END_COL, COPY_NUMBER_COL
@@ -24,7 +26,7 @@ def derive_chromosomal_arms(genome_version: str) -> nw.DataFrame:
   :return nw.DataFrame: A dataframe with the columns "chromosome", "arm", "start", "end"
   """
   l_genome = genome_version.lower()
-  cytoband_data = nw.from_native(pl.LazyFrame({}))
+  cytoband_data = nw.from_native(pl.DataFrame({}))
   with gzip.open(f'{l_genome}CytoBand.txt.gz', 'rb') as cytoband_file:
     cytoband_data = pl.scan_csv(
         cytoband_file,
@@ -37,10 +39,10 @@ def derive_chromosomal_arms(genome_version: str) -> nw.DataFrame:
     cytoband_data = cytoband_data.with_columns(arm=nw.col("band").str.slice(offset=0, length=1))  # first letter: p/q
     cytoband_data = cytoband_data.drop("band", "stain")
     cytoband_data = cytoband_data.group_by(CHROMOSOME_COL, ARM_COL).agg(nw.col(START_COL).min(), nw.col(END_COL).max())
-  return cytoband_data.collect()
+  return cytoband_data
 
 
-def reduce_data_memory(chromosomal_arms: nw.LazyFrame, cnv_variants: nw.LazyFrame) -> tuple[nw.LazyFrame, nw.LazyFrame]:
+def reduce_data_memory(chromosomal_arms: nw.DataFrame, cnv_variants: nw.DataFrame) -> tuple[nw.DataFrame, nw.DataFrame]:
   """
   Drop some columns and rows to save memory in the next step (a matrix cross product)
   """
@@ -58,7 +60,7 @@ def reduce_data_memory(chromosomal_arms: nw.LazyFrame, cnv_variants: nw.LazyFram
   return (chromosomal_arms, cnv_variants)
 
 
-def assign_variants_to_arms(chromosomal_arms: nw.LazyFrame, cnv_variants: nw.LazyFrame) -> nw.LazyFrame:
+def assign_variants_to_arms(chromosomal_arms: nw.DataFrame, cnv_variants: nw.DataFrame) -> nw.DataFrame:
   """
   Takes each variant and assigns it to chromosomal arm(s).
   """
@@ -87,7 +89,7 @@ def assign_variants_to_arms(chromosomal_arms: nw.LazyFrame, cnv_variants: nw.Laz
   return variants_per_arm
 
 
-def sum_variants_per_arm(variants_per_arm: nw.LazyFrame) -> nw.LazyFrame:
+def sum_variants_per_arm(variants_per_arm: nw.DataFrame) -> nw.DataFrame:
   """
   Sum to create summary table.
   """
@@ -121,13 +123,13 @@ def sum_variants_per_arm(variants_per_arm: nw.LazyFrame) -> nw.LazyFrame:
   return variants_per_arm
 
 
-async def summarize_chromosome_arm_level(genome_version: str, cnv_variants: nw.LazyFrame) -> nw.DataFrame:
+async def summarize_chromosome_arm_level(genome_version: str, cnv_variants: nw.DataFrame) -> nw.DataFrame:
   """
   Summarizes all the calls (gains/losses) by chromosomal arm.
-  :param cnv_variants nw.LazyFrame: All the variants in all samples excluding those on the X & Y chromosome.
+  :param cnv_variants nw.DataFrame: All the variants in all samples excluding those on the X & Y chromosome.
   """
   chromosomal_arms = derive_chromosomal_arms(genome_version)
   (chromosomal_arms, cnv_variants) = reduce_data_memory(chromosomal_arms.lazy(), cnv_variants)
   variants_per_arm = assign_variants_to_arms(chromosomal_arms, cnv_variants)
   variants_per_arm = sum_variants_per_arm(variants_per_arm)
-  return variants_per_arm.collect()
+  return variants_per_arm

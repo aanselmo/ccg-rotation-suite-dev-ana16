@@ -8,10 +8,8 @@ __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
 import argparse
-import gzip
-import sys
 from os import makedirs
-from os.path import dirname, abspath, basename, join
+from os.path import join
 from glob import glob
 from datetime import date
 import asyncio
@@ -19,9 +17,9 @@ import xlsxwriter
 import polars as pl
 import narwhals.stable.v2 as nw
 from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
-from lib.cnv.variant_sheet import get_cnv_variants, CHROMOSOME_COL, START_COL, END_COL
+from lib.cnv.variant_sheet import get_cnv_variants
 from lib.cnv.gene_sheet import summarize_gene_level
-from lib.cnv.chromosome_sheet import summarize_chromosome_arm_level, ARM_COL
+from lib.cnv.chromosome_sheet import summarize_chromosome_arm_level
 
 
 AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
