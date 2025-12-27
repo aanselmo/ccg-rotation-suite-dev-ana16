@@ -27,8 +27,8 @@ def organize_variant_files(vcf_files: list[str], tumor_cns_files: list[str]) -> 
   """
   Organizes all the files by sample/basename into a DataFrame.
   """
-  vcf_df = nw.from_native(pl.LazyFrame({VCF_FILES_COL: vcf_files}))
-  tumor_cns_df = nw.from_native(pl.LazyFrame({TUMOR_CNS_FILES_COL: tumor_cns_files}))
+  vcf_df = nw.from_native(pl.DataFrame({VCF_FILES_COL: vcf_files}))
+  tumor_cns_df = nw.from_native(pl.DataFrame({TUMOR_CNS_FILES_COL: tumor_cns_files}))
   vcf_df = vcf_df.with_columns(nw.col(VCF_FILES_COL).str.replace(".cnvcall.vcf", "").alias(BASENAME_COL))
   vcf_df = vcf_df.with_columns(nw.col(BASENAME_COL).str.split("_vs_").list.get(0).alias(BASENAME_COL))
   tumor_cns_df = tumor_cns_df.with_columns(
@@ -40,10 +40,10 @@ def organize_variant_files(vcf_files: list[str], tumor_cns_files: list[str]) -> 
   tumor_cns_df = tumor_cns_df.with_columns(
       nw.col(BASENAME_COL).str.replace(".germline.call.cns", "").alias(BASENAME_COL)
   )
-  vcf_df = vcf_df.collect().to_native().with_columns(
+  vcf_df = vcf_df.to_native().with_columns(
       pl.col(BASENAME_COL).map_elements(lambda name: get_basename(name)).alias(BASENAME_COL)
   )
-  tumor_cns_df = tumor_cns_df.collect().to_native().with_columns(
+  tumor_cns_df = tumor_cns_df.to_native().with_columns(
       pl.col(BASENAME_COL).map_elements(lambda name: get_basename(name)).alias(BASENAME_COL)
   )
   variant_files = vcf_df.join(tumor_cns_df, on=BASENAME_COL, how="inner")
@@ -52,8 +52,8 @@ def organize_variant_files(vcf_files: list[str], tumor_cns_files: list[str]) -> 
 
 
 def get_one_sample_variants(basename: str, vcf_file: str, tumor_cns_file: str) -> nw.DataFrame:
-  vcf_df = nw.from_native(pl.scan_csv(vcf_file, separator="\t", has_header=True, skip_lines=SKIP_VCF_LINES))
-  tumor_cns_df = nw.from_native(pl.scan_csv(tumor_cns_file, separator="\t", has_header=True))
+  vcf_df = nw.from_native(pl.read_csv(vcf_file, separator="\t", has_header=True, skip_lines=SKIP_VCF_LINES))
+  tumor_cns_df = nw.from_native(pl.read_csv(tumor_cns_file, separator="\t", has_header=True))
   vcf_df = vcf_df.rename({"#CHROM": CHROMOSOME_COL, "POS": START_COL})
   vcf_df = vcf_df.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
   tumor_cns_df = tumor_cns_df.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
@@ -68,7 +68,7 @@ def get_one_sample_variants(basename: str, vcf_file: str, tumor_cns_file: str) -
   filtered_tumor_cns_df = filtered_tumor_cns_df.with_columns(
       nw.col(CHROMOSOME_COL).cast(nw.Int8).alias(CHROMOSOME_COL)
   )
-  return filtered_tumor_cns_df.collect()
+  return filtered_tumor_cns_df
 
 
 async def get_cnv_variants(vcf_files: list[str], tumor_cns_files: list[str]) -> nw.DataFrame:
