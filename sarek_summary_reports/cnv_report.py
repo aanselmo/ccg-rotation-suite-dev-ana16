@@ -20,9 +20,10 @@ from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
 from lib.cnv.variant_sheet import get_cnv_variants
 from lib.cnv.gene_sheet import summarize_gene_level
 from lib.cnv.chromosome_sheet import summarize_chromosome_arm_level
-
+from lib.cnv.write_xlsx import write_xlsx
 
 AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
+
 
 def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
@@ -123,6 +124,8 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
   return (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files)
 
 
+
+
 async def main():
   """
   Runs the whole script.
@@ -161,11 +164,8 @@ async def main():
     gene_summary = await gene_summary_task
   if arm_summary_task is not None:
     arm_summary = await arm_summary_task
-  with xlsxwriter.Workbook(output_file_name) as workbook:
-    qc_metrics.to_native().write_excel(workbook=workbook, worksheet="QC Metrics")
-    cnv_variants.to_native().write_excel(workbook=workbook, worksheet="Copy Number Variants (CNV)")
-    gene_summary.to_native().write_excel(workbook=workbook, worksheet="Gene Level Summary")
-    arm_summary.to_native().write_excel(workbook=workbook, worksheet="Arm Level Summary")
+  write_xlsx(output_file_name, qc_metrics, cnv_variants, gene_summary, arm_summary)
+
 
 if __name__ == "__main__":
   asyncio.run(main())
