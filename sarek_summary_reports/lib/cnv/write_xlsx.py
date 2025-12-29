@@ -10,7 +10,7 @@ import polars as pl
 import narwhals as nw
 import xlsxwriter
 from ..excel_style import get_column_widths, HEADER_STYLE
-from .qc_sheet import MTC_COL
+from .qc_sheet import MTC_COL, THRESHOLD_LEGEND, THRESHOLD_LEGEND2, THRESHOLD_LEGEND3
 from .chromosome_sheet import ARM_COL, CHROMOSOME_COL
 
 
@@ -40,28 +40,31 @@ def write_xlsx(
         worksheet=qc_sheet,
         column_widths=qc_sheet_widths,
         header_format=HEADER_STYLE,
-        dtype_formats={ pl.Int64: "0;[RED]-0" },
+        dtype_formats={pl.Int64: "0;[RED]-0"},
     )
     pl_cnv.write_excel(
         workbook=workbook,
         worksheet="Copy Number Variants (CNV)",
         column_widths=get_column_widths(pl_cnv),
         header_format=HEADER_STYLE,
-        dtype_formats={ pl.Int64: "0;[RED]-0" },
+        dtype_formats={pl.Int64: "0;[RED]-0"},
     )
     pl_gene.write_excel(
         workbook=workbook,
         worksheet="Gene Level Summary",
         column_widths=get_column_widths(pl_gene, first_row_multiplier=5.0),
         header_format=HEADER_STYLE,
-        dtype_formats={ pl.Int64: "0;[RED]-0" },
+        dtype_formats={pl.Int64: "0;[RED]-0"},
     )
     pl_arm.write_excel(
         workbook=workbook,
         worksheet="Arm Level Summary",
         column_widths=arm_sheet_widths,
         header_format=HEADER_STYLE,
-        dtype_formats={ pl.Int64: "0;[RED]-0" },
+        dtype_formats={pl.Int64: "0;[RED]-0"},
     )
     qc_sheet.insert_image("J2", "mtc_graph.png", {"image_data": mtc_hist_mem_loc})
     qc_sheet.insert_image("J30", "mad_graph.png", {"image_data": mad_hist_mem_loc})
+    qc_sheet.write("T2", THRESHOLD_LEGEND)
+    qc_sheet.write("T3", THRESHOLD_LEGEND2)
+    qc_sheet.write("T4", THRESHOLD_LEGEND3)

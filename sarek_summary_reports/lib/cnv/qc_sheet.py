@@ -11,6 +11,7 @@ from os.path import dirname, basename as get_basename
 import asyncio
 import subprocess
 import io
+import numpy as np
 import polars as pl
 import narwhals.stable.v2 as nw
 import matplotlib.pyplot as plt
@@ -21,6 +22,12 @@ CNS_FILES_COL = "cns_files"
 SAMPLE_COL = "sample"
 MTC_COL = "Mean Target Coverage (MTC)"
 MAD_COL = "mad"
+
+THRESHOLD_LEGEND = "Pink indicates low sensitivity."
+THRESHOLD_LEGEND2 = "Low sensitivity thresholds based on paper: Chandramohan et al., 2022"
+THRESHOLD_LEGEND3 = "https://doi.org/10.1016/j.jmoldx.2022.03.011"
+MAD_BAD_THRESHOLD = 0.35
+MTC_BAD_THRESHOLD = 50.0
 
 
 def organize_qc_files(
@@ -112,21 +119,52 @@ async def get_qc_metrics(
   return qc_metrics_without_filenames
 
 
+def graph_mtc(qc_metrics: nw.DataFrame) -> io.BytesIO:
+  mtc_col = qc_metrics.get_column(MTC_COL)
+  binwidth = 50
+  mtc_hist_bins = np.arange(0, max(mtc_col) + binwidth, binwidth)
+  (n, bins, patches) = plt.hist(mtc_col, bins=mtc_hist_bins)
+  plt.xticks(mtc_hist_bins[:-1])
+  max_n = max(n)
+  plt.ylabel("Number of Samples")
+  plt.xlabel("Mean Target Coverage (MTC)")
+  plt.xlim(0, None)
+  plt.plot([MTC_BAD_THRESHOLD, MTC_BAD_THRESHOLD], [0, max_n], color="hotpink", linestyle="dashed")
+  for index_bin, one_bin in enumerate(bins[:-1]):
+    if one_bin < MTC_BAD_THRESHOLD:
+      patches[index_bin].set_facecolor("hotpink")
+  mtc_hist_mem_loc = io.BytesIO()
+  plt.savefig(mtc_hist_mem_loc, format="png")
+  plt.close()
+  return mtc_hist_mem_loc
+
+
+def graph_mad(qc_metrics: nw.DataFrame) -> io.BytesIO:
+  mad_col = qc_metrics.get_column(MAD_COL)
+  binwidth = 0.025
+  max_mad_graph = max(max(mad_col) + binwidth, 0.4)
+  mad_hist_bins = np.arange(0, max_mad_graph, binwidth)
+  (n, bins, patches) = plt.hist(mad_col, bins=mad_hist_bins)
+  max_n = max(n)
+  plt.ylabel("Number of Samples")
+  plt.xlabel("Median Absolute Deviation (MAD)")
+  plt.xlim(0, max_mad_graph)
+  plt.plot([MAD_BAD_THRESHOLD, MAD_BAD_THRESHOLD], [0, max_n], color="hotpink", linestyle="dashed")
+  for index_bin, one_bin in enumerate(bins[:-1]):
+    if one_bin > MAD_BAD_THRESHOLD:
+      patches[index_bin].set_facecolor("hotpink")
+  mad_hist_mem_loc = io.BytesIO()
+  plt.savefig(mad_hist_mem_loc, format="png")
+  plt.close()
+  return mad_hist_mem_loc
+
+
 async def graph_qc_metrics(qc_metrics: nw.DataFrame) -> tuple[io.BytesIO, io.BytesIO]:
   """
   Create 2 QC graphs:
   1. Mean target coverage (MTC) histogram
   2. Median absolute deviation (MAD) histogram.
   """
-  plt.hist(qc_metrics.get_column(MTC_COL))
-  plt.ylabel("Number of Samples")
-  plt.xlabel("Mean Target Coverage (MTC)")
-  mtc_hist_mem_loc = io.BytesIO()
-  plt.savefig(mtc_hist_mem_loc, format="png")
-  plt.close()
-  plt.hist(qc_metrics.get_column(MAD_COL))
-  plt.ylabel("Number of Samples")
-  plt.xlabel("Median Absolute Deviation (MAD)")
-  mad_hist_mem_loc = io.BytesIO()
-  plt.savefig(mad_hist_mem_loc, format="png")
+  mtc_hist_mem_loc = graph_mtc(qc_metrics)
+  mad_hist_mem_loc = graph_mad(qc_metrics)
   return (mtc_hist_mem_loc, mad_hist_mem_loc)
