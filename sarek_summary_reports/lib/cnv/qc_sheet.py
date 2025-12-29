@@ -20,6 +20,7 @@ CNR_FILES_COL = "cnr_files"
 CNS_FILES_COL = "cns_files"
 SAMPLE_COL = "sample"
 MTC_COL = "Mean Target Coverage (MTC)"
+MAD_COL = "mad"
 
 
 def organize_qc_files(
@@ -111,7 +112,7 @@ async def get_qc_metrics(
   return qc_metrics_without_filenames
 
 
-async def graph_qc_metrics(qc_metrics: nw.DataFrame):
+async def graph_qc_metrics(qc_metrics: nw.DataFrame) -> tuple[io.BytesIO, io.BytesIO]:
   """
   Create 2 QC graphs:
   1. Mean target coverage (MTC) histogram
@@ -122,7 +123,8 @@ async def graph_qc_metrics(qc_metrics: nw.DataFrame):
   plt.xlabel("Mean Target Coverage (MTC)")
   mtc_hist_mem_loc = io.BytesIO()
   plt.savefig(mtc_hist_mem_loc, format="png")
-  plt.hist(qc_metrics.get_column(MTC_COL))
+  plt.close()
+  plt.hist(qc_metrics.get_column(MAD_COL))
   plt.ylabel("Number of Samples")
   plt.xlabel("Median Absolute Deviation (MAD)")
   mad_hist_mem_loc = io.BytesIO()

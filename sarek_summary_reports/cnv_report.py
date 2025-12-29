@@ -164,7 +164,7 @@ async def main():
     gene_summary = await gene_summary_task
   if arm_summary_task is not None:
     arm_summary = await arm_summary_task
-  write_xlsx(output_file_name, qc_metrics, cnv_variants, gene_summary, arm_summary)
+  write_xlsx(output_file_name, qc_metrics, cnv_variants, gene_summary, arm_summary, mtc_hist_mem_loc, mad_hist_mem_loc)
 
 
 if __name__ == "__main__":
