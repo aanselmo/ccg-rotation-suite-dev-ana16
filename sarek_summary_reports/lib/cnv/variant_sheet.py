@@ -84,4 +84,9 @@ async def get_cnv_variants(vcf_files: list[str], tumor_cns_files: list[str]) -> 
     one_sample_variants = get_one_sample_variants(joint_basename, vcf_file, tumor_cns_file)
     all_variants = nw.concat([all_variants, one_sample_variants], how="diagonal")
   all_variants = all_variants.rename({"cn" : COPY_NUMBER_COL})
+  # Reorder columns so that sample name comes first.
+  sorted_columns = all_variants.columns
+  sorted_columns.remove(SAMPLE_COL)
+  sorted_columns = [SAMPLE_COL] + sorted_columns
+  all_variants = all_variants.select(sorted_columns)
   return all_variants
