@@ -8,6 +8,7 @@ Gathers the data for the Summary Sheet by Chromosomal Arm in the CNV report.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
+from pathlib import Path
 import gzip
 import polars as pl
 import narwhals.stable.v2 as nw
@@ -27,8 +28,9 @@ def derive_chromosomal_arms(genome_version: str) -> nw.DataFrame:
   """
   l_genome = genome_version.lower()
   cytoband_data = nw.from_native(pl.DataFrame({}))
-  with gzip.open(f'{l_genome}CytoBand.txt.gz', 'rb') as cytoband_file:
-    cytoband_data = pl.scan_csv(
+  script_dir = Path(__file__).resolve().parent
+  with gzip.open(f'{script_dir}/{l_genome}CytoBand.txt.gz', 'rb') as cytoband_file:
+    cytoband_data = pl.read_csv(
         cytoband_file,
         separator="\t",
         has_header=False,
@@ -129,7 +131,7 @@ async def summarize_chromosome_arm_level(genome_version: str, cnv_variants: nw.D
   :param cnv_variants nw.DataFrame: All the variants in all samples excluding those on the X & Y chromosome.
   """
   chromosomal_arms = derive_chromosomal_arms(genome_version)
-  (chromosomal_arms, cnv_variants) = reduce_data_memory(chromosomal_arms.lazy(), cnv_variants)
+  (chromosomal_arms, cnv_variants) = reduce_data_memory(chromosomal_arms, cnv_variants)
   variants_per_arm = assign_variants_to_arms(chromosomal_arms, cnv_variants)
   variants_per_arm = sum_variants_per_arm(variants_per_arm)
   return variants_per_arm

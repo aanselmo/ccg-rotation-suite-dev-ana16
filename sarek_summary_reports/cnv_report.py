@@ -9,7 +9,7 @@ __credits__ = ["Neil A. Patel"]
 
 import argparse
 from os import makedirs
-from os.path import join
+from os.path import join, basename
 from glob import glob
 from datetime import date
 import asyncio
@@ -98,12 +98,12 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
     cns_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.cns")
     # Remove call.cns files which are basically duplicates. In this case, we want the ones without call in filenames
     # because they have more segment calls which will lower the median absolute deviation (MAD) scores.
-    for one_file in cns_files:
-      if "call" in one_file:
-        cns_files.remove(one_file)
+    cns_files = list(filter(
+        lambda one_file: "call" not in basename(one_file) and "bintest" not in basename(one_file),
+        cns_files
+    ))
   else:
     cns_files = args.cns_files
-
   if not args.tumor_cns_files:
     tumor_cns_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.tumor_only.call.cns")
     somatic_cns_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.somatic.call.cns")
@@ -153,7 +153,7 @@ async def main():
   if vcf_files:
     cnv_variants = await get_cnv_variants(vcf_files, tumor_cns_files)
   if cnv_variants:
-    arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(args.genome_reference, cnv_variants.lazy()))
+    arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(args.genome_reference, cnv_variants))
   # Await Tasks
   if qc_task is not None:
     qc_metrics = await qc_task

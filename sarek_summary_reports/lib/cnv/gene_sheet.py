@@ -7,7 +7,7 @@ Gathers the data for the Summary Sheet by Gene in the CNV report.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
-from os.path import dirname, basename
+from os.path import dirname, basename as get_basename
 import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
@@ -22,12 +22,19 @@ LOSS_COL = "No. of Samples with Losses"
 GAIN_AND_LOSS_COL = "No. of Samples with Gains & Losses"
 
 
-def get_one_sample_variants(one_gene_file) -> nw.DataFrame:
-  one_sample_gene_cnvs = nw.from_native(pl.scan_csv(one_gene_file, separator="\t", has_header=True, row_index_offset=0))
+def get_one_sample_variants(one_gene_file: str) -> nw.DataFrame:
+  one_sample_gene_cnvs = nw.from_native(pl.read_csv(one_gene_file, separator="\t", has_header=True, row_index_offset=0))
   # The last row has the mean target average
+  one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
   one_sample_gene_cnvs = one_sample_gene_cnvs.filter((nw.col(CHROMOSOME_COL) != "X") & (nw.col(CHROMOSOME_COL) != "Y"))
+  one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(nw.col(CHROMOSOME_COL).cast(nw.Int8).alias(CHROMOSOME_COL))
   one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(
-      basename=nw.col(basename(one_gene_file).replace(".genemetrics.tsv", "")))
+      nw.lit(one_gene_file.replace(".genemetrics.tsv", "")).alias(BASENAME_COL)
+  )
+  one_sample_gene_cnvs = one_sample_gene_cnvs.to_native().with_columns(
+      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename)).alias(BASENAME_COL)
+  )
+  one_sample_gene_cnvs = nw.from_native(one_sample_gene_cnvs)
   return one_sample_gene_cnvs
 
 
@@ -44,8 +51,8 @@ def sum_cnv_numbers_by_gene(all_gene_cnvs: nw.DataFrame) -> nw.DataFrame:
   # Log 2 ratio means 2.0 to the power of the log2ratio
   all_gene_cnvs = calculate_copy_number(all_gene_cnvs, log2col=LOG2_COL)
   all_gene_summary = all_gene_cnvs.group_by(GENE_COL, BASENAME_COL).agg(
-      (nw.col(COPY_NUMBER_COL) > DIPLOID).len().alias(GAIN_COL)
-      (nw.col(COPY_NUMBER_COL) < DIPLOID).len().alias(LOSS_COL)
+      nw.when(nw.col(COPY_NUMBER_COL) > DIPLOID).then(1).otherwise(0).sum().alias(GAIN_COL),
+      nw.when(nw.col(COPY_NUMBER_COL) < DIPLOID).then(1).otherwise(0).sum().alias(LOSS_COL)
   )
   is_gain_and_loss = (nw.col(GAIN_COL) == 1) & (nw.col(LOSS_COL) == 1)
   all_gene_summary = all_gene_summary.with_columns(
@@ -72,5 +79,5 @@ async def summarize_gene_level(gene_files: list[str]) -> nw.DataFrame:
   for one_gene_file in gene_files:
     one_sample_variants = get_one_sample_variants(one_gene_file)
     all_gene_cnvs = nw.concat([all_gene_cnvs, one_sample_variants], how="vertical")
-  all_gene_summary = sum_cnv_numbers_by_gene(all_gene_cnvs.lazy())
+  all_gene_summary = sum_cnv_numbers_by_gene(all_gene_cnvs)
   return all_gene_summary

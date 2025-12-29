@@ -21,6 +21,7 @@ CNS_FILES_COL = "cns_files"
 BASENAME_COL = "basename"
 MTC_COL = "Mean Target Coverage (MTC)"
 
+
 def organize_qc_files(
     mos_files: list[str],
     cnr_files: list[str],
@@ -33,26 +34,25 @@ def organize_qc_files(
   cnr_df = nw.from_native(pl.DataFrame({CNR_FILES_COL: cnr_files}))
   cns_df = nw.from_native(pl.DataFrame({CNS_FILES_COL: cns_files}))
   mos_df = mos_df.with_columns(nw.col(MOS_FILES_COL).str.replace(".recal.mosdepth.summary.txt", "").alias(BASENAME_COL))
-  cnr_df = cnr_df.with_columns(nw.col(cnr_df.col(CNR_FILES_COL).str.replace(".cnr", "")).alias(BASENAME_COL))
-  cns_df = cns_df.with_columns(nw.col(cns_df.col(CNS_FILES_COL).str.replace(".cns", "")).alias(BASENAME_COL))
-
+  cnr_df = cnr_df.with_columns(nw.col(CNR_FILES_COL).str.replace(".cnr", "").alias(BASENAME_COL))
+  cns_df = cns_df.with_columns(nw.col(CNS_FILES_COL).str.replace(".cns", "").alias(BASENAME_COL))
   mos_df = mos_df.to_native().with_columns(
-      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename))
+      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename)).alias(BASENAME_COL)
   )
   cnr_df = cnr_df.to_native().with_columns(
-      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename))
+      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename)).alias(BASENAME_COL)
   )
   cns_df = cns_df.to_native().with_columns(
-      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename))
+      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename)).alias(BASENAME_COL)
   )
-  all_qc_files = mos_df.join(cnr_df, BASENAME_COL, how="full")
-  all_qc_files = all_qc_files.join(cnr_df, BASENAME_COL, how="full")
+  all_qc_files = mos_df.join(cnr_df, on=BASENAME_COL, how="full", suffix="_cnr", coalesce=True)
+  all_qc_files = all_qc_files.join(cns_df, on=BASENAME_COL, how="full", suffix="_cns", coalesce=True)
   all_qc_files = nw.from_native(all_qc_files)
   return all_qc_files
 
 
 def get_one_sample_mtc(one_mos_file: str) -> tuple[str, float]:
-  mosdepth_summary = nw.from_native(pl.scan_csv(one_mos_file, separator="\t", has_header=True, row_index_offset=0))
+  mosdepth_summary = nw.from_native(pl.read_csv(one_mos_file, separator="\t", has_header=True, row_index_offset=0))
   # The last row has the mean target average
   mean_target_coverage = mosdepth_summary.tail(1).item(0, "mean")
   return (one_mos_file, mean_target_coverage)
@@ -64,19 +64,19 @@ async def run_cnvkit_metrics(just_cnr_cns: nw.DataFrame, bucket_dir) -> nw.DataF
   :param just_cnr_cns nw.DataFrame: A DataFrame with columns cnr_files cns_files that are sorted by sample name and
       correspond to each other. Also, the columns should have no null values.
   """
-  cnr_files: list = just_cnr_cns.get_column(CNR_FILES_COL)
-  cns_files: list = just_cnr_cns.get_column(CNS_FILES_COL)
-  cnvkit_command = ["cnvkit.py"] + cnr_files + ["-s"] + cns_files
+  cnr_files: list = just_cnr_cns.get_column(CNR_FILES_COL).to_list()
+  cns_files: list = just_cnr_cns.get_column(CNS_FILES_COL).to_list()
+  cnvkit_command = ["cnvkit.py", "metrics"] + cnr_files + ["-s"] + cns_files
   docker_command = (
-      ["docker", "run", "-v", f"{bucket_dir}:{bucket_dir}", "-w", bucket_dir, "quay.io/biocontainers/cnvkit"]
-      + cnvkit_command
+      ["docker", "run", "-v", f"{bucket_dir}:{bucket_dir}", "-w", bucket_dir,
+       "quay.io/biocontainers/cnvkit:0.9.10--pyhdfd78af_0"] + cnvkit_command
   )
-  print(f"Running command: {docker_command.join(" ")}")
+  print(f"Running command: {" ".join(docker_command)}")
   cnvkit_stream = subprocess.run(docker_command, capture_output=True, text=True)
   cnvkit_metrics = nw.from_native(pl.DataFrame({}))
   if cnvkit_stream.stdout:
-    cnvkit_metrics = pl.scan_csv(io.StringIO(cnvkit_stream.stdout), has_header=True, separator="\t")
-  return cnvkit_metrics
+    cnvkit_metrics = pl.read_csv(io.StringIO(cnvkit_stream.stdout), has_header=True, separator="\t")
+  return nw.from_native(cnvkit_metrics)
 
 
 async def get_qc_metrics(
@@ -103,9 +103,11 @@ async def get_qc_metrics(
   all_qc_data = all_qc_files.join(mtc_df, MOS_FILES_COL, how="full")
   cnvkit_metrics = await cnvkit_task
   cnvkit_metrics = cnvkit_metrics.rename({"sample": CNR_FILES_COL})
-  all_cols_except_filename = cnvkit_metrics.columns.remove(CNR_FILES_COL)
-  all_qc_data = all_qc_files.join(cnvkit_metrics, on=CNR_FILES_COL, how="full")
-  qc_metrics_without_filenames = all_qc_data.select(nw.col([BASENAME_COL, MTC_COL, all_cols_except_filename]))
+  all_qc_data = all_qc_data.join(cnvkit_metrics, on=CNR_FILES_COL, how="full")
+  columns_to_select = cnvkit_metrics.columns
+  columns_to_select.remove(CNR_FILES_COL)
+  columns_to_select = [BASENAME_COL, MTC_COL] + columns_to_select
+  qc_metrics_without_filenames = all_qc_data.select(columns_to_select)
   return qc_metrics_without_filenames
 
 
