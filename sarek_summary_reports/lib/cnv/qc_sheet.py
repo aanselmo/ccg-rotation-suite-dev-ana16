@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 MOS_FILES_COL = "mos_files"
 CNR_FILES_COL = "cnr_files"
 CNS_FILES_COL = "cns_files"
-BASENAME_COL = "basename"
+SAMPLE_COL = "sample"
 MTC_COL = "Mean Target Coverage (MTC)"
 
 
@@ -33,20 +33,20 @@ def organize_qc_files(
   mos_df = nw.from_native(pl.DataFrame({MOS_FILES_COL: mos_files}))
   cnr_df = nw.from_native(pl.DataFrame({CNR_FILES_COL: cnr_files}))
   cns_df = nw.from_native(pl.DataFrame({CNS_FILES_COL: cns_files}))
-  mos_df = mos_df.with_columns(nw.col(MOS_FILES_COL).str.replace(".recal.mosdepth.summary.txt", "").alias(BASENAME_COL))
-  cnr_df = cnr_df.with_columns(nw.col(CNR_FILES_COL).str.replace(".cnr", "").alias(BASENAME_COL))
-  cns_df = cns_df.with_columns(nw.col(CNS_FILES_COL).str.replace(".cns", "").alias(BASENAME_COL))
+  mos_df = mos_df.with_columns(nw.col(MOS_FILES_COL).str.replace(".recal.mosdepth.summary.txt", "").alias(SAMPLE_COL))
+  cnr_df = cnr_df.with_columns(nw.col(CNR_FILES_COL).str.replace(".cnr", "").alias(SAMPLE_COL))
+  cns_df = cns_df.with_columns(nw.col(CNS_FILES_COL).str.replace(".cns", "").alias(SAMPLE_COL))
   mos_df = mos_df.to_native().with_columns(
-      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename)).alias(BASENAME_COL)
+      pl.col(SAMPLE_COL).map_elements(lambda filename: get_basename(filename)).alias(SAMPLE_COL)
   )
   cnr_df = cnr_df.to_native().with_columns(
-      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename)).alias(BASENAME_COL)
+      pl.col(SAMPLE_COL).map_elements(lambda filename: get_basename(filename)).alias(SAMPLE_COL)
   )
   cns_df = cns_df.to_native().with_columns(
-      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename)).alias(BASENAME_COL)
+      pl.col(SAMPLE_COL).map_elements(lambda filename: get_basename(filename)).alias(SAMPLE_COL)
   )
-  all_qc_files = mos_df.join(cnr_df, on=BASENAME_COL, how="full", suffix="_cnr", coalesce=True)
-  all_qc_files = all_qc_files.join(cns_df, on=BASENAME_COL, how="full", suffix="_cns", coalesce=True)
+  all_qc_files = mos_df.join(cnr_df, on=SAMPLE_COL, how="full", suffix="_cnr", coalesce=True)
+  all_qc_files = all_qc_files.join(cns_df, on=SAMPLE_COL, how="full", suffix="_cns", coalesce=True)
   all_qc_files = nw.from_native(all_qc_files)
   return all_qc_files
 
@@ -106,7 +106,7 @@ async def get_qc_metrics(
   all_qc_data = all_qc_data.join(cnvkit_metrics, on=CNR_FILES_COL, how="full")
   columns_to_select = cnvkit_metrics.columns
   columns_to_select.remove(CNR_FILES_COL)
-  columns_to_select = [BASENAME_COL, MTC_COL] + columns_to_select
+  columns_to_select = [SAMPLE_COL, MTC_COL] + columns_to_select
   qc_metrics_without_filenames = all_qc_data.select(columns_to_select)
   return qc_metrics_without_filenames
 

@@ -11,7 +11,7 @@ from os.path import dirname, basename as get_basename
 import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
-from .qc_sheet import BASENAME_COL
+from .qc_sheet import SAMPLE_COL
 from .variant_sheet import COPY_NUMBER_COL, CHROMOSOME_COL
 
 GENE_COL = "gene"
@@ -29,10 +29,10 @@ def get_one_sample_variants(one_gene_file: str) -> nw.DataFrame:
   one_sample_gene_cnvs = one_sample_gene_cnvs.filter((nw.col(CHROMOSOME_COL) != "X") & (nw.col(CHROMOSOME_COL) != "Y"))
   one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(nw.col(CHROMOSOME_COL).cast(nw.Int8).alias(CHROMOSOME_COL))
   one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(
-      nw.lit(one_gene_file.replace(".genemetrics.tsv", "")).alias(BASENAME_COL)
+      nw.lit(one_gene_file.replace(".genemetrics.tsv", "")).alias(SAMPLE_COL)
   )
   one_sample_gene_cnvs = one_sample_gene_cnvs.to_native().with_columns(
-      pl.col(BASENAME_COL).map_elements(lambda filename: get_basename(filename)).alias(BASENAME_COL)
+      pl.col(SAMPLE_COL).map_elements(lambda filename: get_basename(filename)).alias(SAMPLE_COL)
   )
   one_sample_gene_cnvs = nw.from_native(one_sample_gene_cnvs)
   return one_sample_gene_cnvs
@@ -50,7 +50,7 @@ def calculate_copy_number(original_df: nw.DataFrame, log2col=LOG2_COL) -> nw.Dat
 def sum_cnv_numbers_by_gene(all_gene_cnvs: nw.DataFrame) -> nw.DataFrame:
   # Log 2 ratio means 2.0 to the power of the log2ratio
   all_gene_cnvs = calculate_copy_number(all_gene_cnvs, log2col=LOG2_COL)
-  all_gene_summary = all_gene_cnvs.group_by(GENE_COL, BASENAME_COL).agg(
+  all_gene_summary = all_gene_cnvs.group_by(GENE_COL, SAMPLE_COL).agg(
       nw.when(nw.col(COPY_NUMBER_COL) > DIPLOID).then(1).otherwise(0).sum().alias(GAIN_COL),
       nw.when(nw.col(COPY_NUMBER_COL) < DIPLOID).then(1).otherwise(0).sum().alias(LOSS_COL)
   )

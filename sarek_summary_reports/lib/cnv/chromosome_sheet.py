@@ -12,7 +12,7 @@ from pathlib import Path
 import gzip
 import polars as pl
 import narwhals.stable.v2 as nw
-from .qc_sheet import BASENAME_COL
+from .qc_sheet import SAMPLE_COL
 from .variant_sheet import CHROMOSOME_COL, START_COL, END_COL, COPY_NUMBER_COL
 from .gene_sheet import GAIN_AND_LOSS_COL, GAIN_COL, LOSS_COL, DIPLOID
 
@@ -57,7 +57,7 @@ def reduce_data_memory(chromosomal_arms: nw.DataFrame, cnv_variants: nw.DataFram
       nw.col(START_COL),
       nw.col(END_COL),
       nw.col(COPY_NUMBER_COL),
-      nw.col(BASENAME_COL)
+      nw.col(SAMPLE_COL)
   ])
   return (chromosomal_arms, cnv_variants)
 
@@ -96,7 +96,7 @@ def sum_variants_per_arm(variants_per_arm: nw.DataFrame) -> nw.DataFrame:
   Sum to create summary table.
   """
   variants_per_arm = variants_per_arm.group_by(
-      BASENAME_COL, "chromosome_right", ARM_COL, "start_right", "end_right"
+      SAMPLE_COL, "chromosome_right", ARM_COL, "start_right", "end_right"
   ).agg(
       nw.col(GAIN_COL).sum(),
       nw.col(LOSS_COL).sum()

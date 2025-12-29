@@ -3,8 +3,12 @@
 
 BreaKmer_Reports/*
 
+# Excel/Libreoffice files
 *.xlsx
+.~lock*
 *.csv
+
+# Other generated output
 low-coverage/*
 *.png
 *.pickle

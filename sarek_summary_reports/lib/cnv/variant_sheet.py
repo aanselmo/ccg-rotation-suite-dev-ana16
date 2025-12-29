@@ -10,7 +10,7 @@ __credits__ = ["Neil A. Patel"]
 from os.path import basename as get_basename
 import polars as pl
 import narwhals.stable.v2 as nw
-from .qc_sheet import BASENAME_COL
+from .qc_sheet import SAMPLE_COL
 import time
 
 
@@ -29,24 +29,24 @@ def organize_variant_files(vcf_files: list[str], tumor_cns_files: list[str]) -> 
   """
   vcf_df = nw.from_native(pl.DataFrame({VCF_FILES_COL: vcf_files}))
   tumor_cns_df = nw.from_native(pl.DataFrame({TUMOR_CNS_FILES_COL: tumor_cns_files}))
-  vcf_df = vcf_df.with_columns(nw.col(VCF_FILES_COL).str.replace(".cnvcall.vcf", "").alias(BASENAME_COL))
-  vcf_df = vcf_df.with_columns(nw.col(BASENAME_COL).str.split("_vs_").list.get(0).alias(BASENAME_COL))
+  vcf_df = vcf_df.with_columns(nw.col(VCF_FILES_COL).str.replace(".cnvcall.vcf", "").alias(SAMPLE_COL))
+  vcf_df = vcf_df.with_columns(nw.col(SAMPLE_COL).str.split("_vs_").list.get(0).alias(SAMPLE_COL))
   tumor_cns_df = tumor_cns_df.with_columns(
-      nw.col(TUMOR_CNS_FILES_COL).str.replace(".tumor_only.call.cns", "").alias(BASENAME_COL)
+      nw.col(TUMOR_CNS_FILES_COL).str.replace(".tumor_only.call.cns", "").alias(SAMPLE_COL)
   )
   tumor_cns_df = tumor_cns_df.with_columns(
-      nw.col(BASENAME_COL).str.replace(".somatic.call.cns", "").alias(BASENAME_COL)
+      nw.col(SAMPLE_COL).str.replace(".somatic.call.cns", "").alias(SAMPLE_COL)
   )
   tumor_cns_df = tumor_cns_df.with_columns(
-      nw.col(BASENAME_COL).str.replace(".germline.call.cns", "").alias(BASENAME_COL)
+      nw.col(SAMPLE_COL).str.replace(".germline.call.cns", "").alias(SAMPLE_COL)
   )
   vcf_df = vcf_df.to_native().with_columns(
-      pl.col(BASENAME_COL).map_elements(lambda name: get_basename(name)).alias(BASENAME_COL)
+      pl.col(SAMPLE_COL).map_elements(lambda name: get_basename(name)).alias(SAMPLE_COL)
   )
   tumor_cns_df = tumor_cns_df.to_native().with_columns(
-      pl.col(BASENAME_COL).map_elements(lambda name: get_basename(name)).alias(BASENAME_COL)
+      pl.col(SAMPLE_COL).map_elements(lambda name: get_basename(name)).alias(SAMPLE_COL)
   )
-  variant_files = vcf_df.join(tumor_cns_df, on=BASENAME_COL, how="inner")
+  variant_files = vcf_df.join(tumor_cns_df, on=SAMPLE_COL, how="inner")
   variant_files = nw.from_native(variant_files)
   return variant_files
 
@@ -58,9 +58,9 @@ def get_one_sample_variants(basename: str, vcf_file: str, tumor_cns_file: str) -
   vcf_df = vcf_df.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
   tumor_cns_df = tumor_cns_df.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
   filtered_tumor_cns_df = tumor_cns_df.join(vcf_df, on=[CHROMOSOME_COL, START_COL], how="inner")
-  filtered_tumor_cns_df = filtered_tumor_cns_df.with_columns(nw.lit(basename).alias(BASENAME_COL))
+  filtered_tumor_cns_df = filtered_tumor_cns_df.with_columns(nw.lit(basename).alias(SAMPLE_COL))
   columns_to_select = tumor_cns_df.collect_schema().names()
-  columns_to_select.append(BASENAME_COL)
+  columns_to_select.append(SAMPLE_COL)
   filtered_tumor_cns_df = filtered_tumor_cns_df.select(columns_to_select)
   filtered_tumor_cns_df = filtered_tumor_cns_df.filter(
       (nw.col(CHROMOSOME_COL) != "X") & (nw.col(CHROMOSOME_COL) != "Y")

@@ -24,7 +24,6 @@ from lib.cnv.chromosome_sheet import summarize_chromosome_arm_level
 
 AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
 
-
 def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
   parser.add_argument("-o", "--output-file", type=str, default="output.xlsx",
