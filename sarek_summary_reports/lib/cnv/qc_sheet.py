@@ -131,6 +131,7 @@ def graph_mtc(qc_metrics: nw.DataFrame) -> io.BytesIO:
   plt.xlabel("Mean Target Coverage (MTC)")
   plt.xlim(0, None)
   plt.plot([MTC_BAD_THRESHOLD, MTC_BAD_THRESHOLD], [0, max_n], color=BAD_COLOR, linestyle="dashed")
+  plt.axvspan(0, MTC_BAD_THRESHOLD, facecolor=BAD_COLOR, alpha=0.1)
   for index_bin, one_bin in enumerate(bins[:-1]):
     if one_bin < MTC_BAD_THRESHOLD:
       patches[index_bin].set_facecolor(BAD_COLOR)
@@ -151,6 +152,7 @@ def graph_mad(qc_metrics: nw.DataFrame) -> io.BytesIO:
   plt.xlabel("Median Absolute Deviation (MAD)")
   plt.xlim(0, max_mad_graph)
   plt.plot([MAD_BAD_THRESHOLD, MAD_BAD_THRESHOLD], [0, max_n], color=BAD_COLOR, linestyle="dashed")
+  plt.axvspan(MAD_BAD_THRESHOLD, max_mad_graph, facecolor=BAD_COLOR, alpha=0.1)
   for index_bin, one_bin in enumerate(bins[:-1]):
     if one_bin > MAD_BAD_THRESHOLD:
       patches[index_bin].set_facecolor(BAD_COLOR)

@@ -11,21 +11,10 @@ import polars as pl
 
 # Create 'header' format to style page header
 HEADER_STYLE = {
-    "font_name": "Arial",
     "bold": True,
-    "size": 12,
     "text_wrap": True,
     "align": "left",
 }
-
-# Currently, unused, but I would like to use it in the future.
-# Work for default themes and styles are in progress in xlsxwriter:
-# https://github.com/jmcnamara/XlsxWriter/issues/1163
-# DATA_STYLE = {
-#    "font_name": "Arial",
-#    "size": 12,
-#    "align": "right",
-# }
 
 
 def get_column_widths(df: pl.DataFrame, font_multiplier=10.0, first_row_multiplier=0) -> dict:

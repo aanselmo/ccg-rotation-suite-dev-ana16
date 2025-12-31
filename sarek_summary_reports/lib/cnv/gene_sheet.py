@@ -23,7 +23,13 @@ GAIN_AND_LOSS_COL = "No. of Samples with Gains & Losses"
 
 
 def get_one_sample_variants(one_gene_file: str) -> nw.DataFrame:
-  one_sample_gene_cnvs = nw.from_native(pl.read_csv(one_gene_file, separator="\t", has_header=True, row_index_offset=0))
+  one_sample_gene_cnvs = nw.from_native(pl.read_csv(
+      one_gene_file,
+      separator="\t",
+      has_header=True,
+      row_index_offset=0,
+      schema_overrides={ CHROMOSOME_COL: pl.String }
+  ))
   # The last row has the mean target average
   one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
   one_sample_gene_cnvs = one_sample_gene_cnvs.filter((nw.col(CHROMOSOME_COL) != "X") & (nw.col(CHROMOSOME_COL) != "Y"))
