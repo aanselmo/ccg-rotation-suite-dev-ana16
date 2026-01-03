@@ -11,8 +11,8 @@ __credits__ = ["Neil A. Patel"]
 import gzip
 import polars as pl
 import narwhals.stable.v2 as nw
-from concurrent.futures import ProcessPoolExecutor
-from multiprocessing import get_context
+
+
 INFO_COL = "INFO"
 CSQ_COL = "CSQ"
 FORMAT_COL = "FORMAT"
@@ -112,8 +112,7 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
   )
   # Data Col of Fromat Header Starts off as the same name so it's not constant.
   data_col_of_format_header = get_format_data_column_name(df)
-  ex = ProcessPoolExecutor(max_workers=1, mp_context=get_context("spawn"))
-  format_task = ex.submit(split_format_column, df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
+  format_data = split_format_column(df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
   df = df.with_columns(pl.col(INFO_COL).str.split(";").list.to_struct(upper_bound=20).struct.unnest())
   # The to_struct() expression creates null columns.
   df = drop_null_columns(df)
@@ -122,7 +121,6 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
   df = df.with_columns(pl.col(CSQ_COL).str.split("|").list.to_struct(fields=csq_header).struct.unnest())
   df = df.drop(CSQ_COL)
   df = df.drop([FORMAT_COL, data_col_of_format_header])
-  format_data = format_task.result()
   df = pl.concat([df, format_data], how="horizontal")
   return nw.from_native(df)
 
