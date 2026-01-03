@@ -11,8 +11,8 @@ __credits__ = ["Neil A. Patel"]
 import gzip
 import polars as pl
 import narwhals.stable.v2 as nw
-
-
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import get_context
 INFO_COL = "INFO"
 CSQ_COL = "CSQ"
 FORMAT_COL = "FORMAT"
@@ -28,17 +28,19 @@ def find_header_line(vcf_path: str) -> int:
   return header_line
 
 
-def find_csq_header(vcf_path: str) -> list[str]:
+def get_csq_header(vcf_path: str) -> list[str]:
   header = []
   with gzip.open(vcf_path, "rt") as vcf_file:
     for line in vcf_file:
       if line.startswith("##INFO=<ID=CSQ"):
         header = line.strip().split("|")
         last_whitespace = header[0].rfind(" ")
-        header[0] = header[0][last_whitespace+1:]
+        header[0] = header[0][last_whitespace + 1:]
         header[-1] = header[-1].rstrip('">')
+  af_index = header.index("AF")
+  header[af_index] = "CSQ_AF"
   return header
-      
+
 
 def get_format_data_column_name(df: pl.DataFrame):
   format_data_col_index = df.get_column_index(FORMAT_COL) + 1
@@ -59,7 +61,7 @@ def drop_null_columns(df: pl.DataFrame) -> pl.DataFrame:
   return df
 
 
-def parse_headers_from_column_data(df: pl.DataFrame) -> pl.DataFrame:
+def parse_info_section_headers(df: pl.DataFrame) -> pl.DataFrame:
   """
   The previous str.split.list.to_struct operation leaves columns like:
   |field_0              | field_1                    |
@@ -75,8 +77,9 @@ def parse_headers_from_column_data(df: pl.DataFrame) -> pl.DataFrame:
   for column_name in columns_to_format:
     one_cell: str = df.item(0, column_name)
     new_column_name = one_cell.split("=")[0]
-    df = df.rename({column_name : new_column_name})
+    df = df.rename({column_name: new_column_name})
     df = df.with_columns(pl.col(new_column_name).str.split("=").list.get(1).alias(new_column_name))
+  df = df.rename({"DP": "INFO_DP"})
   return df
 
 
@@ -100,7 +103,7 @@ def split_format_column(df: pl.DataFrame) -> pl.DataFrame:
 
 def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
   header_line = find_header_line(vcf_path)
-  csq_header = find_csq_header(vcf_path)
+  csq_header = get_csq_header(vcf_path)
   df = pl.read_csv(
       vcf_path,
       skip_lines=header_line,
@@ -109,17 +112,17 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
   )
   # Data Col of Fromat Header Starts off as the same name so it's not constant.
   data_col_of_format_header = get_format_data_column_name(df)
+  ex = ProcessPoolExecutor(max_workers=1, mp_context=get_context("spawn"))
+  format_task = ex.submit(split_format_column, df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
   df = df.with_columns(pl.col(INFO_COL).str.split(";").list.to_struct(upper_bound=20).struct.unnest())
   # The to_struct() expression creates null columns.
   df = drop_null_columns(df)
   df = df.drop(INFO_COL)
-  df = parse_headers_from_column_data(df)
+  df = parse_info_section_headers(df)
   df = df.with_columns(pl.col(CSQ_COL).str.split("|").list.to_struct(fields=csq_header).struct.unnest())
   df = df.drop(CSQ_COL)
-  df = df.rename({"AF" : "CSQ_AF"})
-  df = df.rename({"DP" : "CSQ_DP"})
-  format_data = split_format_column(df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
   df = df.drop([FORMAT_COL, data_col_of_format_header])
+  format_data = format_task.result()
   df = pl.concat([df, format_data], how="horizontal")
   return nw.from_native(df)
 
