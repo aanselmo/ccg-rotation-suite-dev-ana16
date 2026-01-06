@@ -13,7 +13,6 @@ from os.path import join, basename
 from glob import glob
 from datetime import date
 import asyncio
-import xlsxwriter
 import polars as pl
 import narwhals.stable.v2 as nw
 from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics

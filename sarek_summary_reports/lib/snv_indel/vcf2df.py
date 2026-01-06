@@ -38,7 +38,7 @@ def get_csq_header(vcf_path: str) -> list[str]:
         header[0] = header[0][last_whitespace + 1:]
         header[-1] = header[-1].rstrip('">')
   af_index = header.index("AF")
-  header[af_index] = "CSQ_AF"
+  header[af_index] = "gnomAD_AF"
   return header
 
 
