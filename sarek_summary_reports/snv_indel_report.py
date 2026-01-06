@@ -14,7 +14,8 @@ from glob import glob
 from datetime import date
 import polars as pl
 import narwhals.stable.v2 as nw
-from lib.snv_indel.snv_indel_sheet import gather_variants
+from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
+from lib.snv_indel.variant_summary_sheet import get_variant_summary
 
 
 def setup_arguments():
@@ -54,7 +55,7 @@ def gather_input_files(args: argparse.Namespace) -> list[str]:
   vcf_files = []
 
   if not args.vcf_files:
-    vcf_files = glob(f"{args.bucket_folder}/annotation/mutect2/*/*.mutect2.filtered.bcftools_filtered_VEP.ann.vcf")
+    vcf_files = glob(f"{args.bucket_folder}/annotation/mutect2/*/*{VEP_FILE_ENDING}")
   else:
     vcf_files = args.vcf_files
   return vcf_files
@@ -72,4 +73,5 @@ def main():
     makedirs(project_report_dir, exist_ok=True)
     output_file_name = join(project_report_dir, f"{today}_{args.project_code.lower()}_cnvkit_report.xlsx")
   vcf_files = gather_input_files(args)
-  all_variants = gather_variants(vcf_files)
+  all_variants = get_variants(vcf_files)
+  variant_summary_table = get_variant_summary(all_variants)
