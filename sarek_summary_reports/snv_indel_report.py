@@ -19,6 +19,7 @@ from lib.common_args import append_common_args, append_reference_arg, append_vcf
 from lib.snv_indel.lego_plot_sheet import graph_lego_plot
 from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
 from lib.snv_indel.variant_summary_sheet import get_variant_summary
+from lib.snv_indel.analysis_legend_sheet import get_legend
 
 
 def setup_arguments():
@@ -78,9 +79,10 @@ async def main():
   bed_file = None
   if args.bed_file != "WGS":
     bed_file = args.bed_file
-  graph_task = asyncio.create_task(graph_lego_plot(vcf_files, project_code, args.genome_reference, bed_file))
+  graph_task = asyncio.create_task(graph_lego_plot(vcf_files, project_code, args.reference_genome, bed_file))
   all_variants = get_variants(vcf_files)
   variant_summary_table = get_variant_summary(all_variants)
+  legend = get_legend(args.reference_genome)
   await graph_task
 
 

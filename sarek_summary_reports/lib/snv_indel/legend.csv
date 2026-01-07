@@ -1,36 +1,30 @@
-"Column Descriptions"
-#CHROM,"chromosome"
-POS,"position"
-REF,"Reference Allele in GENOME"
+"Column","Column Descriptions"
+Note,"Columns for the most part correspond 1:1 with www.ensembl.org/info/docs/tools/vep/script/VEP_script_documentation.pdf"
+"#CHROM","The chromosome in which the variant occurs"
+POS,"The position in which the variant occurs. Cooridnates map to REFERENCE_GENOME."
+REF,"Reference Allele in REFERENCE_GENOME"
 ALT,"Alternate Allele that occurs in place of the reference allele in the tumor sample"
-recommended_filter,"indicates if the variant passes the filtering criteria used in the Variant_Summary_table tab"
+recommended_filter,"This is a CCG computed column. Indicates if the variant passes the filtering criteria used in the Variant_Summary_table tab"
 Consequence,"The effect for the given variant across the transcript."
-VARIANT_CLASS,"What type of variant it is: SNV, Indel, etc."
+VARIANT_CLASS,"The type of variant it is: SNV, Indel, etc."
 SYMBOL,"The gene symbol or name"
-SYMBOL_SOURCE,"What database the gene symbol or name comes from. HGNC means the HUGO Gene Nomenclature Committee"
-HGNC_ID
-Gene
-Feature_type
-Feature
-BIOTYPE
-EXON
-INTRON
-HGVSc
-HGVSp
-cDNA_position
-CDS_position
-Protein_position
-Amino_acids
-Codons
-Existing_variation
-AF
-DP
-gnomAD_AF
-MAX_AF
-MAX_AF_POPS
-gnomADe_AF
-MAX_gnomADe_AF
-MAX_gnomADe_AF_POPS
-gnomADg_AF
-MAX_gnomADg_AF
-MAX_gnomADg_AF_POPS
+SYMBOL_SOURCE,"The database the gene symbol or name comes from. HGNC means the HUGO Gene Nomenclature Committee"
+HGNC_ID,"The ID number for the Gene in the HGNC Database."
+Gene,"The ID number for the Gene in the Ensemble Database."
+Feature_type,"What kind of genomic feature? If there is mRNA that derives from DNA, will say 'transcript' in this column"
+Feature,"The ID of RNA that derives from the DNA."
+BIOTYPE,"What kind of biological entity? The biological function of the RNA (i.e. whether it's protein_coding).
+EXON,"If the variant is in an exon, this will have the 'Exon number / Number of total exons'"
+INTRON,"If the variant is in an intron, this will have the 'Intron number / Number of total introns'"
+cDNA_position,"Relative position of the base pair from the start of the mature transcript (cDNA) sequence."
+CDS_position,"Relative position of the base pair from the start of the coding sequence for the original DNA."
+Protein_position,"Relative position of the amino acid from the start of the translated protein."
+Amino_acids,"The amino acids that were changed by the genetic change."
+Existing_variation,"The IDs in databases that catalogue known variations: COSMIC (start with COSV) and dbSNP (start with rs) Databases."
+AF,"Allele Fraction from Mutect2. Mutect2 filters out normal tissue contamination reads."
+DP,"Depth from Mutect2. Mutect2 filters out normal tissue contamination reads."
+gnomAD_AF,"Frequency of existing variant in 1000 Genomes. This is a renamed column; it corresponds to the AF column in the CSQ section of the .vcf file."
+gnomADe_AF,"Frequency of existing variant in gnomAD exomes combined population"
+gnomADg_AF,"Frequency of existing variant in gnomAD genomes combined population"
+MAX_AF,"Maximum observed allele frequency in 1000 Genomes, ESP and gnomAD"
+MAX_AF_POPS,"Populations (African/American, Ashkenazi Jewish, East Asian, South Asian, etc.) in which maximum allele frequency was observed."

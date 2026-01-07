@@ -3,11 +3,19 @@ xlsxwriter==3.2.9
 polars==1.36.1
 narwhals==2.14.0
 matplotlib==3.10.8
+SigProfilerPlotting==1.4.2
+# For SigProfilerPlotting/lego plots
+scikit-learn==1.8.0
+joblib==1.5.3
+scipy==1.16.3
+SigProfilerMatrixGenerator==1.4.1
+numpy==2.4.0
+statsmodels==0.14.6
 
 # For co-mutation plot:
 pandas
 dill==0.2.8.2
 
 # For low-coverage
-pyensembl==1.9.1
+pyensembl==2.3.13
 simplejson==3.17.4

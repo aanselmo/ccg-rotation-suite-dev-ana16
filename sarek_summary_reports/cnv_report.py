@@ -145,7 +145,7 @@ async def main():
   if vcf_files:
     cnv_variants = await get_cnv_variants(vcf_files, tumor_cns_files)
   if cnv_variants:
-    arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(args.genome_reference, cnv_variants))
+    arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(args.reference_genome, cnv_variants))
   # Await Tasks
   if qc_task is not None:
     qc_metrics = await qc_task

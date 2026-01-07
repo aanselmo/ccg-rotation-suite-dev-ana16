@@ -23,6 +23,6 @@ def append_common_args(parser: ArgumentParser):
 
 
 def append_reference_arg(parser: ArgumentParser):
-  parser.add_argument("-r", "--reference", dest="genome_reference", type=str, default="GRCh37",
+  parser.add_argument("-r", "--reference", dest="reference_genome", type=str, default="GRCh37",
                       choices=AVAILABLE_GENOME_VERSIONS,
                       help="The Genome Version. Options are 'GRCh37' or 'GRCh38'.")
