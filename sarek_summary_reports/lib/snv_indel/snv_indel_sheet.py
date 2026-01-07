@@ -98,7 +98,7 @@ def get_variants(vcf_files: list[str]) -> nw.DataFrame:
   # Select only these columns for now. There are a lot more columns. I made an arbitrary call to get it as similar to
   # the riker report as possible. Also, there a lot of gnomAD columns so I tried to summarize them.
   all_sample_variants = all_sample_variants.select([
-      "#CHROM", "POS", "REF", "ALT", RECOMMENDED_FILTER_COL, CONSEQUENCE_COL, VARIANT_CLASS_COL, "SYMBOL",
+      "#CHROM", "POS", "REF", "ALT", RECOMMENDED_FILTER_COL, CONSEQUENCE_COL, "CANONICAL", VARIANT_CLASS_COL, "SYMBOL",
       "SYMBOL_SOURCE", "HGNC_ID", "Gene",
       "Feature_type", "Feature", "BIOTYPE", "EXON", "INTRON", "HGVSc", "HGVSp", "cDNA_position", "CDS_position",
       "Protein_position", "Amino_acids", "Codons", EXISTING_VARIATION_COL, "AF", "DP",

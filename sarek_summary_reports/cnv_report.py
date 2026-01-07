@@ -15,27 +15,18 @@ from datetime import date
 import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
+from lib.common_args import append_common_args, append_reference_arg, append_vcf_files_arg
 from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
 from lib.cnv.variant_sheet import get_cnv_variants
 from lib.cnv.gene_sheet import summarize_gene_level
 from lib.cnv.chromosome_sheet import summarize_chromosome_arm_level
 from lib.cnv.write_xlsx import write_xlsx
 
-AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
-
 
 def setup_arguments():
-  parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
-  parser.add_argument("-o", "--output-file", type=str, default="output.xlsx",
-                      dest="output_file_name", help="The name of the output file. Overrides project_code argument.")
-  parser.add_argument("-p", "--project", dest="project_code", type=str, default="",
-                      help="The project code for the report. Used to generate filename with the project_code in it.")
-  parser.add_argument("-r", "--reference", dest="genome_reference", type=str, default="GRCh37",
-                      choices=AVAILABLE_GENOME_VERSIONS,
-                      help="The Genome Version. Options are 'GRCh37' or 'GRCh38'.")
-  parser.add_argument("-b", "--bucket-folder", dest="bucket_folder", default="", type=str,
-                      help=("The sarek base folder with all of the other files within it. You can either enter this"
-                            + "or pass all the files individually."))
+  parser = argparse.ArgumentParser(description="Process all sarek files to create a CNV summary report.")
+  append_common_args(parser)
+  append_reference_arg(parser)
   # These 3 types of files are for the QC metrics sheet
   parser.add_argument("-m", "--mos-files", dest="mos_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .recal.mosdepth.summary.txt files with mean coverage in them.")
@@ -52,7 +43,7 @@ def setup_arguments():
                       help="A list of paths to .genemetrics.tsv files with gene summaries in them.")
   # Variant sheet
   parser.add_argument("-v", "--vcf-files", dest="vcf_files", default=[], action="extend", nargs="+",
-                      help="A list of paths to .vcf files with the actual variant calls in them.")
+                      help="A list of paths to .cnvcall.vcf files with the actual variant calls in them.")
   validate_arguments(parser.parse_args(), parser)
   return parser.parse_args()
 

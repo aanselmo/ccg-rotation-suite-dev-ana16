@@ -12,23 +12,23 @@ from os import makedirs
 from os.path import join, basename
 from glob import glob
 from datetime import date
+import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
+from lib.common_args import append_common_args, append_reference_arg, append_vcf_files_arg
+from lib.snv_indel.lego_plot_sheet import graph_lego_plot
 from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
 from lib.snv_indel.variant_summary_sheet import get_variant_summary
 
 
 def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
-  parser.add_argument("-o", "--output-file", type=str, default="output.xlsx",
-                      dest="output_file_name", help="The name of the output file. Overrides project_code argument.")
-  parser.add_argument("-p", "--project", dest="project_code", type=str, default="",
-                      help="The project code for the report. Used to generate filename with the project_code in it.")
-  parser.add_argument("-b", "--bucket-folder", dest="bucket_folder", default="", type=str,
-                      help=("The sarek base folder with all of the other files within it. You can either enter this"
-                            + "or pass all the files individually."))
+  append_common_args(parser)
+  append_reference_arg(parser)
   parser.add_argument("-v", "--vcf-files", dest="vcf_files", default=[], action="extend", nargs="+",
-                      help="A list of paths to .vcf files with the actual variant calls in them.")
+                      help=f"A list of paths to {VEP_FILE_ENDING} files with the actual variant calls in them.")
+  parser.add_argument("-e", "--bed-file", dest="bed_file", type=str, required=True,
+                      help="The targeted bed file for the bait set. If it's Whole genome sequencing, pass 'WGS'.")
   validate_arguments(parser.parse_args(), parser)
   return parser.parse_args()
 
@@ -61,17 +61,28 @@ def gather_input_files(args: argparse.Namespace) -> list[str]:
   return vcf_files
 
 
-def main():
+async def main():
   """
   Runs the whole script.
   """
   args = setup_arguments()
   output_file_name = args.output_file_name
   today = date.today().strftime('%Y%m%d')
+  project_code = "test"
   if output_file_name == "output.xlsx" and args.project_code:
-    project_report_dir = f"{args.project_code}_Reports"
+    project_code = args.project_code
+    project_report_dir = f"{project_code}_Reports"
     makedirs(project_report_dir, exist_ok=True)
-    output_file_name = join(project_report_dir, f"{today}_{args.project_code.lower()}_cnvkit_report.xlsx")
+    output_file_name = join(project_report_dir, f"{today}_{project_code.lower()}_cnvkit_report.xlsx")
   vcf_files = gather_input_files(args)
+  bed_file = None
+  if args.bed_file != "WGS":
+    bed_file = args.bed_file
+  graph_task = asyncio.create_task(graph_lego_plot(vcf_files, project_code, args.genome_reference, bed_file))
   all_variants = get_variants(vcf_files)
   variant_summary_table = get_variant_summary(all_variants)
+  await graph_task
+
+
+if __name__ == "__main__":
+  asyncio.run(main())

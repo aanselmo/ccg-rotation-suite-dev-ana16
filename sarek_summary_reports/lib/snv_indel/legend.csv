@@ -1,0 +1,36 @@
+"Column Descriptions"
+#CHROM,"chromosome"
+POS,"position"
+REF,"Reference Allele in GENOME"
+ALT,"Alternate Allele that occurs in place of the reference allele in the tumor sample"
+recommended_filter,"indicates if the variant passes the filtering criteria used in the Variant_Summary_table tab"
+Consequence,"The effect for the given variant across the transcript."
+VARIANT_CLASS,"What type of variant it is: SNV, Indel, etc."
+SYMBOL,"The gene symbol or name"
+SYMBOL_SOURCE,"What database the gene symbol or name comes from. HGNC means the HUGO Gene Nomenclature Committee"
+HGNC_ID
+Gene
+Feature_type
+Feature
+BIOTYPE
+EXON
+INTRON
+HGVSc
+HGVSp
+cDNA_position
+CDS_position
+Protein_position
+Amino_acids
+Codons
+Existing_variation
+AF
+DP
+gnomAD_AF
+MAX_AF
+MAX_AF_POPS
+gnomADe_AF
+MAX_gnomADe_AF
+MAX_gnomADe_AF_POPS
+gnomADg_AF
+MAX_gnomADg_AF
+MAX_gnomADg_AF_POPS
