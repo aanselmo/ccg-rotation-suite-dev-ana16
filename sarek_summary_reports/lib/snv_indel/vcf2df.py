@@ -101,12 +101,8 @@ def parse_info_section_headers(df: pl.DataFrame) -> pl.DataFrame:
     # concat_str to flatten into 1 column
     new_column = new_column.select(pl.concat_str(pl.all()).alias(new_column_name))
     # Remove repeated column name in all rows.
-    new_column = new_column.with_columns(
-        pl.when(pl.col(new_column_name).str.split("=").list.len() > 0)
-        .then(pl.col(new_column_name).str.split("=").list.get(1))
-        .otherwise(pl.col(new_column_name))
-        .alias(new_column_name)
-    )
+    if "=" in str(new_column.item(0, 0)):
+      new_column = new_column.with_columns(pl.col(new_column_name).str.split("=").list.get(1).alias(new_column_name))
     corrected_info_section = pl.concat([corrected_info_section, new_column], how="horizontal")
   df = df.drop(columns_to_format)
   df = pl.concat([df, corrected_info_section], how="horizontal")

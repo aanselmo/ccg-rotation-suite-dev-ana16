@@ -60,22 +60,43 @@ def group_by_existing_variation(filtered_variants: nw.DataFrame) -> nw.DataFrame
   )
   filtered_variants = filtered_variants.select([SAMPLE_COL, DB_SNP_COL, COSMIC_COL, BOTH_COL, NOVEL_COL])
   grouped_variants = filtered_variants.group_by(SAMPLE_COL).agg(
-      pl.col(DB_SNP_COL, COSMIC_COL, BOTH_COL, NOVEL_COL).count()
+      nw.col(DB_SNP_COL).count(),
+      nw.col(COSMIC_COL).count(),
+      nw.col(BOTH_COL).count(),
+      nw.col(NOVEL_COL).count(),
   )
   return grouped_variants
 
 
 def group_by_class(filtered_variants: nw.DataFrame) -> nw.DataFrame:
+  CLASS_COUNT_COL = "CLASS_COUNT"
   filtered_variants = filtered_variants.select([SAMPLE_COL, VARIANT_CLASS_COL])
   grouped_variants = filtered_variants.group_by([SAMPLE_COL, VARIANT_CLASS_COL]).agg(
-      nw.col(VARIANT_CLASS_COL).count()
+      nw.col(VARIANT_CLASS_COL).count().alias(CLASS_COUNT_COL)
   )
-  return grouped_variants
+  all_samples = grouped_variants.get_column(SAMPLE_COL).unique().to_list()
+  grouped_partially_transposed = nw.from_native(pl.DataFrame({}))
+  for one_sample in all_samples:
+    one_group = grouped_variants.filter(nw.col(SAMPLE_COL) == one_sample).drop(SAMPLE_COL)
+    one_group = nw.from_native(
+        one_group.to_native()
+        .transpose(column_names=VARIANT_CLASS_COL)
+        .with_columns(pl.lit(one_sample).alias(SAMPLE_COL))
+    )
+    grouped_partially_transposed = nw.concat([grouped_partially_transposed, one_group], how="diagonal")
+  return grouped_partially_transposed
 
 
 def get_variant_summary(all_variants: nw.DataFrame) -> nw.DataFrame:
   filtered_variants = all_variants.filter(nw.col(RECOMMENDED_FILTER_COL) == True)
   variants_grouped_by_db = group_by_existing_variation(filtered_variants)
   variants_grouped_by_class = group_by_class(filtered_variants)
-  summary_table = variants_grouped_by_db.join(variants_grouped_by_class, on=SAMPLE_COL, how="full")
+  summary_table = variants_grouped_by_db.join(variants_grouped_by_class, on=SAMPLE_COL, how="full", suffix="_repeat")
+  # Sort columns
+  left_columns = [SAMPLE_COL, DB_SNP_COL, COSMIC_COL, BOTH_COL, NOVEL_COL, f"{SAMPLE_COL}_repeat"]
+  right_columns = set(summary_table.columns).difference() - set(left_columns)
+  reordered_list = left_columns + list(right_columns)
+  summary_table = summary_table.select(reordered_list)
+  # Sort rows
+  summary_table = summary_table.sort(by=SAMPLE_COL)
   return summary_table

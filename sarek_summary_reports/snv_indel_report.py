@@ -15,7 +15,7 @@ from datetime import date
 import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
-from lib.common_args import append_common_args, append_reference_arg, append_vcf_files_arg
+from lib.common_args import append_common_args, append_reference_arg
 from lib.snv_indel.lego_plot_sheet import graph_lego_plot
 from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
 from lib.snv_indel.variant_summary_sheet import get_variant_summary
@@ -74,7 +74,7 @@ async def main():
     project_code = args.project_code
     project_report_dir = f"{project_code}_Reports"
     makedirs(project_report_dir, exist_ok=True)
-    output_file_name = join(project_report_dir, f"{today}_{project_code.lower()}_cnvkit_report.xlsx")
+    output_file_name = join(project_report_dir, f"{today}_{project_code.lower()}_snv_indel_report.xlsx")
   vcf_files = gather_input_files(args)
   bed_file = None
   if args.bed_file != "WGS":

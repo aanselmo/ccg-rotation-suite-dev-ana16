@@ -13,7 +13,7 @@ import narwhals.stable.v2 as nw
 from .vcf2df import convert_vcf_to_data_frame
 
 
-VEP_FILE_ENDING = ".mutect2.filtered.bcftools_filtered_VEP.ann.vcf"
+VEP_FILE_ENDING = ".mutect2.filtered.bcftools_filtered_VEP.ann.vcf.gz"
 CONSEQUENCE_COL = "Consequence"
 RECOMMENDED_FILTER_COL = "recommended_filter"
 EXISTING_VARIATION_COL = "Existing_variation"
@@ -52,8 +52,8 @@ def get_variants(vcf_files: list[str]) -> nw.DataFrame:
   # Select only these columns for now. There are a lot more columns. I made an arbitrary call to get it as similar to
   # the riker report as possible. Also, there a lot of gnomAD columns so I tried to summarize them.
   all_sample_variants = all_sample_variants.select([
-      "#CHROM", "POS", "REF", "ALT", RECOMMENDED_FILTER_COL, CONSEQUENCE_COL, "CANONICAL", VARIANT_CLASS_COL, "SYMBOL",
-      "SYMBOL_SOURCE", "HGNC_ID", "Gene",
+      SAMPLE_COL, "#CHROM", "POS", "REF", "ALT", RECOMMENDED_FILTER_COL, CONSEQUENCE_COL, "CANONICAL",
+      VARIANT_CLASS_COL, "SYMBOL", "SYMBOL_SOURCE", "HGNC_ID", "Gene",
       "Feature_type", "Feature", "BIOTYPE", "EXON", "INTRON", "cDNA_position", "CDS_position",
       "Protein_position", "Amino_acids", EXISTING_VARIATION_COL, "AF", "DP",
       "gnomAD_AF", "gnomADe_AF", "gnomADg_AF", "MAX_AF", "MAX_AF_POPS",
