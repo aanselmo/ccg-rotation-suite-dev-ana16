@@ -50,8 +50,8 @@ def group_by_existing_variation(filtered_variants: nw.DataFrame) -> nw.DataFrame
   is_dbsnp_and_cosmic = nw.col(DB_SNP_COL) & nw.col(COSMIC_COL)
   filtered_variants = filtered_variants.with_columns(
       nw.when(is_dbsnp_and_cosmic).then(True).otherwise(False).alias(BOTH_COL),
-      nw.when(is_dbsnp_and_cosmic).then(False).otherwise(True).alias(DB_SNP_COL),
-      nw.when(is_dbsnp_and_cosmic).then(False).otherwise(True).alias(COSMIC_COL)
+      nw.when(is_dbsnp_and_cosmic).then(False).otherwise(nw.col(DB_SNP_COL)).alias(DB_SNP_COL),
+      nw.when(is_dbsnp_and_cosmic).then(False).otherwise(nw.col(COSMIC_COL)).alias(COSMIC_COL)
   )
   filtered_variants = filtered_variants.with_columns(
       nw.when(nw.col(DB_SNP_COL) | nw.col(COSMIC_COL) | nw.col(BOTH_COL))
@@ -61,10 +61,17 @@ def group_by_existing_variation(filtered_variants: nw.DataFrame) -> nw.DataFrame
   )
   filtered_variants = filtered_variants.select([SAMPLE_COL, DB_SNP_COL, COSMIC_COL, BOTH_COL, NOVEL_COL])
   grouped_variants = filtered_variants.group_by(SAMPLE_COL).agg(
-      nw.col(DB_SNP_COL).count(),
-      nw.col(COSMIC_COL).count(),
-      nw.col(BOTH_COL).count(),
-      nw.col(NOVEL_COL).count(),
+      nw.col(DB_SNP_COL).sum(),
+      nw.col(COSMIC_COL).sum(),
+      nw.col(BOTH_COL).sum(),
+      nw.col(NOVEL_COL).sum(),
+  )
+  # Blank spaces instead of 0 is easier to read in excel. Otherwise, normally, I don't like None/null values.
+  grouped_variants = grouped_variants.with_columns(
+    nw.when(nw.col(DB_SNP_COL) == nw.lit(0)).then(None).otherwise(nw.col(DB_SNP_COL)).alias(DB_SNP_COL),
+    nw.when(nw.col(COSMIC_COL) == nw.lit(0)).then(None).otherwise(nw.col(COSMIC_COL)).alias(COSMIC_COL),
+    nw.when(nw.col(BOTH_COL) == nw.lit(0)).then(None).otherwise(nw.col(BOTH_COL)).alias(BOTH_COL),
+    nw.when(nw.col(NOVEL_COL) == nw.lit(0)).then(None).otherwise(nw.col(NOVEL_COL)).alias(NOVEL_COL),
   )
   return grouped_variants
 
