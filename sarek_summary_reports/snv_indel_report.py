@@ -8,6 +8,7 @@ __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
 import argparse
+import io
 from os import makedirs
 from os.path import join, basename
 from glob import glob
@@ -77,13 +78,14 @@ async def main():
     output_file_name = join(project_report_dir, f"{today}_{project_code.lower()}_snv_indel_report.xlsx")
   vcf_files = gather_input_files(args)
   bed_file = None
+  lego_plot = io.BytesIO()
   if args.bed_file != "WGS":
     bed_file = args.bed_file
   graph_task = asyncio.create_task(graph_lego_plot(vcf_files, project_code, args.reference_genome, bed_file))
   all_variants = get_variants(vcf_files)
   variant_summary_table = get_variant_summary(all_variants)
   legend = get_legend(args.reference_genome)
-  await graph_task
+  lego_plot = await graph_task
 
 
 if __name__ == "__main__":

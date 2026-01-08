@@ -13,7 +13,7 @@ HGNC_ID,"The ID number for the Gene in the HGNC Database."
 Gene,"The ID number for the Gene in the Ensemble Database."
 Feature_type,"What kind of genomic feature? If there is mRNA that derives from DNA, will say 'transcript' in this column"
 Feature,"The ID of RNA that derives from the DNA."
-BIOTYPE,"What kind of biological entity? The biological function of the RNA (i.e. whether it's protein_coding).
+BIOTYPE,"What kind of biological entity? The biological function of the RNA (i.e. whether it's protein_coding)."
 EXON,"If the variant is in an exon, this will have the 'Exon number / Number of total exons'"
 INTRON,"If the variant is in an intron, this will have the 'Intron number / Number of total introns'"
 cDNA_position,"Relative position of the base pair from the start of the mature transcript (cDNA) sequence."
