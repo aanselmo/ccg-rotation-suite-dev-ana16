@@ -21,6 +21,7 @@ from lib.snv_indel.lego_plot_sheet import graph_lego_plot
 from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
 from lib.snv_indel.variant_summary_sheet import get_variant_summary
 from lib.snv_indel.analysis_legend_sheet import get_legend
+from lib.snv_indel.write_snv_xlsx import write_xlsx
 
 
 def setup_arguments():
@@ -86,6 +87,7 @@ async def main():
   variant_summary_table = get_variant_summary(all_variants)
   legend = get_legend(args.reference_genome)
   lego_plot = await graph_task
+  write_xlsx(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
 
 
 if __name__ == "__main__":

@@ -36,6 +36,6 @@ async def graph_lego_plot(vcf_files: list[str], project_code: str, genome="GRCh3
     matrix_path = join(tempdir, "output", "SBS", "CCG1200c.SBS384.region")
     plotSBS(matrix_path, join(tempdir, "plot"), project_code, "384")
     output_plot_pdf = glob(join(tempdir, "plot", "*"))[0]
-    images = convert_from_path(output_plot_pdf, dpi=300)
+    images = convert_from_path(output_plot_pdf, dpi=50)
     images[0].save(png_plot_mem_loc, "PNG")
   return png_plot_mem_loc

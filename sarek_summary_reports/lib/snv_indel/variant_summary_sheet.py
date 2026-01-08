@@ -25,6 +25,7 @@ NOVEL_COL = "NOVEL"
 SNV_COL = "SNV"
 INDEL_COL = "Indel"
 TOTAL_COL = "Total"
+REPEAT_COL_SUFFIX = "_repeat"
 
 
 def group_by_existing_variation(filtered_variants: nw.DataFrame) -> nw.DataFrame:
@@ -91,9 +92,9 @@ def get_variant_summary(all_variants: nw.DataFrame) -> nw.DataFrame:
   filtered_variants = all_variants.filter(nw.col(RECOMMENDED_FILTER_COL) == True)
   variants_grouped_by_db = group_by_existing_variation(filtered_variants)
   variants_grouped_by_class = group_by_class(filtered_variants)
-  summary_table = variants_grouped_by_db.join(variants_grouped_by_class, on=SAMPLE_COL, how="full", suffix="_repeat")
+  summary_table = variants_grouped_by_db.join(variants_grouped_by_class, on=SAMPLE_COL, how="full", suffix=REPEAT_COL_SUFFIX)
   # Sort columns
-  left_columns = [SAMPLE_COL, DB_SNP_COL, COSMIC_COL, BOTH_COL, NOVEL_COL, f"{SAMPLE_COL}_repeat"]
+  left_columns = [SAMPLE_COL, DB_SNP_COL, COSMIC_COL, BOTH_COL, NOVEL_COL, f"{SAMPLE_COL}{REPEAT_COL_SUFFIX}"]
   right_columns = set(summary_table.columns).difference() - set(left_columns)
   reordered_list = left_columns + list(right_columns)
   summary_table = summary_table.select(reordered_list)
