@@ -74,11 +74,42 @@ def parse_info_section_headers(df: pl.DataFrame) -> pl.DataFrame:
   """
   columns_to_format = df.columns
   columns_to_format = filter(lambda column: column.startswith("field"), columns_to_format)
-  for column_name in columns_to_format:
-    one_cell: str = df.item(0, column_name)
-    new_column_name = one_cell.split("=")[0]
-    df = df.rename({column_name: new_column_name})
-    df = df.with_columns(pl.col(new_column_name).str.split("=").list.get(1).alias(new_column_name))
+  # Get unique column names
+  data_split_as_fields = df.select(columns_to_format)
+  unique_column_names = data_split_as_fields.select(
+      pl.all().cast(pl.Utf8).str.split("=").list.get(0)
+  ).unique().to_numpy().reshape(-1).tolist()
+  unique_column_names = list(set(unique_column_names))
+  unique_column_names = list(filter(lambda x: x is not None, unique_column_names))
+  corrected_info_section = pl.DataFrame({})
+  # transpose for the filter operation (polars ONLY filters rows)
+  data_split_as_fields = data_split_as_fields.transpose()
+  for new_column_name in unique_column_names:
+    # filter out starts with column name
+    rows_with_new_column_name = (
+        (pl.all().cast(pl.Utf8) == pl.lit(new_column_name))
+        | (pl.all().cast(pl.Utf8).str.starts_with(pl.lit(f"{new_column_name}=")))
+    )
+    new_column = data_split_as_fields.filter(pl.any_horizontal(rows_with_new_column_name))
+    num_values = new_column.select(rows_with_new_column_name.sum())
+    num_values = num_values.transpose()
+    # if count > 1 find exact match
+    if not num_values.filter(pl.nth(0) > 1).is_empty():
+      raise IndexError(f"There are multiple values in a row to flatten into 1 column ({new_column_name})")
+    # transpose the filtered rows again
+    new_column = new_column.transpose()
+    # concat_str to flatten into 1 column
+    new_column = new_column.select(pl.concat_str(pl.all()).alias(new_column_name))
+    # Remove repeated column name in all rows.
+    new_column = new_column.with_columns(
+        pl.when(pl.col(new_column_name).str.split("=").list.len() > 0)
+        .then(pl.col(new_column_name).str.split("=").list.get(1))
+        .otherwise(pl.col(new_column_name))
+        .alias(new_column_name)
+    )
+    corrected_info_section = pl.concat([corrected_info_section, new_column], how="horizontal")
+  df = df.drop(columns_to_format)
+  df = pl.concat([df, corrected_info_section], how="horizontal")
   df = df.rename({"DP": "INFO_DP"})
   return df
 
