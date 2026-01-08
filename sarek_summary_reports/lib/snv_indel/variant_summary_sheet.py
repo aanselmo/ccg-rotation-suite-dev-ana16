@@ -11,6 +11,7 @@ from os.path import basename
 import polars as pl
 import narwhals.stable.v2 as nw
 from .snv_indel_sheet import (
+    CONSEQUENCE_COL,
     RECOMMENDED_CONSEQUENCE_FILTER,
     RECOMMENDED_FILTER_COL,
     EXISTING_VARIATION_COL,
@@ -107,4 +108,7 @@ def get_variant_summary(all_variants: nw.DataFrame) -> nw.DataFrame:
   summary_table = summary_table.select(reordered_list)
   # Sort rows
   summary_table = summary_table.sort(by=SAMPLE_COL)
+  summary_table = summary_table.with_columns(
+      nw.lit(f"{CONSEQUENCE_COL}={str(RECOMMENDED_CONSEQUENCE_FILTER)}").alias("Filters")
+  )
   return summary_table
