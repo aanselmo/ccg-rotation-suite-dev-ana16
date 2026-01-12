@@ -8,6 +8,7 @@ Used to convert a .vcf.gz file to a narwhals dataframe.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
+import argparse
 import gzip
 import polars as pl
 import narwhals.stable.v2 as nw
@@ -16,6 +17,14 @@ import narwhals.stable.v2 as nw
 INFO_COL = "INFO"
 CSQ_COL = "CSQ"
 FORMAT_COL = "FORMAT"
+
+def setup_arguments():
+  parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
+  parser.add_argument("-o", "--output-file", type=str, default="output.csv",
+                      dest="output_file_name", help="The name of the output csv file.")
+  parser.add_argument("-v", "--vcf", dest="vcf", type=str, required=True,
+                      help=f"A vcf.gz file with the actual variant calls in them.")
+  return parser.parse_args()
 
 
 def find_header_line(vcf_path: str) -> int:
@@ -29,6 +38,9 @@ def find_header_line(vcf_path: str) -> int:
 
 
 def get_csq_header(vcf_path: str) -> list[str]:
+  """
+  :return list: Will return empty list if no CSQ header is found.
+  """
   header = []
   with gzip.open(vcf_path, "rt") as vcf_file:
     for line in vcf_file:
@@ -37,8 +49,9 @@ def get_csq_header(vcf_path: str) -> list[str]:
         last_whitespace = header[0].rfind(" ")
         header[0] = header[0][last_whitespace + 1:]
         header[-1] = header[-1].rstrip('">')
-  af_index = header.index("AF")
-  header[af_index] = "gnomAD_AF"
+  if header:
+    af_index = header.index("AF")
+    header[af_index] = "gnomAD_AF"
   return header
 
 
@@ -72,8 +85,7 @@ def parse_info_section_headers(df: pl.DataFrame) -> pl.DataFrame:
   :param df pl.DataFrame: DataFrame to be parsed.
   :return pl.DataFrame: DataFrame formatted properly.
   """
-  columns_to_format = df.columns
-  columns_to_format = filter(lambda column: column.startswith("field"), columns_to_format)
+  columns_to_format = [column for column in df.columns if column.startswith("field")]
   # Get unique column names
   data_split_as_fields = df.select(columns_to_format)
   unique_column_names = data_split_as_fields.select(
@@ -145,17 +157,18 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
   df = drop_null_columns(df)
   df = df.drop(INFO_COL)
   df = parse_info_section_headers(df)
-  df = df.with_columns(pl.col(CSQ_COL).str.split("|").list.to_struct(fields=csq_header).struct.unnest())
-  df = df.drop(CSQ_COL)
+  if csq_header:
+    df = df.with_columns(pl.col(CSQ_COL).str.split("|").list.to_struct(fields=csq_header).struct.unnest())
+    df = df.drop(CSQ_COL)
   df = df.drop([FORMAT_COL, data_col_of_format_header])
   df = pl.concat([df, format_data], how="horizontal")
   return nw.from_native(df)
 
 
 def main():
-  df = convert_vcf_to_data_frame(
-      "/home/nap24/Documents/Pipeline/bulk_dev/Sarek/20251218_CCG1200c_ponv2/annotation/mutect2/A008_X108_58797-1-C1/A008_X108_58797-1-C1.mutect2.filtered.bcftools_filtered_VEP.ann.vcf.gz")
-  df.write_csv("/home/nap24/bin/ccgd-rotation-suite/scratch/test_vcf_converter.csv")
+  args = setup_arguments()
+  df = convert_vcf_to_data_frame(args.vcf)
+  df.write_csv(args.output_file_name)
 
 
 if __name__ == "__main__":
