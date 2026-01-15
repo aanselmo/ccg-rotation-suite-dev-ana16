@@ -1,6 +1,6 @@
 # Sarek script requirements
 xlsxwriter==3.2.9
-polars==1.36.1
+polars==1.33.1
 narwhals==2.14.0
 matplotlib==3.10.8
 # For SigProfilerPlotting/lego plots
@@ -13,6 +13,8 @@ scipy==1.16.3
 numpy==2.4.0
 statsmodels==0.14.6
 pdf2image==1.17.0
+# For the aggregate report
+multiqc==1.33
 
 # For co-mutation plot:
 pandas

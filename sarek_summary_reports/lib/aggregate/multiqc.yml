@@ -1,0 +1,7 @@
+module_order:
+  - custom_target_qc
+
+custom_data:
+  my_metrics:
+    file_format: tsv
+    section_name: Custom Target QC
