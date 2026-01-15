@@ -60,7 +60,7 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
   samtool_files = []
   
   if not args.cumcov_dist_file:
-    cumcov_dist_file = "{args.bucket_folder}/multiqc/multiqc_data/mosdepth-cumcoverage-dist-id.txt"
+    cumcov_dist_file = f"{args.bucket_folder}/multiqc/multiqc_data/mosdepth-cumcoverage-dist-id.txt"
   else:
     cumcov_dist_file = args.cumcov_dist_file
 
@@ -99,7 +99,8 @@ def main():
     output_file_name = join(project_report_dir, f"{today}_{project_code.lower()}_aggregation_metrics_report.xlsx")
   (cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files) = gather_input_files(args)
   summary_table = create_summary_table(cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files)
-  create_multiqc_report(summary_table, project_report_dir, output_file_name)
+  summary_table.write_csv(output_file_name)
+  # create_multiqc_report(summary_table, project_report_dir, output_file_name)
 
 
 if __name__ == "__main__":
