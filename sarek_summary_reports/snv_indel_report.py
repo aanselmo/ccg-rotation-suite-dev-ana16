@@ -17,7 +17,7 @@ import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
 from lib.common_args import append_common_args, append_reference_arg
-from lib.snv_indel.lego_plot_sheet import graph_lego_plot
+from lib.snv_indel.lego_plot_sheet import graph_lego_plot, UNFILTERED_VCF_FILE_ENDING
 from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
 from lib.snv_indel.variant_summary_sheet import get_variant_summary
 from lib.snv_indel.analysis_legend_sheet import get_legend
@@ -28,8 +28,11 @@ def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
   append_common_args(parser)
   append_reference_arg(parser)
-  parser.add_argument("-v", "--vcf-files", dest="vcf_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-a", "--annotated-vcf-files", dest="annotated_vcf_files", default=[], action="extend", nargs="+",
                       help=f"A list of paths to {VEP_FILE_ENDING} files with the actual variant calls in them.")
+  parser.add_argument("-u", "--unfiltered-vcf-files", dest="unfiltered_vcf_files", default=[], action="extend",
+                      nargs="+",
+                      help=f"A list of paths to {UNFILTERED_VCF_FILE_ENDING} files with the unfiltered calls in them.")
   parser.add_argument("-e", "--bed-file", dest="bed_file", type=str, required=True,
                       help="The targeted bed file for the bait set. If it's Whole genome sequencing, pass 'WGS'.")
   validate_arguments(parser.parse_args(), parser)
@@ -42,10 +45,10 @@ def validate_arguments(args, parser: argparse.ArgumentParser):
   script exits.
   """
   if args.bucket_folder:
-    if (args.vcf_files):
+    if (args.annotated_vcf_files or args.unfiltered_vcf_files):
       parser.error("No files should be specified if --bucket-folder is specified.")
   else:
-    if not (args.vcf_files):
+    if not (args.annotated_vcf_files or args.unfiltered_vcf_files):
       parser.error("Please specify a --bucket-folder or individual files (--vcf-files).")
 
 
@@ -55,13 +58,20 @@ def gather_input_files(args: argparse.Namespace) -> list[str]:
   :param args argparse.Namespace: All arguments for the script
   :returns list[str]: A list of strings for vcf_files paths
   """
-  vcf_files = []
+  annotated_vcf_files = []
+  unfiltered_vcf_files = []
 
-  if not args.vcf_files:
-    vcf_files = glob(f"{args.bucket_folder}/annotation/mutect2/*/*{VEP_FILE_ENDING}")
+  if not args.annotated_vcf_files:
+    annotated_vcf_files = glob(f"{args.bucket_folder}/annotation/mutect2/*/*{VEP_FILE_ENDING}")
   else:
-    vcf_files = args.vcf_files
-  return vcf_files
+    annotated_vcf_files = args.annotated_vcf_files
+  
+  if not args.unfiltered_vcf_files:
+    unfiltered_vcf_files = glob(f"{args.bucket_folder}/variant_calling/mutect2/*/*{UNFILTERED_VCF_FILE_ENDING}")
+  else:
+    unfiltered_vcf_files = args.unfiltered_vcf_files
+  
+  return (annotated_vcf_files, unfiltered_vcf_files)
 
 
 async def main():
@@ -77,13 +87,13 @@ async def main():
     project_report_dir = f"{project_code}_reports"
     makedirs(project_report_dir, exist_ok=True)
     output_file_name = join(project_report_dir, f"{today}_{project_code}_snv_indel_report.xlsx")
-  vcf_files = gather_input_files(args)
+  (annotated_vcf_files, unfiltered_vcf_files) = gather_input_files(args)
   bed_file = None
   lego_plot = io.BytesIO()
   if args.bed_file != "WGS":
     bed_file = args.bed_file
-  graph_task = asyncio.create_task(graph_lego_plot(vcf_files, project_code, args.reference_genome, bed_file))
-  all_variants = get_variants(vcf_files)
+  graph_task = asyncio.create_task(graph_lego_plot(unfiltered_vcf_files, project_code, args.reference_genome, bed_file))
+  all_variants = get_variants(annotated_vcf_files)
   variant_summary_table = get_variant_summary(all_variants)
   legend = get_legend(args.reference_genome)
   lego_plot = await graph_task

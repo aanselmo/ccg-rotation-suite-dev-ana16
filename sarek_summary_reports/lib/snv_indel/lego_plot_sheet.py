@@ -17,6 +17,8 @@ from SigProfilerMatrixGenerator.scripts.SigProfilerMatrixGeneratorFunc import Si
 from sigProfilerPlotting import plotSBS
 from pdf2image import convert_from_path
 
+UNFILTERED_VCF_FILE_ENDING = ".mutect2.vcf.gz"
+
 
 async def graph_lego_plot(vcf_files: list[str], project_code: str, genome="GRCh37", bed_file=None):
   png_plot_mem_loc = io.BytesIO()
@@ -33,7 +35,7 @@ async def graph_lego_plot(vcf_files: list[str], project_code: str, genome="GRCh3
         catch_stdout=False,
     )
     SigProfilerMatrixGeneratorFunc(project_code, genome, tempdir, plot=False, bed_file=bed_file)
-    matrix_path = join(tempdir, "output", "SBS", "CCG1200c.SBS384.region")
+    matrix_path = join(tempdir, "output", "SBS", f"{project_code}.SBS384.region")
     plotSBS(matrix_path, join(tempdir, "plot"), project_code, "384")
     output_plot_pdf = glob(join(tempdir, "plot", "*"))[0]
     images = convert_from_path(output_plot_pdf, dpi=50)

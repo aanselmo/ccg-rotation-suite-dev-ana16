@@ -13,7 +13,7 @@ import narwhals.stable.v2 as nw
 from .vcf2df import convert_vcf_to_data_frame
 
 
-VEP_FILE_ENDING = ".mutect2.filtered.bcftools_filtered_VEP.ann.vcf.gz"
+VEP_FILE_ENDING = ".mutect2.filtered_VEP.ann.vcf.gz"
 SAMPLE_COL = "tumor_sample_name"
 REF_COL = "REF"
 ALT_COL = "ALT"
