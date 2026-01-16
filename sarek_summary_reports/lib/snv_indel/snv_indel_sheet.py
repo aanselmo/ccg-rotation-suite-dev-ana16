@@ -7,6 +7,7 @@ Creates the 'SNV/Indel Variants' Sheet.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
+import argparse
 from os.path import basename
 import polars as pl
 import narwhals.stable.v2 as nw
@@ -35,20 +36,44 @@ RECOMMENDED_CONSEQUENCE_FILTER = [
 ]
 
 
+def setup_arguments():
+  parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
+  parser.add_argument("-o", "--output-file", type=str, default="output.csv",
+                      dest="output_file_name", help="The name of the output csv file.")
+  parser.add_argument("-v", "--vcf", dest="vcf", type=str, required=True,
+                      help=f"A vcf.gz file with the actual variant calls in them.")
+  return parser.parse_args()
+
+
 def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame) -> nw.DataFrame:
-  all_sample_variants = all_sample_variants.with_columns(
-      nw.when((nw.col(CONSEQUENCE_COL).is_in(RECOMMENDED_CONSEQUENCE_FILTER)) & (nw.col(MUTECT2_FILTER_COL) == "PASS"))
+  sample_variants: pl.DataFrame = all_sample_variants.to_native()
+  sample_variants = sample_variants.with_columns(
+      pl.when((pl.col(CONSEQUENCE_COL)
+                 .str.split("&")
+                 .list.set_intersection(pl.lit(RECOMMENDED_CONSEQUENCE_FILTER))
+                 .list.len() > 0
+               ) & (pl.col(MUTECT2_FILTER_COL) == "PASS"))
       .then(True)
       .otherwise(False)
       .alias(RECOMMENDED_FILTER_COL)
   )
-  return all_sample_variants
+  return nw.from_native(sample_variants)
 
 
 def process_one_file(one_vcf_file_path: str) -> nw.DataFrame:
   one_sample_variants = convert_vcf_to_data_frame(one_vcf_file_path)
   sample_name = basename(one_vcf_file_path).replace(VEP_FILE_ENDING, "")
   one_sample_variants = one_sample_variants.with_columns(nw.lit(sample_name).alias(SAMPLE_COL))
+  one_sample_variants = add_recommended_consequence_filter(one_sample_variants)
+  # Select only these columns for now. There are a lot more columns. I made an arbitrary call to get it as similar to
+  # the riker report as possible. Also, there a lot of gnomAD columns so I tried to summarize them.
+  one_sample_variants = one_sample_variants.select([
+      SAMPLE_COL, "#CHROM", "POS", REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL, CONSEQUENCE_COL,
+      "CANONICAL", VARIANT_CLASS_COL, "SYMBOL", "SYMBOL_SOURCE", "HGNC_ID", "Gene",
+      "Feature_type", "Feature", "BIOTYPE", "EXON", "INTRON", "cDNA_position", "CDS_position",
+      "Protein_position", AMINO_ACIDS_COL, EXISTING_VARIATION_COL, "AF", "DP",
+      "gnomAD_AF", "gnomADe_AF", "gnomADg_AF", "MAX_AF", MAX_AF_POPS_COL,
+  ])
   return one_sample_variants
 
 
@@ -57,14 +82,14 @@ def get_variants(vcf_files: list[str], number_processes=1) -> nw.DataFrame:
   with ProcessPoolExecutor(max_workers=number_processes, mp_context=get_context("spawn")) as executor:
     list_of_variant_dfs = list(executor.map(process_one_file, vcf_files))
   all_sample_variants = nw.concat(list_of_variant_dfs, how="diagonal")
-  all_sample_variants = add_recommended_consequence_filter(all_sample_variants)
-  # Select only these columns for now. There are a lot more columns. I made an arbitrary call to get it as similar to
-  # the riker report as possible. Also, there a lot of gnomAD columns so I tried to summarize them.
-  all_sample_variants = all_sample_variants.select([
-      SAMPLE_COL, "#CHROM", "POS", REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL, CONSEQUENCE_COL,
-      "CANONICAL", VARIANT_CLASS_COL, "SYMBOL", "SYMBOL_SOURCE", "HGNC_ID", "Gene",
-      "Feature_type", "Feature", "BIOTYPE", "EXON", "INTRON", "cDNA_position", "CDS_position",
-      "Protein_position", AMINO_ACIDS_COL, EXISTING_VARIATION_COL, "AF", "DP",
-      "gnomAD_AF", "gnomADe_AF", "gnomADg_AF", "MAX_AF", MAX_AF_POPS_COL,
-  ])
   return all_sample_variants
+
+
+def main():
+  args = setup_arguments()
+  df = process_one_file(args.vcf)
+  df.write_csv(args.output_file_name)
+
+
+if __name__ == "__main__":
+  main()
