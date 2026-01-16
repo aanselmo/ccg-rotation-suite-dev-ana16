@@ -20,7 +20,7 @@ from pdf2image import convert_from_path
 UNFILTERED_VCF_FILE_ENDING = ".mutect2.vcf.gz"
 
 
-async def graph_lego_plot(vcf_files: list[str], project_code: str, genome="GRCh37", bed_file=None):
+def graph_lego_plot(vcf_files: list[str], project_code: str, genome="GRCh37", bed_file=None):
   png_plot_mem_loc = io.BytesIO()
   if not vcf_files:
     raise ValueError("No VCF file was passed.")

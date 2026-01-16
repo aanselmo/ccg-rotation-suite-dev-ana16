@@ -9,13 +9,12 @@ __credits__ = ["Neil A. Patel"]
 
 import argparse
 import io
-from os import makedirs
-from os.path import join, basename
+from os import makedirs, cpu_count
+from os.path import join
 from glob import glob
 from datetime import date
-import asyncio
-import polars as pl
-import narwhals.stable.v2 as nw
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import get_context
 from lib.common_args import append_common_args, append_reference_arg
 from lib.snv_indel.lego_plot_sheet import graph_lego_plot, UNFILTERED_VCF_FILE_ENDING
 from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
@@ -26,9 +25,14 @@ from lib.snv_indel.write_snv_xlsx import write_xlsx
 
 def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
+  this_pc_cpus = cpu_count()-1 if cpu_count() else 1  # subtract 1 for this script.
+  print(f"Process (CPU) Count Available: {this_pc_cpus}")
   append_common_args(parser)
   append_reference_arg(parser)
   parser.add_argument("-a", "--annotated-vcf-files", dest="annotated_vcf_files", default=[], action="extend", nargs="+",
+                      help=f"A list of paths to {VEP_FILE_ENDING} files with the actual variant calls in them.")
+  parser.add_argument("-n", "--number-processes", dest="number_processes",
+                      default=this_pc_cpus, type=int,
                       help=f"A list of paths to {VEP_FILE_ENDING} files with the actual variant calls in them.")
   parser.add_argument("-u", "--unfiltered-vcf-files", dest="unfiltered_vcf_files", default=[], action="extend",
                       nargs="+",
@@ -74,7 +78,7 @@ def gather_input_files(args: argparse.Namespace) -> list[str]:
   return (annotated_vcf_files, unfiltered_vcf_files)
 
 
-async def main():
+def main():
   """
   Runs the whole script.
   """
@@ -90,15 +94,19 @@ async def main():
   (annotated_vcf_files, unfiltered_vcf_files) = gather_input_files(args)
   bed_file = None
   lego_plot = io.BytesIO()
+  number_processes = args.number_processes
+  if args.number_processes > 2:
+    number_processes = args.number_processes - 1  # subtract 1 for graph_task
   if args.bed_file != "WGS":
     bed_file = args.bed_file
-  graph_task = asyncio.create_task(graph_lego_plot(unfiltered_vcf_files, project_code, args.reference_genome, bed_file))
-  all_variants = get_variants(annotated_vcf_files)
+  executor = ProcessPoolExecutor(max_workers=1, mp_context=get_context("spawn"))
+  graph_task = executor.submit(graph_lego_plot, unfiltered_vcf_files, project_code, args.reference_genome, bed_file)
+  all_variants = get_variants(annotated_vcf_files, number_processes)
   variant_summary_table = get_variant_summary(all_variants)
   legend = get_legend(args.reference_genome)
-  lego_plot = await graph_task
+  lego_plot = graph_task.result()
   write_xlsx(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
 
 
 if __name__ == "__main__":
-  asyncio.run(main())
+  main()

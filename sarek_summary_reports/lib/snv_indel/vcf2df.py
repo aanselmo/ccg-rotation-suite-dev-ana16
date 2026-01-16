@@ -98,7 +98,6 @@ def parse_info_section_headers(df: pl.DataFrame) -> pl.DataFrame:
   # transpose for the filter operation (polars ONLY filters rows)
   data_split_as_fields = data_split_as_fields.transpose()
   for new_column_name in unique_column_names:
-    print(new_column_name)
     # filter out starts with column name
     rows_with_new_column_name = (
         (pl.all() == new_column_name)
@@ -119,7 +118,9 @@ def parse_info_section_headers(df: pl.DataFrame) -> pl.DataFrame:
     new_column = new_column.select(pl.concat_str(pl.all()).alias(new_column_name))
     # Remove repeated column name in all rows.
     if "=" in str(new_column.item(0, 0)):
-      new_column = new_column.with_columns(pl.col(new_column_name).str.split("=").list.get(1).alias(new_column_name))
+      new_column = new_column.with_columns(
+          pl.col(new_column_name).str.replace(f"{new_column_name}=", "").alias(new_column_name)
+      )
     corrected_info_section = pl.concat([corrected_info_section, new_column], how="horizontal")
   df = df.drop(columns_to_format)
   df = pl.concat([df, corrected_info_section], how="horizontal")
@@ -146,6 +147,7 @@ def split_format_column(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
+  print(vcf_path)
   header_line = find_header_line(vcf_path)
   csq_header = get_csq_header(vcf_path)
   df = pl.read_csv(

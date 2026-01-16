@@ -10,8 +10,8 @@ import polars as pl
 import narwhals as nw
 import xlsxwriter
 from .snv_indel_sheet import (
-    SAMPLE_COL, REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, CONSEQUENCE_COL, AMINO_ACIDS_COL, EXISTING_VARIATION_COL,
-    MAX_AF_POPS_COL,
+    SAMPLE_COL, REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL, CONSEQUENCE_COL, AMINO_ACIDS_COL,
+    EXISTING_VARIATION_COL, MAX_AF_POPS_COL,
 )
 from .variant_summary_sheet import REPEAT_COL_SUFFIX
 from ..excel_style import get_column_widths, HEADER_STYLE
@@ -30,8 +30,8 @@ def write_xlsx(
   pl_legend = legend.to_native()
   pl_variants_widths = get_column_widths(pl_variants, first_row_multiplier=13.0)
   for one_col in [
-      REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, CONSEQUENCE_COL, AMINO_ACIDS_COL, EXISTING_VARIATION_COL,
-      MAX_AF_POPS_COL
+      REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL, CONSEQUENCE_COL, AMINO_ACIDS_COL,
+      EXISTING_VARIATION_COL, MAX_AF_POPS_COL
   ]:
     pl_variants_widths[one_col] = 100.0
   pl_summary_widths = get_column_widths(pl_summary)
