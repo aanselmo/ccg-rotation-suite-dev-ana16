@@ -15,7 +15,7 @@ from datetime import date
 import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
-from lib.common_args import append_common_args, append_reference_arg, append_vcf_files_arg
+from lib.common_args import append_common_args, append_reference_arg
 from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
 from lib.cnv.variant_sheet import get_cnv_variants
 from lib.cnv.gene_sheet import summarize_gene_level
@@ -124,9 +124,9 @@ async def main():
   output_file_name = args.output_file_name
   today = date.today().strftime('%Y%m%d')
   if output_file_name == "output.xlsx" and args.project_code:
-    project_report_dir = f"{args.project_code}_Reports"
+    project_report_dir = f"{args.project_code.lower()}_reports"
     makedirs(project_report_dir, exist_ok=True)
-    output_file_name = join(project_report_dir, f"{today}_{args.project_code.lower()}_cnvkit_report.xlsx")
+    output_file_name = join(project_report_dir, f"{today}_{args.project_code.lower()}_cnv_report.xlsx")
   (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files) = gather_input_files(args)
   qc_task: asyncio.Task | None = None
   gene_summary_task: asyncio.Task | None = None

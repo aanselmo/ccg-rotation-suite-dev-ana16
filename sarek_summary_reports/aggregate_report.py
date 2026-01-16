@@ -88,15 +88,15 @@ def main():
   Runs the whole script.
   """
   args = setup_arguments()
-  project_report_dir = "Reports"
+  project_report_dir = "reports"
   output_file_name = args.output_file_name
   today = date.today().strftime('%Y%m%d')
   project_code = "test"
   if output_file_name == "output.xlsx" and args.project_code:
-    project_code = args.project_code
-    project_report_dir = f"{project_code}_Reports"
+    project_code = args.project_code.lower()
+    project_report_dir = f"{project_code}_reports"
     makedirs(project_report_dir, exist_ok=True)
-    output_file_name = join(project_report_dir, f"{today}_{project_code.lower()}_aggregation_metrics_report.xlsx")
+    output_file_name = join(project_report_dir, f"{today}_{project_code}_aggregation_metrics_report.html")
   (cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files) = gather_input_files(args)
   summary_table = create_summary_table(cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files)
   summary_table.write_csv(output_file_name)

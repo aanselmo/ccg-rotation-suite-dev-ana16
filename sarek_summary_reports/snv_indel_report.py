@@ -73,10 +73,10 @@ async def main():
   today = date.today().strftime('%Y%m%d')
   project_code = "test"
   if output_file_name == "output.xlsx" and args.project_code:
-    project_code = args.project_code
-    project_report_dir = f"{project_code}_Reports"
+    project_code = args.project_code.lower()
+    project_report_dir = f"{project_code}_reports"
     makedirs(project_report_dir, exist_ok=True)
-    output_file_name = join(project_report_dir, f"{today}_{project_code.lower()}_snv_indel_report.xlsx")
+    output_file_name = join(project_report_dir, f"{today}_{project_code}_snv_indel_report.xlsx")
   vcf_files = gather_input_files(args)
   bed_file = None
   lego_plot = io.BytesIO()
