@@ -18,6 +18,7 @@ INFO_COL = "INFO"
 CSQ_COL = "CSQ"
 FORMAT_COL = "FORMAT"
 
+
 def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
   parser.add_argument("-o", "--output-file", type=str, default="output.csv",
@@ -87,9 +88,9 @@ def parse_info_section_headers(df: pl.DataFrame) -> pl.DataFrame:
   """
   columns_to_format = [column for column in df.columns if column.startswith("field")]
   # Get unique column names
-  data_split_as_fields = df.select(columns_to_format)
+  data_split_as_fields = df.select(columns_to_format).cast(pl.Utf8)
   unique_column_names = data_split_as_fields.select(
-      pl.all().cast(pl.Utf8).str.split("=").list.get(0)
+      pl.all().str.split("=").list.get(0)
   ).unique().to_numpy().reshape(-1).tolist()
   unique_column_names = list(set(unique_column_names))
   unique_column_names = list(filter(lambda x: x is not None, unique_column_names))
@@ -97,15 +98,19 @@ def parse_info_section_headers(df: pl.DataFrame) -> pl.DataFrame:
   # transpose for the filter operation (polars ONLY filters rows)
   data_split_as_fields = data_split_as_fields.transpose()
   for new_column_name in unique_column_names:
+    print(new_column_name)
     # filter out starts with column name
     rows_with_new_column_name = (
-        (pl.all().cast(pl.Utf8) == pl.lit(new_column_name))
-        | (pl.all().cast(pl.Utf8).str.starts_with(pl.lit(f"{new_column_name}=")))
+        (pl.all() == new_column_name)
+        | (pl.all().str.starts_with(f"{new_column_name}="))
     )
+    # Filter any rows with the column name
     new_column = data_split_as_fields.filter(pl.any_horizontal(rows_with_new_column_name))
-    num_values = new_column.select(rows_with_new_column_name.sum())
+    # Filter any cells with the column name
+    new_column = new_column.select(pl.when(rows_with_new_column_name).then(pl.all()).otherwise(pl.lit("")))
+    # Verify that there is only 1 real value per column
+    num_values = new_column.select(rows_with_new_column_name).sum()
     num_values = num_values.transpose()
-    # if count > 1 find exact match
     if not num_values.filter(pl.nth(0) > 1).is_empty():
       raise IndexError(f"There are multiple values in a row to flatten into 1 column ({new_column_name})")
     # transpose the filtered rows again
