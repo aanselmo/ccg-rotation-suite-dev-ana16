@@ -16,7 +16,7 @@ import polars as pl
 import narwhals.stable.v2 as nw
 from lib.common_args import append_common_args
 from lib.aggregate.create_summary_table import create_summary_table
-from lib.aggregate.create_multiqc_report import create_multiqc_report
+from sarek_summary_reports.lib.aggregate.create_html_report import create_html_report
 
 
 def setup_arguments():
@@ -93,14 +93,14 @@ def main():
   today = date.today().strftime('%Y%m%d')
   project_code = "test"
   if output_file_name == "output.xlsx" and args.project_code:
-    project_code = args.project_code.lower()
-    project_report_dir = f"{project_code}_reports"
+    project_code = args.project_code
+    project_report_dir = f"{project_code.lower()}_reports"
     makedirs(project_report_dir, exist_ok=True)
-    output_file_name = join(project_report_dir, f"{today}_{project_code}_aggregation_metrics_report.html")
+    output_file_name = join(project_report_dir, f"{today}_{project_code.lower()}_aggregation_metrics_report.html")
   (cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files) = gather_input_files(args)
   summary_table = create_summary_table(cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files)
   summary_table.write_csv(output_file_name)
-  # create_multiqc_report(summary_table, project_report_dir, output_file_name)
+  create_html_report(summary_table, project_code, output_file_name)
 
 
 if __name__ == "__main__":
