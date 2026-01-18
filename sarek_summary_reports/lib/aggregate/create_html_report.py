@@ -7,54 +7,70 @@ Create a MultiQC report.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
-from os import makedirs
-from pathlib import Path
-from os.path import join, basename
-from glob import glob
-from datetime import date
-from tempfile import TemporaryFile
+
 import polars as pl
 import narwhals.stable.v2 as nw
 import report_creator as rc
-import plotly.express as px
 
 
-def create_html_report(summary_table: nw.DataFrame, project_code: str, output_file_name: str):
+RELATEDNESS_COL = "relatedness"
+IBS0_COL = "ibs0"
+IBS2_COL = "ibs2"
+SAMPLE_A_COL = "#sample_a"
+SAMPLE_B_COL = "sample_b"
+SAMPLE_PAIR_COL = "sample_pair"
+
+
+def parse_somalier_pairs_tsv(tsv_somalier_pairs: str) -> nw.DataFrame:
+  somalier_data = pl.read_csv(tsv_somalier_pairs, separator="\t")
+  somalier_data = somalier_data.select(
+      pl.concat_list(SAMPLE_A_COL, SAMPLE_B_COL).alias(SAMPLE_PAIR_COL),
+      pl.col(SAMPLE_A_COL, SAMPLE_B_COL, RELATEDNESS_COL, IBS0_COL, IBS2_COL)
+  )
+  return nw.from_native(somalier_data)
+
+
+def create_html_report(summary_table: nw.DataFrame, tsv_somalier_pairs: str, project_code: str, output_file_name: str):
+  somalier_data = parse_somalier_pairs_tsv(tsv_somalier_pairs)
+  pd_somalier_data = somalier_data.to_pandas()
+  pd_summary_table = summary_table.to_pandas()
   with rc.ReportCreator(
       title=f"{project_code} Aggregation Metrics Report",
       description="A summary of aggregation metrics and a fingerprinting result report.",
       footer="Created by CCG's Bioinformaticians (Neil A. Patel, & Anthony Anselmo)",
   ) as report:
     view = rc.Block(
-        rc.Text(
-            """It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity, it was the season of light, it was the season of darkness, it was the spring of hope, it was the winter of despair.""",
-            label="Charles Dickens, A Tale of Two Cities",
+        rc.DataTable(
+            pd_summary_table,
+            label="Aggregation Metrics Summary",
+            index=True,
         ),
-        rc.Group(
-            rc.Metric(
-                heading="Answer to Life, The Universe, and Everything",
-                value="42",
-            ),
-            rc.Metric(
-                heading="Author",
-                value="Douglas Adams",
-            ),
+        rc.Separator(),
+        rc.DataTable(
+            pd_somalier_data.loc[
+                pd_somalier_data.loc[:, RELATEDNESS_COL] > 0.9,
+                [SAMPLE_A_COL, SAMPLE_B_COL, RELATEDNESS_COL, IBS0_COL, IBS2_COL]
+            ],
+            label="Matching Samples",
+            index=True,
         ),
-        rc.Bar(
-            px.data.medals_long(),
-            x="nation",
-            y="count",
-            dimension="medal",
-            label="Bar Chart - Olympic Medals",
-        ),
-        rc.Scatter(
-            px.data.iris(),
-            x="sepal_width",
-            y="sepal_length",
-            dimension="species",
-            marginal="histogram",
-            label="Scatter Plot - Iris",
+        rc.Select(
+            blocks=[
+                rc.Scatter(
+                    pd_somalier_data,
+                    x=IBS2_COL,
+                    y=RELATEDNESS_COL,
+                    label="Scatter Plot: IBS2 v Relatedness",
+                    hover_name=SAMPLE_PAIR_COL
+                ),
+                rc.Scatter(
+                    pd_somalier_data,
+                    x=IBS0_COL,
+                    y=RELATEDNESS_COL,
+                    label="Scatter Plot: IBS0 v Relatedness",
+                    hover_name=SAMPLE_PAIR_COL
+                ),
+            ]
         ),
     )
-
-    report.save(view, output_file_name)
+  report.save(view, output_file_name)

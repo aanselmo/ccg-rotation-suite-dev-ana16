@@ -16,7 +16,7 @@ import polars as pl
 import narwhals.stable.v2 as nw
 from lib.common_args import append_common_args
 from lib.aggregate.create_summary_table import create_summary_table
-from sarek_summary_reports.lib.aggregate.create_html_report import create_html_report
+from lib.aggregate.create_html_report import create_html_report
 
 
 def setup_arguments():
@@ -29,6 +29,8 @@ def setup_arguments():
   parser.add_argument("-m", "--mos-files", dest="mos_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .recal.mosdepth.summary.txt files with mean coverage in them.")
   parser.add_argument("-s", "--samtool-files", dest="samtool_files", default=[], action="extend", nargs="+",
+                      help="A list of paths to .md.cram.stats files with total reads in them.")
+  parser.add_argument("-t", "--tsv-somalier-pairs", dest="tsv_somalier_pairs", default="", type=str,
                       help="A list of paths to .md.cram.stats files with total reads in them.")
   validate_arguments(parser.parse_args(), parser)
   return parser.parse_args()
@@ -80,7 +82,12 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
   else:
     samtool_files = args.samtool_files
 
-  return (cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files)
+  if not args.tsv_somalier_pairs:
+    tsv_somalier_pairs = glob(f"{args.bucket_folder}/reports/somalier/*.pairs.tsv")[0]
+  else:
+    tsv_somalier_pairs = args.tsv_somalier_pairs
+
+  return (cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files, tsv_somalier_pairs)
 
 
 def main():
@@ -97,10 +104,9 @@ def main():
     project_report_dir = f"{project_code.lower()}_reports"
     makedirs(project_report_dir, exist_ok=True)
     output_file_name = join(project_report_dir, f"{today}_{project_code.lower()}_aggregation_metrics_report.html")
-  (cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files) = gather_input_files(args)
+  (cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files, tsv_somalier_pairs) = gather_input_files(args)
   summary_table = create_summary_table(cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files)
-  summary_table.write_csv(output_file_name)
-  create_html_report(summary_table, project_code, output_file_name)
+  create_html_report(summary_table, tsv_somalier_pairs, project_code, output_file_name)
 
 
 if __name__ == "__main__":

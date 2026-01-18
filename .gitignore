@@ -8,6 +8,9 @@ BreaKmer_Reports/*
 .~lock*
 *.csv
 
+# Aggregate and other html reports
+*.html
+
 # Other generated output
 low-coverage/*
 *.png
