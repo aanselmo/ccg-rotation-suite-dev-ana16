@@ -7,13 +7,8 @@ Collect the basic metrics for the table in the aggregate report.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
-import argparse
-import io
-from os import makedirs
-from os.path import join, basename
-from glob import glob
-from datetime import date
-import asyncio
+
+from os.path import basename
 import polars as pl
 import narwhals.stable.v2 as nw
 

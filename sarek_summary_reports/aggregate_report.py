@@ -9,11 +9,9 @@ __credits__ = ["Neil A. Patel"]
 
 import argparse
 from os import makedirs
-from os.path import join, basename
+from os.path import join
 from glob import glob
 from datetime import date
-import polars as pl
-import narwhals.stable.v2 as nw
 from lib.common_args import append_common_args
 from lib.aggregate.create_summary_table import create_summary_table
 from lib.aggregate.create_html_report import create_html_report
