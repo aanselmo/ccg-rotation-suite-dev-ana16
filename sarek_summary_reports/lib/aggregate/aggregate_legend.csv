@@ -1,0 +1,10 @@
+Metric,Definition
+"Picard Metrics","Definitions can be found at https://broadinstitute.github.io/picard/picard-metric-definitions.html"
+"% Selected","The fraction of the bases that are aligned to the baited region (bases on target .bed) / (total bases sequenced)"
+"Mean Target Coverage","The average number of sequences bases per base of target region in the .bed."
+"% Duplication","The fraction of the mapped sequence that is a duplicated because of PCR amplification."
+"% Target Bases at 20x","The fraction of all target bases achieving 20X or greater coverage."
+"Somalier Metrics","Definitions can be found at https://github.com/brentp/somalier"
+"relatedness","Coefficient of relationship is 1.00 when samples are identical: https://en.wikipedia.org/wiki/Coefficient_of_relationship."
+"IBS0","Number of sites not matching (one sample is hom-ref and the other is hom-alt)."
+"IBS2","Number of sites matching (two samples have same genotype)."

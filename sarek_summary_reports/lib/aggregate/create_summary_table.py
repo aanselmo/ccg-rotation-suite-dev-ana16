@@ -18,6 +18,12 @@ import polars as pl
 import narwhals.stable.v2 as nw
 
 
+PCT_TARGET_20X_COL = "% Target Bases at 20x"
+PCT_TARGET_30X_COL = "% Target Bases at 30x"
+PCT_TARGET_100X_COL = "% Target Bases at 100x"
+PCT_TARGET_NOT_COV_COL = "% Target Bases not Covered"
+
+
 def get_pct_targets(cumcov_dist_file: str):
   """
   Return % Targets at 20x, 30x, 100x, not covered
@@ -30,12 +36,12 @@ def get_pct_targets(cumcov_dist_file: str):
   cumcov_df = cumcov_df.filter(nw.col("Sample").str.ends_with(".recal"))
   summarized_pct_targets = cumcov_df.select(
     nw.col("Sample").str.replace(".recal", ""),
-    nw.col("20").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64).alias("% Target Bases at 20x"),
-    nw.col("30").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64).alias("% Target Bases at 30x"),
-    nw.col("100").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64).alias("% Target Bases at 100x"),
+    nw.col("20").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64).alias(PCT_TARGET_20X_COL),
+    nw.col("30").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64).alias(PCT_TARGET_30X_COL),
+    nw.col("100").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64).alias(PCT_TARGET_100X_COL),
     (
       nw.lit(100) - nw.col("0").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64)
-    ).alias("% Target Bases not Covered"),
+    ).alias(PCT_TARGET_NOT_COV_COL),
   )
   return summarized_pct_targets
 
