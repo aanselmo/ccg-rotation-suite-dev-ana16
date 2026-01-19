@@ -10,10 +10,10 @@ __credits__ = ["Neil A. Patel"]
 
 from enum import StrEnum
 from pathlib import Path
+import pandas as pd
 import polars as pl
 import narwhals.stable.v2 as nw
 import report_creator as rc
-from .create_summary_table import PCT_TARGET_20X_COL, PCT_TARGET_30X_COL, PCT_TARGET_100X_COL, PCT_TARGET_NOT_COV_COL
 
 RELATEDNESS_COL = "relatedness"
 EXPECTED_RELATEDNESS_COL = "expected_relatedness"
@@ -32,16 +32,16 @@ class MATCH_STATUS(StrEnum):
 
 
 def parse_somalier_pairs_tsv(tsv_somalier_pairs: str) -> nw.DataFrame:
-  somalier_data = pl.read_csv(tsv_somalier_pairs, separator="\t")
+  somalier_data = pl.read_csv(tsv_somalier_pairs, separator="\t", schema_overrides={RELATEDNESS_COL: pl.Float64})
   somalier_data = somalier_data.select(
       pl.concat_list(SAMPLE_A_COL, SAMPLE_B_COL).alias(SAMPLE_PAIR_COL),
-      pl.when((pl.col(RELATEDNESS_COL) > 0.9) & (pl.col(EXPECTED_RELATEDNESS_COL) == -1))
+      pl.when((pl.col(RELATEDNESS_COL) > pl.lit(0.9)) & (pl.col(EXPECTED_RELATEDNESS_COL) == pl.lit(-1)))
         .then(pl.lit(MATCH_STATUS.INAPPROPRIATE_MATCH))
         .otherwise(pl.lit(MATCH_STATUS.CORRECT_MATCH)).alias(MATCH_STATUS_COL),
       pl.col(SAMPLE_A_COL, SAMPLE_B_COL, RELATEDNESS_COL, IBS0_COL, IBS2_COL, EXPECTED_RELATEDNESS_COL)
   )
   somalier_data = somalier_data.with_columns(
-    pl.when((pl.col(RELATEDNESS_COL) < 0.9) & (pl.col(EXPECTED_RELATEDNESS_COL) == 1))
+    pl.when((pl.col(RELATEDNESS_COL) < pl.lit(0.9)) & (pl.col(EXPECTED_RELATEDNESS_COL) == pl.lit(1)))
       .then(pl.lit(MATCH_STATUS.MISMATCH))
       .otherwise(pl.col(MATCH_STATUS_COL)).alias(MATCH_STATUS_COL)
   )
@@ -53,28 +53,18 @@ def get_legend():
   return legend
 
 
-def create_html_report(summary_table: nw.DataFrame, tsv_somalier_pairs: str, project_code: str, output_file_name: str):
+def get_fingerprinting_block(tsv_somalier_pairs: str):
   somalier_data = parse_somalier_pairs_tsv(tsv_somalier_pairs)
   pd_somalier_data = somalier_data.to_pandas()
-  pd_summary_table = summary_table.to_pandas().astype({
-    PCT_TARGET_20X_COL: "int16",
-    PCT_TARGET_30X_COL: "int16",
-    PCT_TARGET_100X_COL: "int16",
-    PCT_TARGET_NOT_COV_COL: "int16",
-  })
-  legend = get_legend().to_native()
-  with rc.ReportCreator(
-      title=f"{project_code} Aggregation Metrics Report",
-      description="A summary of aggregation metrics and a fingerprinting result report.",
-      footer="Created by CCG's Bioinformaticians (Neil A. Patel, & Anthony Anselmo)",
-  ) as report:
-    view = rc.Block(
-        rc.DataTable(
-            pd_summary_table,
-            label="Aggregation Metrics Summary",
-            index=False,
-        ),
-        rc.Separator(),
+  somalier_html_block = rc.Block(
+      rc.Text(
+          ("This data shows which samples should/shouldn't be matching. However, the coverage"
+           + " was not high enough confidently run fingerprinting (with Somalier)."),
+          label="Fingerprinting Data",
+      ),
+  )
+  if not pd_somalier_data.loc[:, RELATEDNESS_COL].dropna().empty:
+    somalier_html_block = rc.Block(
         rc.Text(
             "This data shows which samples should/shouldn't be matching.",
             label="Fingerprinting Data",
@@ -115,6 +105,26 @@ def create_html_report(summary_table: nw.DataFrame, tsv_somalier_pairs: str, pro
                 ),
             ]
         ),
+    )
+  return somalier_html_block
+
+
+def create_html_report(summary_table: pd.DataFrame, tsv_somalier_pairs: str, project_code: str, output_file_name: str):
+  somalier_html_block = get_fingerprinting_block(tsv_somalier_pairs)
+  legend = get_legend().to_native()
+  with rc.ReportCreator(
+      title=f"{project_code} Aggregation Metrics Report",
+      description="A summary of aggregation metrics and a fingerprinting result report.",
+      footer="Created by CCG's Bioinformaticians (Neil A. Patel, & Anthony Anselmo)",
+  ) as report:
+    view = rc.Block(
+        rc.DataTable(
+            summary_table,
+            label="Aggregation Metrics Summary",
+            index=False,
+        ),
+        rc.Separator(),
+        somalier_html_block,  
         rc.Separator(),
         rc.DataTable(
             legend,

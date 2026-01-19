@@ -9,13 +9,11 @@ __credits__ = ["Neil A. Patel"]
 
 
 from os.path import basename
+import pandas as pd
 import polars as pl
 import narwhals.stable.v2 as nw
 
 
-PCT_TARGET_20X_COL = "% Target Bases at 20x"
-PCT_TARGET_30X_COL = "% Target Bases at 30x"
-PCT_TARGET_100X_COL = "% Target Bases at 100x"
 PCT_TARGET_NOT_COV_COL = "% Target Bases not Covered"
 
 
@@ -27,23 +25,38 @@ def get_pct_targets(cumcov_dist_file: str):
       cumcov_dist_file,
       separator="\t",
   ))
-  cumcov_df = nw.from_native(pl.DataFrame({}))
-  for column in ["Sample", "0", "20", "30", "100"]:
+  cumcov_df = all_coverages.select(["Sample", "0"])
+  max_col = 0
+  half_col = 0
+  if "20" not in all_coverages.columns:
+    number_cols = list(set(all_coverages.columns) - set(["Sample"]))
+    number_cols = [int(one_col) for one_col in number_cols]
+    max_col = max(number_cols)
+    half_col = max_col // 2  # integer division
+    cumcov_df = nw.concat([cumcov_df, all_coverages.select([str(half_col), str(max_col)])], how="horizontal")
+  for column in ["20", "30", "100"]:
     if column in all_coverages.columns:
       cumcov_df = nw.concat([cumcov_df, all_coverages.select(column)], how="horizontal")
-    else:
-      zero_col = all_coverages.select(pl.lit(f"({column}, 0)"))
+    elif column == "20":
+      zero_col = nw.from_native(pl.DataFrame({column : all_coverages.shape[0] * [f"({column}, 0)"]}))
       cumcov_df = nw.concat([cumcov_df, zero_col], how="horizontal")
   cumcov_df = cumcov_df.filter(nw.col("Sample").str.ends_with(".recal"))
   summarized_pct_targets = cumcov_df.select(
     nw.col("Sample").str.replace(".recal", ""),
-    nw.col("20").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64).alias(PCT_TARGET_20X_COL),
-    nw.col("30").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64).alias(PCT_TARGET_30X_COL),
-    nw.col("100").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64).alias(PCT_TARGET_100X_COL),
     (
-      nw.lit(100) - nw.col("0").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64)
+      nw.lit(100) - nw.col("0").str.split(", ").list.get(1).str.strip_chars(")").cast(nw.Float64).cast(nw.Int16)
     ).alias(PCT_TARGET_NOT_COV_COL),
   )
+  non_zero_coverage_cols = list(set(cumcov_df.columns) - set(["Sample", "0"]))
+  non_zero_coverage_cols = [int(one_col) for one_col in non_zero_coverage_cols]
+  non_zero_coverage_cols.sort()
+  non_zero_coverage_cols = [str(one_col) for one_col in non_zero_coverage_cols] 
+  for cov_column in non_zero_coverage_cols:
+    one_pct_target = cumcov_df.select(
+      nw.col(cov_column).str.split(", ").list.get(1).str.strip_chars(")")
+        .cast(nw.Float64).fill_null(0.0).cast(nw.Int16).alias(f"% Target Bases at {cov_column}x"),
+    )
+    summarized_pct_targets = nw.concat([summarized_pct_targets, one_pct_target], how="horizontal")
   return summarized_pct_targets
 
 
@@ -106,7 +119,7 @@ def get_pct_duplication(duplicate_marking_files: list[str]) -> nw.DataFrame:
 
 def create_summary_table(
     cumcov_dist_file: str, duplicate_marking_files: list[str], mos_files: list[str], sam_files: list[str]
-) -> nw.DataFrame:
+) -> pd.DataFrame:
   summarized_pct_targets = get_pct_targets(cumcov_dist_file)
   total_reads = get_total_reads(sam_files)
   mtc_and_pct_selected = get_mtc_and_pct_selected(mos_files)
@@ -118,7 +131,7 @@ def create_summary_table(
     nw.coalesce("Sample", "Sample_mos", "Sample_target", "Sample_dup", nw.lit("")).alias("Sample")
   )
   summary_table = summary_table.drop(["Sample_mos", "Sample_target", "Sample_dup"])
-  return summary_table
+  return summary_table.to_pandas()
 
 
 
