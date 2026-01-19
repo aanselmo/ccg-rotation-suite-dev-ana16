@@ -13,7 +13,7 @@ from glob import glob
 import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
-from sarek_summary_reports.lib.common import (
+from lib.common import (
     append_common_args, append_reference_arg, get_output_file_name, DEFAULT_EXCEL_OUTPUT
 )
 from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics

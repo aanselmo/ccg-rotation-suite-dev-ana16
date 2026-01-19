@@ -9,7 +9,7 @@ __credits__ = ["Neil A. Patel"]
 
 import argparse
 from glob import glob
-from sarek_summary_reports.lib.common import append_common_args, get_output_file_name, DEFAULT_HTML_OUTPUT
+from lib.common import append_common_args, get_output_file_name, DEFAULT_HTML_OUTPUT
 from lib.aggregate.create_summary_table import create_summary_table
 from lib.aggregate.create_html_report import create_html_report
 

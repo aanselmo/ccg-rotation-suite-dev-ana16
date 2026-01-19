@@ -13,7 +13,7 @@ from os import cpu_count
 from glob import glob
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
-from sarek_summary_reports.lib.common import (
+from lib.common import (
     append_common_args, append_reference_arg, get_output_file_name, DEFAULT_EXCEL_OUTPUT
 )
 from lib.snv_indel.lego_plot_sheet import graph_lego_plot, UNFILTERED_VCF_FILE_ENDING
