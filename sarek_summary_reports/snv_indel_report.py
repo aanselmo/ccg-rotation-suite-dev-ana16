@@ -93,6 +93,7 @@ def main():
   bed_file = None
   lego_plot = io.BytesIO()
   number_processes = args.number_processes
+  print(f"Processes (CPU) Used for lego plot and vcf parsing: {number_processes}")
   if args.number_processes > 2:
     number_processes = args.number_processes - 1  # subtract 1 for graph_task
   if args.bed_file != "WGS":
