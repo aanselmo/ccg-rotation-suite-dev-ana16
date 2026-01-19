@@ -8,19 +8,22 @@ __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
 import argparse
-from os import makedirs
-from os.path import join, basename
+from os.path import basename
 from glob import glob
-from datetime import date
 import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
-from sarek_summary_reports.lib.common import append_common_args, append_reference_arg
+from sarek_summary_reports.lib.common import (
+    append_common_args, append_reference_arg, get_output_file_name, DEFAULT_EXCEL_OUTPUT
+)
 from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
 from lib.cnv.variant_sheet import get_cnv_variants
 from lib.cnv.gene_sheet import summarize_gene_level
 from lib.cnv.chromosome_sheet import summarize_chromosome_arm_level
 from lib.cnv.write_xlsx import write_xlsx
+
+
+DEFAULT_CNV_REPORT_FILE_ENDING = "cnv_report.xlsx"
 
 
 def setup_arguments():
@@ -114,19 +117,12 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
   return (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files)
 
 
-
-
 async def main():
   """
   Runs the whole script.
   """
   args = setup_arguments()
-  output_file_name = args.output_file_name
-  today = date.today().strftime('%Y%m%d')
-  if output_file_name == "output.xlsx" and args.project_code:
-    project_report_dir = f"{args.project_code.lower()}_reports"
-    makedirs(project_report_dir, exist_ok=True)
-    output_file_name = join(project_report_dir, f"{today}_{args.project_code.lower()}_cnv_report.xlsx")
+  (project_code, output_file_name) = get_output_file_name(args, DEFAULT_CNV_REPORT_FILE_ENDING, DEFAULT_EXCEL_OUTPUT)
   (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files) = gather_input_files(args)
   qc_task: asyncio.Task | None = None
   gene_summary_task: asyncio.Task | None = None

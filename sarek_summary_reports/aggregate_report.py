@@ -8,19 +8,18 @@ __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
 import argparse
-from os import makedirs
-from os.path import join
 from glob import glob
-from datetime import date
-from sarek_summary_reports.lib.common import append_common_args
+from sarek_summary_reports.lib.common import append_common_args, get_output_file_name, DEFAULT_HTML_OUTPUT
 from lib.aggregate.create_summary_table import create_summary_table
 from lib.aggregate.create_html_report import create_html_report
+
+DEFAULT_AGG_REPORT_FILE_ENDING = "aggregation_metrics_report.html"
 
 
 def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
-  append_common_args(parser)
-  parser.add_argument("-c", "--cumcov-dist-file", dest="cumcov_dist_file",  type=str,
+  append_common_args(parser, default_output_file=DEFAULT_HTML_OUTPUT)
+  parser.add_argument("-c", "--cumcov-dist-file", dest="cumcov_dist_file", type=str,
                       nargs="+", help="One path to a mosdepth-cumcoverage-dist-id.txt file.")
   parser.add_argument("-d", "--duplicate-marking-files", dest="duplicate_marking_files", default=[], action="extend",
                       nargs="+", help="A list of paths to .md.cram.metrics files PERCENT_DUPLICATION in them.")
@@ -58,7 +57,7 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
   duplicate_marking_files = []
   mos_files = []
   samtool_files = []
-  
+
   if not args.cumcov_dist_file:
     cumcov_dist_file = f"{args.bucket_folder}/multiqc/multiqc_data/mosdepth-cumcoverage-dist-id.txt"
   else:
@@ -68,7 +67,6 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
     duplicate_marking_files = glob(f"{args.bucket_folder}/reports/markduplicates/*/*.md.cram.metrics")
   else:
     duplicate_marking_files = args.duplicate_marking_files
-
 
   if not args.mos_files:
     mos_files = glob(f"{args.bucket_folder}/reports/mosdepth/*/*.recal.mosdepth.summary.txt")
@@ -93,15 +91,7 @@ def main():
   Runs the whole script.
   """
   args = setup_arguments()
-  project_report_dir = "reports"
-  output_file_name = args.output_file_name
-  today = date.today().strftime('%Y%m%d')
-  project_code = "test"
-  if output_file_name == "output.xlsx" and args.project_code:
-    project_code = args.project_code
-    project_report_dir = f"{project_code.lower()}_reports"
-    makedirs(project_report_dir, exist_ok=True)
-    output_file_name = join(project_report_dir, f"{today}_{project_code.lower()}_aggregation_metrics_report.html")
+  (project_code, output_file_name) = get_output_file_name(args, DEFAULT_AGG_REPORT_FILE_ENDING, DEFAULT_HTML_OUTPUT)
   (cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files, tsv_somalier_pairs) = gather_input_files(args)
   summary_table = create_summary_table(cumcov_dist_file, duplicate_marking_files, mos_files, samtool_files)
   create_html_report(summary_table, tsv_somalier_pairs, project_code, output_file_name)

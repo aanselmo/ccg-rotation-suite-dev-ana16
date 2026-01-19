@@ -9,13 +9,13 @@ __credits__ = ["Neil A. Patel"]
 
 import argparse
 import io
-from os import makedirs, cpu_count
-from os.path import join
+from os import cpu_count
 from glob import glob
-from datetime import date
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
-from sarek_summary_reports.lib.common import append_common_args, append_reference_arg
+from sarek_summary_reports.lib.common import (
+    append_common_args, append_reference_arg, get_output_file_name, DEFAULT_EXCEL_OUTPUT
+)
 from lib.snv_indel.lego_plot_sheet import graph_lego_plot, UNFILTERED_VCF_FILE_ENDING
 from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
 from lib.snv_indel.variant_summary_sheet import get_variant_summary
@@ -23,9 +23,12 @@ from lib.snv_indel.analysis_legend_sheet import get_legend
 from lib.snv_indel.write_snv_xlsx import write_xlsx
 
 
+DEFAULT_SNV_INDEL_REPORT_FILE_ENDING = "snv_indel_report.xlsx"
+
+
 def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
-  this_pc_cpus = cpu_count()-1 if cpu_count() else 1  # subtract 1 for this script.
+  this_pc_cpus = cpu_count() - 1 if cpu_count() else 1  # subtract 1 for this script.
   print(f"Process (CPU) Count Available: {this_pc_cpus}")
   append_common_args(parser)
   append_reference_arg(parser)
@@ -69,12 +72,12 @@ def gather_input_files(args: argparse.Namespace) -> list[str]:
     annotated_vcf_files = glob(f"{args.bucket_folder}/annotation/mutect2/*/*{VEP_FILE_ENDING}")
   else:
     annotated_vcf_files = args.annotated_vcf_files
-  
+
   if not args.unfiltered_vcf_files:
     unfiltered_vcf_files = glob(f"{args.bucket_folder}/variant_calling/mutect2/*/*{UNFILTERED_VCF_FILE_ENDING}")
   else:
     unfiltered_vcf_files = args.unfiltered_vcf_files
-  
+
   return (annotated_vcf_files, unfiltered_vcf_files)
 
 
@@ -83,14 +86,9 @@ def main():
   Runs the whole script.
   """
   args = setup_arguments()
-  output_file_name = args.output_file_name
-  today = date.today().strftime('%Y%m%d')
-  project_code = "test"
-  if output_file_name == "output.xlsx" and args.project_code:
-    project_code = args.project_code.lower()
-    project_report_dir = f"{project_code}_reports"
-    makedirs(project_report_dir, exist_ok=True)
-    output_file_name = join(project_report_dir, f"{today}_{project_code}_snv_indel_report.xlsx")
+  (project_code, output_file_name) = get_output_file_name(
+      args, DEFAULT_SNV_INDEL_REPORT_FILE_ENDING, DEFAULT_EXCEL_OUTPUT
+  )
   (annotated_vcf_files, unfiltered_vcf_files) = gather_input_files(args)
   bed_file = None
   lego_plot = io.BytesIO()
