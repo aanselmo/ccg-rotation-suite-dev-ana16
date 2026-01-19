@@ -15,7 +15,7 @@ from datetime import date
 import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
-from lib.common_args import append_common_args, append_reference_arg
+from sarek_summary_reports.lib.common import append_common_args, append_reference_arg
 from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
 from lib.cnv.variant_sheet import get_cnv_variants
 from lib.cnv.gene_sheet import summarize_gene_level

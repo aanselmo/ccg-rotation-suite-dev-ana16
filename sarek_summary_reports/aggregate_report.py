@@ -12,7 +12,7 @@ from os import makedirs
 from os.path import join
 from glob import glob
 from datetime import date
-from lib.common_args import append_common_args
+from sarek_summary_reports.lib.common import append_common_args
 from lib.aggregate.create_summary_table import create_summary_table
 from lib.aggregate.create_html_report import create_html_report
 

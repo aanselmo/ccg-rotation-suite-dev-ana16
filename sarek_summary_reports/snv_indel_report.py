@@ -15,7 +15,7 @@ from glob import glob
 from datetime import date
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
-from lib.common_args import append_common_args, append_reference_arg
+from sarek_summary_reports.lib.common import append_common_args, append_reference_arg
 from lib.snv_indel.lego_plot_sheet import graph_lego_plot, UNFILTERED_VCF_FILE_ENDING
 from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
 from lib.snv_indel.variant_summary_sheet import get_variant_summary
