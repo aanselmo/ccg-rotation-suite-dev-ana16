@@ -23,11 +23,17 @@ def get_pct_targets(cumcov_dist_file: str):
   """
   Return % Targets at 20x, 30x, 100x, not covered
   """
-  cumcov_df = nw.from_native(pl.read_csv(
+  all_coverages = nw.from_native(pl.read_csv(
       cumcov_dist_file,
       separator="\t",
-      columns=["Sample", "0", "20", "30", "100"]
   ))
+  cumcov_df = nw.from_native(pl.DataFrame({}))
+  for column in ["Sample", "0", "20", "30", "100"]:
+    if column in all_coverages.columns:
+      cumcov_df = nw.concat([cumcov_df, all_coverages.select(column)], how="horizontal")
+    else:
+      zero_col = all_coverages.select(pl.lit(f"({column}, 0)"))
+      cumcov_df = nw.concat([cumcov_df, zero_col], how="horizontal")
   cumcov_df = cumcov_df.filter(nw.col("Sample").str.ends_with(".recal"))
   summarized_pct_targets = cumcov_df.select(
     nw.col("Sample").str.replace(".recal", ""),
