@@ -12,7 +12,10 @@ to match up the index/barcode with the MBCF fastq.
 ## 2. Run the Sarek pipeline
 Please see the [run pipeline directions](./run_sarek_pipeline.md)
 
-## 3. Run the reporting scripts
+## 3. Run Somalier / Fingerprinting
+Please see the [run somalier directions](./run_sarek_pipeline.md#run-somalierfingerprinting)
+
+## 4. Run the reporting scripts
 Please see the [run reporting scripts directions](./run_reporting.md)
 
 ## Edge Cases
