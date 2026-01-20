@@ -9,7 +9,7 @@ __credits__ = ["Neil A. Patel"]
 
 import argparse
 from glob import glob
-from lib.common import append_common_args, get_output_file_name, DEFAULT_HTML_OUTPUT
+from lib.common import append_common_args, append_bucket_arg, get_output_file_name, DEFAULT_HTML_OUTPUT
 from lib.aggregate.create_summary_table import create_summary_table
 from lib.aggregate.create_html_report import create_html_report
 
@@ -19,6 +19,7 @@ DEFAULT_AGG_REPORT_FILE_ENDING = "aggregation_metrics_report.html"
 def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
   append_common_args(parser, default_output_file=DEFAULT_HTML_OUTPUT)
+  append_bucket_arg(parser)
   parser.add_argument("-c", "--cumcov-dist-file", dest="cumcov_dist_file", type=str,
                       nargs="+", help="One path to a mosdepth-cumcoverage-dist-id.txt file.")
   parser.add_argument("-d", "--duplicate-marking-files", dest="duplicate_marking_files", default=[], action="extend",

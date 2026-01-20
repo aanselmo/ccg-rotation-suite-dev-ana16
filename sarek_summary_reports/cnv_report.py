@@ -14,7 +14,7 @@ import asyncio
 import polars as pl
 import narwhals.stable.v2 as nw
 from lib.common import (
-    append_common_args, append_reference_arg, get_output_file_name, DEFAULT_EXCEL_OUTPUT
+    append_common_args, append_bucket_arg, append_reference_arg, get_output_file_name, DEFAULT_EXCEL_OUTPUT
 )
 from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
 from lib.cnv.variant_sheet import get_cnv_variants
@@ -29,6 +29,7 @@ DEFAULT_CNV_REPORT_FILE_ENDING = "cnv_report.xlsx"
 def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a CNV summary report.")
   append_common_args(parser)
+  append_bucket_arg(parser)
   append_reference_arg(parser)
   # These 3 types of files are for the QC metrics sheet
   parser.add_argument("-m", "--mos-files", dest="mos_files", default=[], action="extend", nargs="+",

@@ -32,12 +32,15 @@ AVAILABLE_CHROMOSOMES = PolarsEnum([
 def append_common_args(parser: ArgumentParser, default_output_file=DEFAULT_EXCEL_OUTPUT):
   parser.add_argument("-o", "--output-file", type=str, default=default_output_file,
                       dest="output_file_name", help="The name of the output file. Overrides project_code argument.")
-  parser.add_argument("-p", "--project", dest="project_code", type=str, default="",
+  project_arg = parser.add_argument("-p", "--project", dest="project_code", type=str, default="",
                       help="The project code for the report. Used to generate filename with the project_code in it.")
+  return project_arg
+
+
+def append_bucket_arg(parser: ArgumentParser):
   parser.add_argument("-b", "--bucket-folder", dest="bucket_folder", default="", type=str,
                       help=("The sarek base folder with all of the other files within it. You can either enter this"
                             + "or pass all the files individually."))
-
 
 def append_reference_arg(parser: ArgumentParser):
   parser.add_argument("-r", "--reference", dest="reference_genome", type=str, default="GRCh37",
