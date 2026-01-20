@@ -28,7 +28,7 @@ def get_one_sample_variants(one_gene_file: str) -> nw.DataFrame:
       separator="\t",
       has_header=True,
       row_index_offset=0,
-      schema_overrides={ CHROMOSOME_COL: pl.String }
+      schema_overrides={ CHROMOSOME_COL: pl.String, "segment_weight": pl.Float64 }
   ))
   # The last row has the mean target average
   one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))

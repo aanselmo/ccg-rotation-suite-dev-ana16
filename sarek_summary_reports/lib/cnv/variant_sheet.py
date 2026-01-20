@@ -52,8 +52,13 @@ def organize_variant_files(vcf_files: list[str], tumor_cns_files: list[str]) -> 
 
 
 def get_one_sample_variants(basename: str, vcf_file: str, tumor_cns_file: str) -> nw.DataFrame:
-  vcf_df = nw.from_native(pl.read_csv(vcf_file, separator="\t", has_header=True, skip_lines=SKIP_VCF_LINES))
-  tumor_cns_df = nw.from_native(pl.read_csv(tumor_cns_file, separator="\t", has_header=True))
+  vcf_df = nw.read_csv(
+    vcf_file, backend="polars", separator="\t", has_header=True, skip_lines=SKIP_VCF_LINES,
+    schema_overrides={"#CHROM": pl.String}
+  )
+  tumor_cns_df = nw.read_csv(
+      tumor_cns_file, backend="polars", separator="\t", has_header=True, schema_overrides={CHROMOSOME_COL: pl.String}
+  )
   vcf_df = vcf_df.rename({"#CHROM": CHROMOSOME_COL, "POS": START_COL})
   vcf_df = vcf_df.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
   tumor_cns_df = tumor_cns_df.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
@@ -64,9 +69,6 @@ def get_one_sample_variants(basename: str, vcf_file: str, tumor_cns_file: str) -
   filtered_tumor_cns_df = filtered_tumor_cns_df.select(columns_to_select)
   filtered_tumor_cns_df = filtered_tumor_cns_df.filter(
       (nw.col(CHROMOSOME_COL) != "X") & (nw.col(CHROMOSOME_COL) != "Y")
-  )
-  filtered_tumor_cns_df = filtered_tumor_cns_df.with_columns(
-      nw.col(CHROMOSOME_COL).cast(nw.Int8).alias(CHROMOSOME_COL)
   )
   return filtered_tumor_cns_df
 

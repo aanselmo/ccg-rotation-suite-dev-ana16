@@ -50,7 +50,7 @@ def reduce_data_memory(chromosomal_arms: nw.DataFrame, cnv_variants: nw.DataFram
   """
   chromosomal_arms = chromosomal_arms.filter((nw.col(CHROMOSOME_COL) != "chrX") & (nw.col(CHROMOSOME_COL) != "chrY"))
   chromosomal_arms = chromosomal_arms.with_columns(
-      nw.col(CHROMOSOME_COL).str.replace("chr", "").cast(nw.Int8).alias(CHROMOSOME_COL)
+      nw.col(CHROMOSOME_COL).str.replace("chr", "").alias(CHROMOSOME_COL)
   )
   cnv_variants = cnv_variants.select([
       nw.col(CHROMOSOME_COL),
@@ -121,6 +121,7 @@ def sum_variants_per_arm(variants_per_arm: nw.DataFrame) -> nw.DataFrame:
       "start_right": START_COL,
       "end_right": END_COL
   })
+  variants_per_arm = variants_per_arm.with_columns(nw.col(CHROMOSOME_COL).cast(nw.Int16))
   variants_per_arm = variants_per_arm.sort(by=[CHROMOSOME_COL, ARM_COL])
   return variants_per_arm
 

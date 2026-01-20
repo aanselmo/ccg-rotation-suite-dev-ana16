@@ -7,7 +7,7 @@ Gathers the data for the QC Sheet in the CNV report.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
-from os.path import dirname, basename as get_basename
+from os.path import dirname, abspath, basename as get_basename
 import asyncio
 import subprocess
 import io
@@ -74,15 +74,16 @@ async def run_cnvkit_metrics(just_cnr_cns: nw.DataFrame, bucket_dir) -> nw.DataF
   :param just_cnr_cns nw.DataFrame: A DataFrame with columns cnr_files cns_files that are sorted by sample name and
       correspond to each other. Also, the columns should have no null values.
   """
+  abs_bucket_dir = abspath(bucket_dir)
   cnr_files: list = just_cnr_cns.get_column(CNR_FILES_COL).to_list()
   cns_files: list = just_cnr_cns.get_column(CNS_FILES_COL).to_list()
   cnvkit_command = ["cnvkit.py", "metrics"] + cnr_files + ["-s"] + cns_files
   docker_command = (
-      ["docker", "run", "-v", f"{bucket_dir}:{bucket_dir}", "-w", bucket_dir,
+      ["docker", "run", "-v", f"{abs_bucket_dir}:{abs_bucket_dir}", "-w", abs_bucket_dir,
        "quay.io/biocontainers/cnvkit:0.9.10--pyhdfd78af_0"] + cnvkit_command
   )
   print(f"Running command: {" ".join(docker_command)}")
-  cnvkit_stream = subprocess.run(docker_command, capture_output=True, text=True)
+  cnvkit_stream = subprocess.run(docker_command, capture_output=True, check=True, text=True)
   cnvkit_metrics = nw.from_native(pl.DataFrame({}))
   if cnvkit_stream.stdout:
     cnvkit_metrics = pl.read_csv(io.StringIO(cnvkit_stream.stdout), has_header=True, separator="\t")
@@ -122,15 +123,19 @@ async def get_qc_metrics(
 
 def graph_mtc(qc_metrics: nw.DataFrame) -> io.BytesIO:
   mtc_col = qc_metrics.get_column(MTC_COL)
-  binwidth = 50
-  mtc_hist_bins = np.arange(0, max(mtc_col) + binwidth, binwidth)
+  binwidth = min(50.0, max(mtc_col) / 5.0)
+  max_mtc_graph = max(mtc_col) + binwidth
+  if max_mtc_graph >= 20.0 and max_mtc_graph <= 60.0:
+    max_mtc_graph = 60.0
+  mtc_hist_bins = np.arange(0.0, max_mtc_graph, binwidth)
   (n, bins, patches) = plt.hist(mtc_col, bins=mtc_hist_bins, color=GOOD_COLOR)
   plt.xticks(mtc_hist_bins[:-1])
   max_n = max(n)
   plt.ylabel("Number of Samples")
   plt.xlabel("Mean Target Coverage (MTC)")
   plt.xlim(0, None)
-  plt.plot([MTC_BAD_THRESHOLD, MTC_BAD_THRESHOLD], [0, max_n], color=BAD_COLOR, linestyle="dashed")
+  if max_mtc_graph >= 50.0:
+    plt.plot([MTC_BAD_THRESHOLD, MTC_BAD_THRESHOLD], [0, max_n], color=BAD_COLOR, linestyle="dashed")
   plt.axvspan(0, MTC_BAD_THRESHOLD, facecolor=BAD_COLOR, alpha=0.1)
   for index_bin, one_bin in enumerate(bins[:-1]):
     if one_bin < MTC_BAD_THRESHOLD:
@@ -145,7 +150,7 @@ def graph_mad(qc_metrics: nw.DataFrame) -> io.BytesIO:
   mad_col = qc_metrics.get_column(MAD_COL)
   binwidth = 0.025
   max_mad_graph = max(max(mad_col) + binwidth, 0.4)
-  mad_hist_bins = np.arange(0, max_mad_graph, binwidth)
+  mad_hist_bins = np.arange(0.0, max_mad_graph, binwidth)
   (n, bins, patches) = plt.hist(mad_col, bins=mad_hist_bins, color=GOOD_COLOR)
   max_n = max(n)
   plt.ylabel("Number of Samples")

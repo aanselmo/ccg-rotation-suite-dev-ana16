@@ -82,6 +82,9 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
   else:
     mos_files = args.mos_files
 
+  if not mos_files:
+    raise ValueError("Mos Depth files are required and were not found.")
+
   if not args.cnr_files:
     cnr_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.cnr")
   else:
