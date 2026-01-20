@@ -10,9 +10,16 @@ __credits__ = ["Neil A. Patel"]
 
 import argparse
 import gzip
+from os.path import dirname
+from pathlib import Path
+import sys
 import polars as pl
 import narwhals.stable.v2 as nw
-
+import time
+script_dir = Path(__file__).resolve().parent
+sarek_script_top_dir = dirname(dirname(script_dir))
+sys.path.append(sarek_script_top_dir)
+from lib.common import AVAILABLE_CHROMOSOMES
 
 INFO_COL = "INFO"
 CSQ_COL = "CSQ"
@@ -75,7 +82,7 @@ def drop_null_columns(df: pl.DataFrame) -> pl.DataFrame:
   return df
 
 
-def parse_info_section_headers(df: pl.DataFrame) -> pl.DataFrame:
+def parse_info_section_headers(all_variants: pl.DataFrame) -> pl.DataFrame:
   """
   The previous str.split.list.to_struct operation leaves columns like:
   |field_0              | field_1                    |
@@ -86,64 +93,53 @@ def parse_info_section_headers(df: pl.DataFrame) -> pl.DataFrame:
   :param df pl.DataFrame: DataFrame to be parsed.
   :return pl.DataFrame: DataFrame formatted properly.
   """
-  columns_to_format = [column for column in df.columns if column.startswith("field")]
+  columns_to_format = [column for column in all_variants.columns if column.startswith("field")]
   # Get unique column names
-  data_split_as_fields = df.select(columns_to_format).cast(pl.Utf8)
-  unique_column_names = data_split_as_fields.select(
-      pl.all().str.split("=").list.get(0)
-  ).unique().to_numpy().reshape(-1).tolist()
-  unique_column_names = list(set(unique_column_names))
-  unique_column_names = list(filter(lambda x: x is not None, unique_column_names))
-  corrected_info_section = pl.DataFrame({})
-  # transpose for the filter operation (polars ONLY filters rows)
-  data_split_as_fields = data_split_as_fields.transpose()
-  for new_column_name in unique_column_names:
-    # filter out starts with column name
-    rows_with_new_column_name = (
-        (pl.all() == new_column_name)
-        | (pl.all().str.starts_with(f"{new_column_name}="))
+  info_sec_as_fields = all_variants.select(columns_to_format).cast(pl.Utf8)
+  info_sec_as_fields = info_sec_as_fields.select(
+      pl.all().str.split("=")
+  )
+  info_sec_headers = info_sec_as_fields.select(pl.all().list.get(0))
+  info_sec_data = pl.DataFrame({})
+  for column in info_sec_as_fields.columns:
+    start = time.perf_counter()
+    one_column = info_sec_as_fields.get_column(column).map_elements(
+        lambda cell_list: cell_list[1] if (len(cell_list) > 1) else cell_list[0],
+        return_dtype=pl.String
     )
-    # Filter any rows with the column name
-    new_column = data_split_as_fields.filter(pl.any_horizontal(rows_with_new_column_name))
-    # Filter any cells with the column name
-    new_column = new_column.select(pl.when(rows_with_new_column_name).then(pl.all()).otherwise(pl.lit("")))
-    # Verify that there is only 1 real value per column
-    num_values = new_column.select(rows_with_new_column_name).sum()
-    num_values = num_values.transpose()
-    if not num_values.filter(pl.nth(0) > 1).is_empty():
-      raise IndexError(f"There are multiple values in a row to flatten into 1 column ({new_column_name})")
-    # transpose the filtered rows again
-    new_column = new_column.transpose()
-    # concat_str to flatten into 1 column
-    new_column = new_column.select(pl.concat_str(pl.all()).alias(new_column_name))
-    # Remove repeated column name in all rows.
-    if "=" in str(new_column.item(0, 0)):
-      new_column = new_column.with_columns(
-          pl.col(new_column_name).str.replace(f"{new_column_name}=", "").alias(new_column_name)
-      )
-    corrected_info_section = pl.concat([corrected_info_section, new_column], how="horizontal")
-  df = df.drop(columns_to_format)
-  df = pl.concat([df, corrected_info_section], how="horizontal")
-  df = df.rename({"DP": "INFO_DP"})
-  return df
+    info_sec_data = pl.concat([info_sec_data, one_column.to_frame()], how="horizontal")
+    stop = time.perf_counter()
+    print(f"Time to get INFO col ({column}): {stop - start:0.4f} seconds")
+  corrected_info_section = []
+  for row_index in range(info_sec_as_fields.shape[0]):
+    headers = info_sec_headers.row(row_index)
+    values = info_sec_data.row(row_index)
+    head_to_val_map = dict(zip(headers, values))
+    head_to_val_map = {k: v for k, v in head_to_val_map.items() if k is not None}
+    corrected_info_section.append(head_to_val_map)
+  all_variants = all_variants.drop(columns_to_format)
+  df_corrected_info_section = pl.DataFrame(corrected_info_section)
+  all_variants = pl.concat([all_variants, df_corrected_info_section], how="horizontal")
+  all_variants = all_variants.rename({"DP": "INFO_DP"})
+  return all_variants
 
 
-def split_format_column(df: pl.DataFrame) -> pl.DataFrame:
+def split_format_column(format_and_data_cols: pl.DataFrame) -> pl.DataFrame:
   """
   Take a Dataframe with the format column (i.e. header column names) and it's data column and split the data into
   it's own column. The format column should be first, followed by the data column.
   :param df pl.DataFrame: A dataframe with 2 columns only.
   :return pl.DataFrame: A dataframe with those 2 columns split.
   """
-  new_df = pl.DataFrame({})
-  for one_row in df.rows():
-    FIRST_FORMAT_COL = 0
-    SECOND_DATA_COL = 1
-    header = one_row[FIRST_FORMAT_COL].split(":")
-    data = one_row[SECOND_DATA_COL].split(":")
-    combined = pl.DataFrame(dict(zip(header, data)))
-    new_df = pl.concat([new_df, combined], how="diagonal_relaxed")
-  return new_df
+  FIRST_FORMAT_COL = 0
+  SECOND_DATA_COL = 1
+  split_column = format_and_data_cols.select(
+    pl.nth(FIRST_FORMAT_COL).str.split(":"),
+    pl.nth(SECOND_DATA_COL).str.split(":")
+  )
+  split_column = [dict(zip(row[FIRST_FORMAT_COL], row[SECOND_DATA_COL])) for row in split_column.iter_rows()]
+  split_column = pl.DataFrame(split_column)
+  return split_column
 
 
 def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
@@ -154,7 +150,7 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
       vcf_path,
       skip_lines=header_line,
       separator="\t",
-      schema_overrides={"#CHROM": pl.String},
+      schema_overrides={"#CHROM": AVAILABLE_CHROMOSOMES},
   )
   # Data Col of Fromat Header Starts off as the same name so it's not constant.
   data_col_of_format_header = get_format_data_column_name(df)

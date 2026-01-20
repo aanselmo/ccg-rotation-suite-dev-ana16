@@ -7,11 +7,16 @@ Gathers the data for the Variant Sheet in the CNV report.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
-from os.path import basename as get_basename
+from os.path import basename as get_basename, dirname
+from pathlib import Path
+import sys
 import polars as pl
 import narwhals.stable.v2 as nw
-from .qc_sheet import SAMPLE_COL
-import time
+script_dir = Path(__file__).resolve().parent
+sarek_script_top_dir = dirname(dirname(script_dir))
+sys.path.append(sarek_script_top_dir)
+from lib.common import AVAILABLE_CHROMOSOMES
+from lib.cnv.qc_sheet import SAMPLE_COL
 
 
 TUMOR_CNS_FILES_COL = "tumor_cns_files"
@@ -54,10 +59,11 @@ def organize_variant_files(vcf_files: list[str], tumor_cns_files: list[str]) -> 
 def get_one_sample_variants(basename: str, vcf_file: str, tumor_cns_file: str) -> nw.DataFrame:
   vcf_df = nw.read_csv(
     vcf_file, backend="polars", separator="\t", has_header=True, skip_lines=SKIP_VCF_LINES,
-    schema_overrides={"#CHROM": pl.String}
+    schema_overrides={"#CHROM": AVAILABLE_CHROMOSOMES}
   )
   tumor_cns_df = nw.read_csv(
-      tumor_cns_file, backend="polars", separator="\t", has_header=True, schema_overrides={CHROMOSOME_COL: pl.String}
+      tumor_cns_file, backend="polars", separator="\t", has_header=True,
+      schema_overrides={CHROMOSOME_COL: AVAILABLE_CHROMOSOMES}
   )
   vcf_df = vcf_df.rename({"#CHROM": CHROMOSOME_COL, "POS": START_COL})
   vcf_df = vcf_df.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))

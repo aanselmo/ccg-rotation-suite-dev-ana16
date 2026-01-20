@@ -7,10 +7,15 @@ Gathers the data for the Summary Sheet by Gene in the CNV report.
 __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
-from os.path import dirname, basename as get_basename
-import asyncio
+import sys
+from os.path import dirname, basename as get_basename, dirname
+from pathlib import Path
 import polars as pl
 import narwhals.stable.v2 as nw
+script_dir = Path(__file__).resolve().parent
+sarek_script_top_dir = dirname(dirname(script_dir))
+sys.path.append(sarek_script_top_dir)
+from lib.common import AVAILABLE_CHROMOSOMES
 from .qc_sheet import SAMPLE_COL
 from .variant_sheet import COPY_NUMBER_COL, CHROMOSOME_COL
 
@@ -28,7 +33,7 @@ def get_one_sample_variants(one_gene_file: str) -> nw.DataFrame:
       separator="\t",
       has_header=True,
       row_index_offset=0,
-      schema_overrides={ CHROMOSOME_COL: pl.String, "segment_weight": pl.Float64 }
+      schema_overrides={ CHROMOSOME_COL: AVAILABLE_CHROMOSOMES, "segment_weight": pl.Float64 }
   ))
   # The last row has the mean target average
   one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
