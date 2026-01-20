@@ -4,7 +4,10 @@ These are directions for running the Sarek pipeline and it's reporting scripts.
 
 ## 1. Generate the Sarek Samplesheet
 🚧 **Under construction.** 🚧 I'm hoping to create something like the python script created by Edwin to run the
-Scaffron pipeline.
+Scaffron pipeline. For now, you can use Edwin's [Quick Search](https://ccgd2.dfci.harvard.edu/minilims/html/quick_search.php)
+to match up the index/barcode with the MBCF fastq.
+
+![minilims_quick_search](./minilims_quick_search.png)
 
 ## 2. Run the Sarek pipeline
 Please see the [run pipeline directions](./run_sarek_pipeline.md)
@@ -59,8 +62,18 @@ docker run -v /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_NAME
     -it quay.io/biocontainers/cnvkit:0.9.10--pyhdfd78af_0 bash
 
 cnvkit.py target ${BAIT_NAME}_$(date --iso-8601)Merged.bed \
-    --annotate /mnt/storage/centers/ccgd/reference_files/per_tool/cnvkit/refFlat.txt \
+    --annotate /mnt/storage/centers/ccgd/reference_files/per_tool/cnvkit/20260119_refFlat_no_chr.bed \
     -o ${BAIT_NAME}_$(date --iso-8601)Annotated.bed
+```
+6. Add the .bed to Sarek config.
+```bash
+cp /opt/sarek/conf/ccg/grch37/baits/POPv3.1_S3050142.config /opt/sarek/conf/ccg/grch37/baits/${BAIT_NAME}.config
+vim /opt/sarek/conf/ccg/grch37/baits/${BAIT_NAME}.config  # Change POPv3 beds to your new bed
+# Delete the pon, pon_tbi, and cnvkit_reference if you don't have a PON, yet.
+vim /opt/sarek/conf/ccg/ccg.config
+# Add the bait set as a new profile. Note: periods (.) are not allowed in profile names in nextflow. I would
+# use the same bait name next to the supplier id for the profile name though.
+cp -r /opt/sarek/conf/ccg /opt/sarek-create-pon/conf/
 ```
 
 #### Regenerate Old PON
@@ -153,7 +166,25 @@ qrsh -pe pvm 16
 ```bash
 screen ls
 screen -d -r [old session for demultiplexing]
-gcloud storage cp -r /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a-ULPWGS \
+gcloud storage cp -r /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
     gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/
 ```
-9. Kickoff Sarek pipeline as in [run pipeline directions](./run_pipeline.md)
+9. Run the following to get the fastqs to add to the samplesheet:
+```bash
+# For fastq_1 column
+gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex/*R1*"
+# For fastq_2 column
+gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex/*R2*"
+# For sample column
+for file in $(gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex/*R1*")
+  do basename $file | sed "s/_S[0-9].*$//g"
+done
+```
+10. Create a sarek_samplesheet.csv with the following headers
+(as described in [Sarek docs](https://nf-co.re/sarek/3.7.1/)):
+Patient can be any string. I recommend using the sample name again for the patient. Lane can be any string. I
+recommend just using `L1`.
+```
+patient,sample,lane,fastq_1,fastq_2
+```
+11. Kickoff Sarek pipeline as in [run pipeline directions](./run_pipeline.md)

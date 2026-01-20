@@ -1,10 +1,9 @@
 # CCG Rotation Suite
 These are various reporting scripts that you have to run when you're running production projects.
 
-For Sarek, there are various reporting scripts:
-1. Copy Number Variation (CNV) report
-2. Single nucleotide variant and Insertion-Deletion (SNV & Indel) Report
-3. Structure Variant (SV) Report
+## Directions for Sarek and it's scripts
+Please see the top level [README for Sarek](sarek_summary_reports/docs/README.md)
+
 
 ## Install Directions for Debian 13 on Nextflow4
 1. Download Miniforge3:
