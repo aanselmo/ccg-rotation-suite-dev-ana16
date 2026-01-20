@@ -15,7 +15,6 @@ from pathlib import Path
 import sys
 import polars as pl
 import narwhals.stable.v2 as nw
-import time
 script_dir = Path(__file__).resolve().parent
 sarek_script_top_dir = dirname(dirname(script_dir))
 sys.path.append(sarek_script_top_dir)
@@ -96,20 +95,15 @@ def parse_info_section_headers(all_variants: pl.DataFrame) -> pl.DataFrame:
   columns_to_format = [column for column in all_variants.columns if column.startswith("field")]
   # Get unique column names
   info_sec_as_fields = all_variants.select(columns_to_format).cast(pl.Utf8)
-  info_sec_as_fields = info_sec_as_fields.select(
-      pl.all().str.split("=")
-  )
+  info_sec_as_fields = info_sec_as_fields.select(pl.all().str.split("="))
   info_sec_headers = info_sec_as_fields.select(pl.all().list.get(0))
   info_sec_data = pl.DataFrame({})
   for column in info_sec_as_fields.columns:
-    start = time.perf_counter()
     one_column = info_sec_as_fields.get_column(column).map_elements(
         lambda cell_list: cell_list[1] if (len(cell_list) > 1) else cell_list[0],
         return_dtype=pl.String
     )
     info_sec_data = pl.concat([info_sec_data, one_column.to_frame()], how="horizontal")
-    stop = time.perf_counter()
-    print(f"Time to get INFO col ({column}): {stop - start:0.4f} seconds")
   corrected_info_section = []
   for row_index in range(info_sec_as_fields.shape[0]):
     headers = info_sec_headers.row(row_index)
@@ -134,8 +128,8 @@ def split_format_column(format_and_data_cols: pl.DataFrame) -> pl.DataFrame:
   FIRST_FORMAT_COL = 0
   SECOND_DATA_COL = 1
   split_column = format_and_data_cols.select(
-    pl.nth(FIRST_FORMAT_COL).str.split(":"),
-    pl.nth(SECOND_DATA_COL).str.split(":")
+      pl.nth(FIRST_FORMAT_COL).str.split(":"),
+      pl.nth(SECOND_DATA_COL).str.split(":")
   )
   split_column = [dict(zip(row[FIRST_FORMAT_COL], row[SECOND_DATA_COL])) for row in split_column.iter_rows()]
   split_column = pl.DataFrame(split_column)
