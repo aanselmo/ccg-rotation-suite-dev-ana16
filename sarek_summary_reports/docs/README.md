@@ -144,7 +144,7 @@ ORDER BY pl.platform_location_description, rec.sample_collaborator_name ;
    seperated by new lines. The site will figure out what you mean.
 5. Copy and paste Lane,Sample_ID,index,index2 into the bcl2fastq_samplesheet.csv below the `[Data],,,` line.
 6. Make the output directory, and upload the samplesheet file to argos:
-```
+```bash
 scp {project}_bcl2fast_samplesheet.csv argos-ccgd.dfci.harvard.edu:~/.
 ssh argos-ccgd.dfci.harvard.edu
 cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/
@@ -152,7 +152,6 @@ PROJECT_CODE=[YOUR PROJECT CODE]
 mkdir -p SE81226a-ULPWGS/csv SE81226a-ULPWGS/demultiplex
 mv ~/${PROJECT_CODE}_bcl2fast_samplesheet.csv  SE81226a-ULPWGS/csv/
 ```
-/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a-ULPWGS/demultiplex
 7. Run bcl2fastq on argos. Example commands:
 ```bash
 screen

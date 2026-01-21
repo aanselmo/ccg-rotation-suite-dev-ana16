@@ -52,9 +52,16 @@ PON by default so that's why you have to do this.
     --outdir gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3 \
     -w gs://ccg-bioinformatics/mnt/scratch/ccgd/global/nextflow_execution/SCB1046d_pon_popv3
 ```
-2. Create the Mutect PON. This typically takes 1 day to run the GenomicsDBImport.
-See the Broad website for more info: https://gatk.broadinstitute.org/hc/en-us/articles/30332078729883-CreateSomaticPanelOfNormals-BETA
+2. Create an args file for all of the vcf files. Head of the file looks like. It contains args to pass to
+GenomicsDBImport.
+```bash
+--variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-A6-19-136b/OP-P1-A6-19-136b.bcftools.vcf.gz
+--variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-B6-19-123b/OP-P1-B6-19-123b.bcftools.vcf.gz
+--variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-C6-19-138b/OP-P1-C6-19-138b.bcftools.vcf.gz
 ```
+3. Create the Mutect PON. This typically takes 1 day to run the GenomicsDBImport.
+See the Broad website for more info: https://gatk.broadinstitute.org/hc/en-us/articles/30332078729883-CreateSomaticPanelOfNormals-BETA
+```bash
 nohup /opt/jdk-17.0.12/bin/java -Xmx450G -Xms20G -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
   GenomicsDBImport \
   --arguments_file /mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SO31074a_20251217_w_mnp_flag/SO31074a_pon_vcfs_2.args \
@@ -89,7 +96,18 @@ cnvkit.py reference \
     CEPH1408-P2-H1_S7/*coverage.cnn \
     -o 20250119_ulpwgs_se81226a_cnvkit_reference.cnn
 ```
-
+4. Copy the reference.cnn file, and mutect2_pon.vcf.gz to the bait folder.
+```bash
+cp [reference.cnn] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/
+cp [mutect2_pon.vcf.gz] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/
+```
+5. Copy the sample fasta files, sample target/antitarget cnn files, and sample vcf files in case you want to add
+   to the PON later or run on a different pipeline (you can run the fastas through the new pipeline).
+```
+gcloud storage cp "*.fastq.gz" /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/pon_members/fastqs/
+gcloud storage cp $(find . -name "*.cnn") /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/pon_members/cnn/
+gcloud storage cp $(find . -name "*.mutect2.vcf.gz") /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/pon_members/vcf/
+```
 
 ## Troubleshooting
 ### Restart from middle of run
