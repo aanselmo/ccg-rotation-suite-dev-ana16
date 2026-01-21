@@ -8,6 +8,18 @@ Steps of running sarek are:
 4. [Run reporting scripts](#4-run-the-reporting-scripts)
 
 ## 1. Generate the Sarek Samplesheet
+An example of a samplesheet is as follows
+(as described in [Sarek docs](https://nf-co.re/sarek/3.7.1/docs/usage/)). The patient an id for the individual/organism.
+The status is 0 for normal and 1 for tumor. The sample is the same name. The lane is the lane on the instrument. If
+you have multiple lanes for 1 sample, there will need to be multiple lines in the samplesheet for 1 sample with the
+sample name repeating (each line has unique fastqs and lanes, however). The fastq_1 column is the R1 fastq.gz file,
+and the fastq_2 is the R2 fastq.gz file.
+```
+patient,status,sample,lane,fastq_1,fastq_2
+A001,1,A001_X101_49707-1-B1,L005,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A001_X101_49707-1-B1_S14_R1_001.fastq.gz,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A001_X101_49707-1-B1_S14_R2_001.fastq.gz
+A008,1,A008_X108_58797-1-C1,L005,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A008_X108_58797-1-C1_S13_R1_001.fastq.gz,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A008_X108_58797-1-C1_S13_R2_001.fastq.gz
+```
+
 🚧 **Under construction.** 🚧 I'm hoping to create something like the python script created by Edwin to run the
 Scaffron pipeline. For now, you can use Edwin's [Quick Search](https://ccgd2.dfci.harvard.edu/minilims/html/quick_search.php)
 to match up the index/barcode with the MBCF fastq.
@@ -202,15 +214,5 @@ JOIN platform_location pl ON fc.platform_location_id = pl.platform_location_id
 WHERE proj.project_code = "[Your project code]"
 ORDER BY rec.sample_collaborator_name ;
 ```
-11. Create a sarek_samplesheet.csv with the following headers. An example of a samplesheet is as follows
-(as described in [Sarek docs](https://nf-co.re/sarek/3.7.1/docs/usage/)). The patient an id for the individual/organism.
-The status is 0 for normal and 1 for tumor. The sample is the same name. The lane is the lane on the instrument. If
-you have multiple lanes for 1 sample, there will need to be multiple lines in the samplesheet for 1 sample with the
-sample name repeating (each line has unique fastqs and lanes, however). The fastq_1 column is the R1 fastq.gz file,
-and the fastq_2 is the R2 fastq.gz file.
-```
-patient,status,sample,lane,fastq_1,fastq_2
-A001,1,A001_X101_49707-1-B1,L005,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A001_X101_49707-1-B1_S14_R1_001.fastq.gz,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A001_X101_49707-1-B1_S14_R2_001.fastq.gz
-A008,1,A008_X108_58797-1-C1,L005,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A008_X108_58797-1-C1_S13_R1_001.fastq.gz,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A008_X108_58797-1-C1_S13_R2_001.fastq.gz
-```
+11. Create a sarek_samplesheet.csv. See [above directions](#1-generate-the-sarek-samplesheet) for details.
 12. Kickoff Sarek pipeline as in [run pipeline directions](./run_pipeline.md)
