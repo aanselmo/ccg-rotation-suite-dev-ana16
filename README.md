@@ -54,3 +54,7 @@ Type "help", "copyright", "credits" or "license" for more information.
     sudo usermod -a -G docker [username]
     ```
     * Log out on all terminals and log back in.
+5. Install poppler. This is required by pdf2image in requirements.txt for python.
+```bash
+sudo apt install poppler-utils
+```
