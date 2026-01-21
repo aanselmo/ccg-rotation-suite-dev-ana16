@@ -33,7 +33,8 @@ cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}
 ```
 
 ## 4. Single nucleotide variant and Insertion-Deletion (SNV & Indel) Report
-1. Run the following commands.
+1. Run the following commands. Most of the reporting commands are pretty instant, but the SNV & Indel report takes
+about 30 seconds - 1 minute to run.
 ```bash
 gcloud compute ssh --zone "us-central1-a" "nextflow4" --project "ccgd-174313"
 PROJECT_CODE=[YOUR PROJECT CODE]

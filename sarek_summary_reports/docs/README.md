@@ -183,8 +183,10 @@ gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pip
 # For fastq_2 column
 gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex/*R2*"
 ```
-10. Grab the other columns with a query. **NOTE:** You might only need to grab one lane if you used
-`--no-lane-splitting` on the demultiplexing step.
+10. Grab the other columns with a query.
+    * **Nota bene:** You might only need to grab one lane if you used `--no-lane-splitting` on the demultiplexing step.
+    * **Nota bene bis:** Status should be 1 for all normals if creating a PON. Normals should be treaded like somatic
+      samples when run through Sarek (when creating a PON).
 ```sql
 SELECT i.individual_collaborator_name as patient,
 IF(rec.genomic_source_id=2, 0, 1) AS status,
