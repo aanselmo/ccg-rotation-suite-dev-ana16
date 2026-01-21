@@ -1,6 +1,11 @@
 # Sarek Directions
 These are directions for running the Sarek pipeline and it's reporting scripts.
 
+Steps of running sarek are:
+1. [Generate the Sarek Samplesheet](#1-generate-the-sarek-samplesheet)
+2. [Run the sarek pipeline](#2-run-the-sarek-pipeline)
+3. [Run somalier/Fingerprinting](#3-run-somalier--fingerprinting)
+4. [Run reporting scripts](#4-run-the-reporting-scripts)
 
 ## 1. Generate the Sarek Samplesheet
 🚧 **Under construction.** 🚧 I'm hoping to create something like the python script created by Edwin to run the
@@ -200,4 +205,4 @@ ORDER BY rec.sample_collaborator_name ;
 ```
 patient,status,sample,lane,fastq_1,fastq_2
 ```
-11. Kickoff Sarek pipeline as in [run pipeline directions](./run_pipeline.md)
+12. Kickoff Sarek pipeline as in [run pipeline directions](./run_pipeline.md)
