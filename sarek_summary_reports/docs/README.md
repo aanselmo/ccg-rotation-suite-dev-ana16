@@ -178,16 +178,27 @@ gcloud storage cp -r /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT
 gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex/*R1*"
 # For fastq_2 column
 gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex/*R2*"
-# For sample column
-for file in $(gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex/*R1*")
-  do basename $file | sed "s/_S[0-9].*$//g"
-done
 ```
-10. Create a sarek_samplesheet.csv with the following headers
-(as described in [Sarek docs](https://nf-co.re/sarek/3.7.1/)):
-Patient can be any string. I recommend using the sample name again for the patient. Lane can be any string. I
-recommend just using `L1`.
+10. Grab the other columns with a query. **NOTE:** You might only need to grab one lane if you used
+`--no-lane-splitting` on the demultiplexing step.
+```sql
+SELECT i.individual_collaborator_name as patient,
+IF(rec.genomic_source_id=2, 0, 1) AS status,
+rec.sample_collaborator_name AS sample,
+SUBSTRING_INDEX(pl.platform_location_description, "_", -1) AS lane
+FROM project proj
+JOIN received_sample rec ON proj.project_id  = rec.project_id
+JOIN individual i ON i.individual_id = rec.individual_id 
+JOIN illumina_lane_member ilm ON ilm.`sample_id` = rec.`received_sample_id`
+JOIN flowcell_content fc ON fc.flowcell_content_id = ilm.flowcell_content_id 
+JOIN instrument_run ir ON ir.instrument_run_id = fc.instrument_run_id 
+JOIN platform_location pl ON fc.platform_location_id = pl.platform_location_id
+WHERE proj.project_code = "[Your project code]"
+ORDER BY rec.sample_collaborator_name ;
 ```
-patient,sample,lane,fastq_1,fastq_2
+11. Create a sarek_samplesheet.csv with the following headers
+(as described in [Sarek docs](https://nf-co.re/sarek/3.7.1/docs/usage/)):
+```
+patient,status,sample,lane,fastq_1,fastq_2
 ```
 11. Kickoff Sarek pipeline as in [run pipeline directions](./run_pipeline.md)
