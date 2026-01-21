@@ -21,6 +21,17 @@ tmux  # start new session
 ## Run Somalier/Fingerprinting
 1. Run somalier extract. Somalier has not been incorporated into the pipeline. Pass the recalibrated.csv samplesheet
 into somalier. It will take about an 1-2 hours to run.
+An example of the recalibrated.csv is as follows. The patient is the individual name. The sex can be NA if unknoown
+(the column is not actually used by somalier - just output by sarek). The sample is the sample name. The cram and crai
+point to the files that will be fingerprinted. These can also be genomic vcf files (created by GATK HaplotypeCaller).
+They probably can also bam and bai files (I haven't tried). The restrictions of what cram and crai can be are set by
+[somalier extract](https://github.com/brentp/somalier/blob/v0.2.19/README.md#somalier-extract), itself.
+```
+patient,sex,status,sample,cram,crai
+A001,NA,0,CEPH1408-H1_A001,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/20260114_CCG1200c_update_bed_hugo_and_filter_false/preprocessing/recalibrated/CEPH1408-H1_A001/CEPH1408-H1_A001.recal.cram,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/20260114_CCG1200c_update_bed_hugo_and_filter_false/preprocessing/recalibrated/CEPH1408-H1_A001/CEPH1408-H1_A001.recal.cram.crai
+A001,NA,1,A001_X101_49707-1-B1,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/20260114_CCG1200c_update_bed_hugo_and_filter_false/preprocessing/recalibrated/A001_X101_49707-1-B1/A001_X101_49707-1-B1.recal.cram,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/20260114_CCG1200c_update_bed_hugo_and_filter_false/preprocessing/recalibrated/A001_X101_49707-1-B1/A001_X101_49707-1-B1.recal.cram.crai
+```
+After you have a samplesheet.csv too run somalier. You can run it by the following command:
 ```bash
 cd /data
 PROJECT_CODE=[Your project code]
@@ -31,14 +42,20 @@ PROJECT_CODE=[Your project code]
   --outdir /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
   -w gs://ccg-scratch/mnt/scratch/ccgd/global/nextflow_execution/${PROJECT_CODE}
 ```
-2. Run Somalier relate:
+2. Create a groups_file.csv if necessary. There is no need a groups_file.csv if all samples derive from different
+organisms/patients/individuals. The structure of the groups_file is mentioned in the
+[somalier relate documentation](https://github.com/brentp/somalier/blob/v0.2.19/README.md#somalier-relate).
+Basically, comma seperated groups by line:
+```
+normal1,tumor1a,tumor1b
+normal2,tumor2a
+```
+Run Somalier relate:
 ```bash
 docker run \
     -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/reports/somalier:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/reports/somalier \
     -w /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/reports/somalier \
     -it quay.io/biocontainers/somalier:0.2.19--h0c29559_0 bash
-# You may or may not need a groups file. It depends if you have matching samples from the same patient/individual
-# or not.
 somalier relate [--groups groups_file.csv] $(find . -name "*.somalier")
 ```
 
@@ -120,7 +137,7 @@ cnvkit.py reference \
 ```
 10. Copy the reference.cnn file, and mutect2_pon.vcf.gz to the bait folder.
 ```bash
-cp [reference.cnn] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/
+cp [reference.cnn] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/c
 cp [mutect2_pon.vcf.gz] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/
 ```
 11. Copy the sample fasta files, sample target/antitarget cnn files, and sample vcf files in case you want to add
