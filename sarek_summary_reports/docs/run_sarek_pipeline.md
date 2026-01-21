@@ -96,6 +96,18 @@ cnvkit.py reference \
     CEPH1408-P2-H1_S7/*coverage.cnn \
     -o 20250119_ulpwgs_se81226a_cnvkit_reference.cnn
 ```
+4. Even if you already added gene annotations to the bed, I also recommend reannotating the reference file here.
+Because region sizes are smaller for the reference files, than it is for the original bait bed files, the genes names
+often fit the region better. Of note, only the newer version of CNVKit is able to annotate the bed
+(0.9.12 instead of our 0.9.10) so use that docker image.
+```bash
+docker run \
+    -v /mnt/storage/centers/ccgd/[path to reference.cnn]:/mnt/reference_cnn \
+    -v /mnt/storage/centers/ccgd/reference_files/per_tool/cnvkit:/mnt/cnvkit_ref \
+    -w /mnt/reference_cnn \
+    -it quay.io/biocontainers/cnvkit:0.9.12--pyhdfd78af_1   bash
+cnv_annotate.py [reference.cnn] /mnt/cnvkit_ref/20260119_refFlat_no_chr.bed
+```
 4. Copy the reference.cnn file, and mutect2_pon.vcf.gz to the bait folder.
 ```bash
 cp [reference.cnn] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/
