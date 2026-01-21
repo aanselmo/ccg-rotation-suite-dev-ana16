@@ -44,11 +44,12 @@ somalier relate [--groups groups_file.csv] $(find . -name "*.somalier")
 
 ## Generate PON
 1. Run Sarek. Pretty much the same except use the /opt/sarek-create-pon directory, create_pon profile, and make sure no
-PON is set. Use the create_pon flag as the last profile to make sure the PON is not set. I set Sarek to use the Broaod
-PON by default so that's why you have to do this.
+PON is set. Use the create_pon flag as the last profile to make sure the PON is not set. I set Sarek to use the Broad
+PON by default so that's why you have to do this. Also, go into the `[bait_profile]` and make sure no PON or
+reference.cnn is set there.
 ```bash
 /opt/nextflow/25.10.2/nextflow-25.10.2-dist run  /opt/sarek-create-pon/main.nf \
-    -profile docker,google,ccg,create_pon \
+    -profile docker,google,ccg,[bait_profile],create_pon \
     --input gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3/csv/recalibrated.csv \
     --outdir gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3 \
     -w gs://ccg-bioinformatics/mnt/scratch/ccgd/global/nextflow_execution/SCB1046d_pon_popv3
