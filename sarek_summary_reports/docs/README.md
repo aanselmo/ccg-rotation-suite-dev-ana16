@@ -160,6 +160,10 @@ libreoffice --calc ${PROJECT_CODE}_bcl2fastq_samplesheet.csv
 Lane,Sample_ID,index,index2
 # Paste query data
 # Save as -> Check mark Edit Filter Settings -> OK
+ssh argos-ccgd.dfci.harvard.edu
+PROJECT_CODE=[your project code]
+mkdir -p /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/
+# On your desktop
 scp ${PROJECT_CODE}_bcl2fastq_samplesheet.csv argos-ccgd:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/
 ```
 Example:
@@ -190,8 +194,9 @@ reverse complement. The database isn't 100% accurate for the REVCOMP because che
 ```bash
 screen ls
 screen -d -r [old session for demultiplexing]
-gcloud storage cp -r /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
-    gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/
+gcloud storage rsync -r --exclude=".*Undetermined.*" \
+    /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
+    gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}
 ```
 9. Run the following to get the fastqs to add to the samplesheet:
 ```bash
