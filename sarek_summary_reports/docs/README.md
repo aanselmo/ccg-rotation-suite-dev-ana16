@@ -202,7 +202,7 @@ gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pip
 ```
 10. Grab the other columns with a query.
     * **Nota bene:** You might only need to grab one lane if you used `--no-lane-splitting` on the demultiplexing step.
-    * **Nota bene bis:** Status should be 1 for all normals if creating a PON. Normals should be treaded like tumor
+    * **Nota bene bis:** Status should be 1 for all normals if creating a PON. Normals should be treated like tumor
       samples when run through Sarek (when creating a PON).
 ```sql
 SELECT i.individual_collaborator_name as patient,
@@ -217,7 +217,11 @@ JOIN flowcell_content fc ON fc.flowcell_content_id = ilm.flowcell_content_id
 JOIN instrument_run ir ON ir.instrument_run_id = fc.instrument_run_id 
 JOIN platform_location pl ON fc.platform_location_id = pl.platform_location_id
 WHERE proj.project_code = "[Your project code]"
-ORDER BY rec.sample_collaborator_name ;
+/* Run specific PON samples to quicken Sarek's runtime later.
+AND rec.sample_collaborator_name IN (
+  [FROM FIND COMMAND]
+)*/
+ORDER BY rec.sample_collaborator_name;
 ```
 11. Create a sarek_samplesheet.csv. See [above directions](#1-generate-the-sarek-samplesheet) for details.
 12. Kickoff Sarek pipeline as in [run pipeline directions](./run_pipeline.md)
