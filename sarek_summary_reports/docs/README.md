@@ -54,13 +54,10 @@ ls
 less /mnt/storage/centers/ccgd/apps/Riker/latest/Riker.ccgd.clouddb.config
 # pick the one that's used for full_targets in Riker
 # (https://wiki.dfci.harvard.edu:8443/pages/viewpage.action?pageId=60738749)
-mkdir /mnt/storage/centers/ccgd/nap24/baits/${BAIT_NAME}/
-cp [the_baits.interval_list] /mnt/storage/centers/ccgd/nap24/baits/${BAIT_NAME}/
-cd /mnt/storage/centers/ccgd/nap2q4/baits/${BAIT_NAME}/
 ```
 2. Upload to gcloud.
 ```bash
-gcloud storage cp ${BAIT_NAME}_$(date --iso-8601)Merged.bed gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/baits/${BAIT_NAME}/
+gcloud storage cp [bed file] gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/baits/${BAIT_NAME}/
 ```
 3. Run the fix_bed tool. It does the following:
     * Converts the .interval_list to .bed
@@ -96,14 +93,18 @@ find . -name "*.dedup.cleaned.txt" -ctime -1825 \
 ```
 2. Query to find what instrument runs the samples were on.
 ```sql
-SELECT rs.sample_collaborator_name, p.project_code, ir.run_name, pl.platform_location_description  
+SELECT rs.sample_collaborator_name, p.project_code, ir.run_name, pl.platform_location_description, bs.bait_set_name 
 FROM received_sample rs
 JOIN project p ON p.project_id = rs.project_id
 JOIN illumina_lane_member ilm ON ilm.sample_id = rs.received_sample_id
+JOIN capture cap ON ilm.capture_id = cap.capture_id
+JOIN bait_set bs ON cap.bait_set_id = bs.bait_set_id
 JOIN flowcell_content fc ON fc.flowcell_content_id = ilm.flowcell_content_id
 JOIN instrument_run ir ON ir.instrument_run_id = fc.instrument_run_id
 JOIN platform_location pl ON pl.platform_location_id  = fc.platform_location_id 
-WHERE rs.sample_collaborator_name IN ([FROM FIND COMMAND]);
+WHERE rs.sample_collaborator_name IN (
+  [FROM FIND COMMAND]
+) AND bs.bait_set_name = "Your bait set";
 ```
 3. Restore the old Riker runs and proceed to [rerun old riker project directions](#rerun-old-riker-project)
 4. Proceed to [Generate PON](./run_sarek_pipeline.md#generate-pon)
@@ -138,35 +139,60 @@ JOIN library lib ON lib.sample_id  = rec.received_sample_id
 JOIN seq_barcode_set_member bsm ON lib.barcode_set_member_id = bsm.`seq_barcode_set_member_id`
 JOIN seq_barcode first_barcode ON first_barcode.seq_barcode_id = bsm.first_seq_barcode_id
 JOIN seq_barcode second_barcode ON second_barcode.seq_barcode_id = bsm.second_seq_barcode_id
-WHERE proj.project_code = "CCG1200c-Oncopanel"
+WHERE proj.project_code = "[old riker project]"
+/* Run specific PON samples to quicken Sarek's runtime later.
+AND rec.sample_collaborator_name IN (
+  [FROM FIND COMMAND]
+)*/
 ORDER BY pl.platform_location_description, rec.sample_collaborator_name ;
 ```
-4. If the `second_index_direction` comes out as REVCOMP, please use https://reverse-complement.com/
+4. If the `second_index_direction` comes out as REVCOMP, please use https://arep.med.harvard.edu/labgc/adnan/projects/Utilities/revcomp.html
    to find the reverse complement of index2. You can just copy and paste the column out of DBeaver. Rows should be
    seperated by new lines. The site will figure out what you mean.
-5. Copy and paste Lane,Sample_ID,index,index2 into the bcl2fastq_samplesheet.csv below the `[Data],,,` line.
-6. Make the output directory, and upload the samplesheet file to argos:
+5. Make the output directory, and upload the samplesheet file to argos:
 ```bash
-scp {project}_bcl2fast_samplesheet.csv argos-ccgd.dfci.harvard.edu:~/.
 ssh argos-ccgd.dfci.harvard.edu
 cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/
 PROJECT_CODE=[YOUR PROJECT CODE]
-mkdir -p SE81226a-ULPWGS/csv SE81226a-ULPWGS/demultiplex
-mv ~/${PROJECT_CODE}_bcl2fast_samplesheet.csv  SE81226a-ULPWGS/csv/
+mkdir -p ${PROJECT_CODE}/csv ${PROJECT_CODE}/demultiplex
+```
+6. On your desktop run the following:
+```bash
+PROJECT_CODE=[YOUR PROJECT CODE]
+touch ${PROJECT_CODE}_bcl2fastq_samplesheet.csv
+libreoffice --calc ${PROJECT_CODE}_bcl2fastq_samplesheet.csv
+# Right click -> Paste -> Paste Special -> Use Text Import Dialog to paste header:
+[Data],,,
+Lane,Sample_ID,index,index2
+# Paste query data
+# Save as -> Check mark Edit Filter Settings -> OK
+scp ${PROJECT_CODE}_bcl2fastq_samplesheet.csv argos-ccgd:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/
+```
+Example:
+```
+[Data],,,
+Lane,Sample_ID,index,index2
+1,KM12-C2,AAGGACAC,TGTTGTGG
+1,PON_Blood6-C3,TGCAGGTA,CATCGTGA
+1,CEPH1408-H1,CGATAGAG,ATGGCGAA
+1,PON_Blood1-G2,GTAGAGCA,CGGTCATA
 ```
 7. Run bcl2fastq on argos. Example commands:
 ```bash
 screen
 qrsh -pe pvm 16
+PROJECT_CODE=[YOUR PROJECT CODE]
 /mnt/storage/centers/ccgd/apps/bcl2fastq/2.20.0.422/bin/bcl2fastq \
   --create-fastq-for-index-reads --no-lane-splitting --ignore-missing-positions --ignore-missing-controls \
   --ignore-missing-filter --ignore-missing-bcls -r 6 -w 6  \
-  -R /mnt/storage/centers/ccgd/Illumina/Basecalls/20251226_LH00547_0191_A23FKMFLT3_JN13779-L001_EVB13781-L002_LL13786-L003_AN13788-L005 \
-  --output-dir=/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a-ULPWGS/demultiplex \
+  -R /mnt/storage/centers/ccgd/Illumina/Basecalls/[your illumina run] \
+  --output-dir=/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex \
   --interop-dir=/tmp \
-  --sample-sheet=/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a-ULPWGS/csv/SE81226a_bcl2fast_samplesheet.csv
+  --sample-sheet=/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/${PROJECT_CODE}_bcl2fastq_samplesheet.csv
 ```
-8. Upload to gcloud after done demultiplexing:
+8. Upload to gcloud after done demultiplexing. The fastq.gz files usually should be 700 MB to 1 GB each. If they aren't
+something's wrong. Try switching to reverse complement of the 2nd barcode or just regular if you already tried the
+reverse complement. The database isn't 100% accurate for the REVCOMP because chemistry on instruments can change.
 ```bash
 screen ls
 screen -d -r [old session for demultiplexing]
