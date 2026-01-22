@@ -45,23 +45,17 @@ you need to do or at least generate the bed file.
 ```bash
 ssh argos-ccgd.dfci.harvard.edu
 qrsh -pe pvm 3
-cd /mnt/storage/centers/ccgd/nap24/baits
-# The format for bait set names at CCG is the bait name next to the supplier id (e.g. supplier = Agilent, Twist, etc.)
-BAIT_NAME=[bait_name_supplier_id]
-mkdir ${BAIT_NAME}
-cd /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_NAME}
-ls
 less /mnt/storage/centers/ccgd/apps/Riker/latest/Riker.ccgd.clouddb.config
 # pick the one that's used for full_targets in Riker
 # (https://wiki.dfci.harvard.edu:8443/pages/viewpage.action?pageId=60738749)
 ```
 2. Upload to gcloud.
 ```bash
-gcloud storage cp [bed file] gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/baits/${BAIT_NAME}/
+gcloud storage cp [path from riker.config] gs://ccg-bioinformatics/[path from riker.config]
 ```
-3. Run the fix_bed tool. It does the following:
+3. Run the convert_to_sarek_bed.py tool. It does the following:
     * Converts the .interval_list to .bed
-    * Sorts the chromosomes numerically.
+    * Sorts the chromosomes numerically (1,2,3,etc.) instead of alphabetically (1,10,11,etc.).
     * Merges overlapping regions.
     * Annotates the regions in a way that CNVKit expects.
 ```bash
