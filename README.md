@@ -50,7 +50,7 @@ Type "help", "copyright", "credits" or "license" for more information.
     sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     ```
     * Add yourself to the docker group
-    ```bash
+    ```bash/opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar
     sudo usermod -a -G docker [username]
     ```
     * Log out on all terminals and log back in.
@@ -58,3 +58,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 ```bash
 sudo apt install poppler-utils
 ```
+6. Install java version 17 or later.
+7. Install GATK to: `/opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar`
+8. Install nextflow.
+9. Install Sarek.

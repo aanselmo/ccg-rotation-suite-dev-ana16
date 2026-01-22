@@ -20,11 +20,12 @@ tmux  # start new session
 
 ## Run Somalier/Fingerprinting
 1. Run somalier extract. Somalier has not been incorporated into the pipeline. Pass the recalibrated.csv samplesheet
-into somalier. It will take about an 1-2 hours to run.
-An example of the recalibrated.csv is as follows. The patient is the individual name. The sex can be NA if unknoown
-(the column is not actually used by somalier - just output by sarek). The sample is the sample name. The cram and crai
-point to the files that will be fingerprinted. These can also be genomic vcf files (created by GATK HaplotypeCaller).
-They probably can also bam and bai files (I haven't tried). The restrictions of what cram and crai can be are set by
+into somalier. Manually creating recalibrated.csv is **NOT** required. It's produced by Sarek. It will take about an
+1-2 hours to run. An example of the recalibrated.csv is as follows. The patient is the individual name. The sex can be 
+NA if unknoown (the column is not actually used by somalier - just output by sarek). The sample is the sample name.
+The cram and crai point to the files that will be fingerprinted. These can also be genomic vcf files (created by 
+GATK HaplotypeCaller). They probably can also bam and bai files (I haven't tried). The restrictions of what
+cram and crai can be are set by
 [somalier extract](https://github.com/brentp/somalier/blob/v0.2.19/README.md#somalier-extract), itself.
 ```
 patient,sex,status,sample,cram,crai

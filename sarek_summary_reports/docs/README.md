@@ -50,42 +50,27 @@ cd /mnt/storage/centers/ccgd/nap24/baits
 BAIT_NAME=[bait_name_supplier_id]
 mkdir ${BAIT_NAME}
 cd /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_NAME}
-ls 
+ls
+less /mnt/storage/centers/ccgd/apps/Riker/latest/Riker.ccgd.clouddb.config
+# pick the one that's used for full_targets in Riker
+# (https://wiki.dfci.harvard.edu:8443/pages/viewpage.action?pageId=60738749)
+mkdir /mnt/storage/centers/ccgd/nap24/baits/${BAIT_NAME}/
 cp [the_baits.interval_list] /mnt/storage/centers/ccgd/nap24/baits/${BAIT_NAME}/
-cd /mnt/storage/centers/ccgd/nap24/baits/${BAIT_NAME}/
-/usr/bin/java -jar /dev/shm/gatk-package-4.0.10.1-local.jar IntervalListToBed \
-  -I ${BAIT_NAME}*.interval_list \
-  -O ${BAIT_NAME}_$(date --iso-8601).bed  \
-  -SD /mnt/storage/centers/ccgd/reference_files/genomes/homo_sapiens/GRCh37/Homo_sapiens_assembly19.fasta
+cd /mnt/storage/centers/ccgd/nap2q4/baits/${BAIT_NAME}/
 ```
-2. Run a script to merge overlapping intervals.
+2. Upload to gcloud.
 ```bash
-bash ../BedFileToMerged.sh ${BAIT_NAME}_$(date --iso-8601).bed
+gcloud storage cp ${BAIT_NAME}_$(date --iso-8601)Merged.bed gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/baits/${BAIT_NAME}/
 ```
-3. Edit the bed file. Order the chromsomes numerically (1,2,3,etc.) instead of alphabetically (1,10,11,etc.).
+3. Run the fix_bed tool. It does the following:
+    * Converts the .interval_list to .bed
+    * Sorts the chromosomes numerically.
+    * Merges overlapping regions.
+    * Annotates the regions in a way that CNVKit expects.
 ```bash
-vim ${BAIT_NAME}_$(date --iso-8601)Merged.bed
+/opt/ccgd-rotation-suite/sarek_summary_reports/convert_to_sarek_bed.py -i [input.interval_list]
 ```
-4. Upload to gcloud.
-```bash
-gcloud storage cp ${BAIT_NAME}_$(date --iso-8601)Merged.bed /mnt/storage/centers/ccgd/nap24/baits/${BAIT_NAME}/
-```
-5. Reannotate bed file. Not required, but recommended in case someone in the future forgets to annotate the
-reference_pon.cnn file for cnvkit.
-```bash
-gcloud compute ssh --zone "us-central1-a" "nextflow4" --project "ccgd-174313"
-BAIT_NAME=[YOUR BAIT]
-cd  /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_NAME}
-docker run -v /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_NAME}:/mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_NAME} \
-    -v /mnt/storage/centers/ccgd/reference_files/per_tool/cnvkit:/mnt/storage/centers/ccgd/reference_files/per_tool/cnvkit
-    -w /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_NAME} \
-    -it quay.io/biocontainers/cnvkit:0.9.10--pyhdfd78af_0 bash
-
-cnvkit.py target ${BAIT_NAME}_$(date --iso-8601)Merged.bed \
-    --annotate /mnt/storage/centers/ccgd/reference_files/per_tool/cnvkit/20260119_refFlat_no_chr.bed \
-    -o ${BAIT_NAME}_$(date --iso-8601)Annotated.bed
-```
-6. Add the .bed to Sarek config.
+4. Add the .bed to Sarek config.
 ```bash
 cp /opt/sarek/conf/ccg/grch37/baits/POPv3.1_S3050142.config /opt/sarek/conf/ccg/grch37/baits/${BAIT_NAME}.config
 vim /opt/sarek/conf/ccg/grch37/baits/${BAIT_NAME}.config  # Change POPv3 beds to your new bed
