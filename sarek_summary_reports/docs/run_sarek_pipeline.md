@@ -93,29 +93,38 @@ GenomicsDBImport.
 --variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-B6-19-123b/OP-P1-B6-19-123b.bcftools.vcf.gz
 --variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-C6-19-138b/OP-P1-C6-19-138b.bcftools.vcf.gz
 ```
-4. On your desktop, run the following to increase the memory of the nextflow4 server. Then, **reboot** nextflow4.
-```
-gcloud compute instances set-machine-type nextflow4 \
-    --zone us-central1-a --machine-type n2-highmem-64
-```
-5. On the nextflow4 server, I would next remount the drives because they still don't automount well after reboot.
-```
-sudo umount -l /mnt/scratch
+4. Start the server used to create the GATK PON and login:
+```bash
+gcloud compute instances start --zone "us-central1-a" --project "ccgd-174313" gatkpon2
+gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "gatkpon2"
+# Remount the fstab entry because it often doesn't load correctly
 sudo umount -l /mnt/storage
-sudo mount /mnt/scratch
 sudo mount /mnt/storage
+# Create a RAID disk setup for temporary saving
+sudo mdadm --create /dev/md0 \
+  --level=0 \
+  --raid-devices=8 \
+  /dev/nvme0n1 /dev/nvme0n2 /dev/nvme0n3 /dev/nvme0n4 /dev/nvme0n5 /dev/nvme0n6 /dev/nvme0n7 /dev/nvme0n8
+sudo mkfs.ext4 /dev/md0
+sudo mkdir /mnt/localssd
+sudo mount /dev/md0 /mnt/localssd
+sudo chown -R :google-sudoers /mnt/localssd
+sudo chmod g+ws /mnt/localssd
+mkdir /mnt/localssd/tmp
+cd /mnt/localssd
 ```
 6. Run GenomicsDBImport. This typically takes 1 day to run the GenomicsDBImport.
 See the Broad website for more info: https://gatk.broadinstitute.org/hc/en-us/articles/30332078729883-CreateSomaticPanelOfNormals-BETA
 ```bash
-nohup /opt/jdk-17.0.12/bin/java -Xmx450G -Xms20G -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
+nohup /opt/java/17.0.12/bin/java -Xmx450G -Xms20G -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
   GenomicsDBImport \
-  --arguments_file /mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SO31074a_20251217_w_mnp_flag/SO31074a_pon_vcfs_2.args \
-  --genomicsdb-workspace-path /data/pon_db_popv3_add_SO31074a_5 \
   --max-num-intervals-to-import-in-parallel 10 \
+  --tmp-dir /mnt/localssd/tmp \
   -R /mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.fasta \
+  --arguments_file /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SO31074a_20251217_w_mnp_flag/[your args].args \
+  --genomicsdb-workspace-path /mnt/localssd/pon_db_popv3_add_SO31074a_5 \
   -L /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/POPv3.1_S3050142/POPv3_AllTargetedRegions.interval_list \
-  &> /data/20251218_pon_db_popv3_add_SO31074a.log &
+  &> /mnt/localssd/20251218_pon_db_popv3_add_SO31074a.log &
 ```
 7. Run GATK CreateSomaticPanelOfNormals. 
 ```bash
@@ -124,13 +133,13 @@ nohup /opt/jdk-17.0.12/bin/java -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-loca
   -R /mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.fasta \
   -V gendb://pon_db_popv3_add_SO31074a_5 \
   --create-output-variant-index \
-  -O mutect2_pon_popv3.1_20251218.vcf.gz \
-  &> /data/20251218_pon_create_popv3_add_SO31074a.log &
+  -O /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/[your_project]/mutect2_pon_popv3.1_20251218.vcf.gz \
+  &>/mnt/localssd/20251218_pon_create_popv3_add_SO31074a.log &
 ```
-8. On your desktop, run the following to decrease the memory of the nextflow4 server. Then, **reboot** nextflow4.
-```
-gcloud compute instances set-machine-type nextflow4 \
-    --zone us-central1-a --machine-type e2-custom-4-20480
+8. Shut down the gatkpon compute node. Note that the GenomicsDB will be lost if this is run; it shouldn't matter
+because it's a temporary database.
+```bash
+gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" --discard-local-ssd=true gatkpon2
 ```
 9. Again refer to step 4 to remount the drives.
 10. Create the CNVKit reference.cnn.
