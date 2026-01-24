@@ -72,26 +72,40 @@ reference.cnn is set there.
     --outdir gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3 \
     -w gs://ccg-bioinformatics/mnt/scratch/ccgd/global/nextflow_execution/SCB1046d_pon_popv3
 ```
-2. Create an args file for all of the vcf files. Head of the file looks like. It contains args to pass to
+2. Run bcftools norm to normalize variants into a single letter per line.
+```bash
+BUCKET_DIR="/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/[your bucket folder]"
+GENOME="/mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.fasta"
+for file in $(find ${BUCKET_DIR} -name "*.mutect2.vcf.gz")
+  do split_file=${file/mutect2.vcf.gz/split.vcf.gz}
+  vt_file=${file/mutect2.vcf.gz/vt.vcf}
+  dedup_file=${file/mutect2.vcf.gz/dedup.vcf.gz}
+  echo ${split_file}
+  /opt/bcftools/1.23/bin/bcftools norm --multiallelics -any --output-type z --output ${split_file} ${file}
+  /opt/vt/vt decompose_blocksub ${split_file} | /opt/vt/vt normalize -r ${GENOME} - > ${vt_file}
+  /opt/bcftools/1.23/bin/bcftools norm --rm-dup all --output-type z --output ${dedup_file} --write-index=tbi ${vt_file}
+done
+```
+3. Create an args file for all of the vcf files. Head of the file looks like. It contains args to pass to
 GenomicsDBImport.
 ```bash
 --variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-A6-19-136b/OP-P1-A6-19-136b.bcftools.vcf.gz
 --variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-B6-19-123b/OP-P1-B6-19-123b.bcftools.vcf.gz
 --variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-C6-19-138b/OP-P1-C6-19-138b.bcftools.vcf.gz
 ```
-3. On your desktop, run the following to increase the memory of the nextflow4 server. Then, **reboot** nextflow4.
+4. On your desktop, run the following to increase the memory of the nextflow4 server. Then, **reboot** nextflow4.
 ```
 gcloud compute instances set-machine-type nextflow4 \
     --zone us-central1-a --machine-type n2-highmem-64
 ```
-4. On the nextflow4 server, I would next remount the drives because they still don't automount well after reboot.
+5. On the nextflow4 server, I would next remount the drives because they still don't automount well after reboot.
 ```
 sudo umount -l /mnt/scratch
 sudo umount -l /mnt/storage
 sudo mount /mnt/scratch
 sudo mount /mnt/storage
 ```
-5. Run GenomicsDBImport. This typically takes 1 day to run the GenomicsDBImport.
+6. Run GenomicsDBImport. This typically takes 1 day to run the GenomicsDBImport.
 See the Broad website for more info: https://gatk.broadinstitute.org/hc/en-us/articles/30332078729883-CreateSomaticPanelOfNormals-BETA
 ```bash
 nohup /opt/jdk-17.0.12/bin/java -Xmx450G -Xms20G -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
@@ -103,7 +117,7 @@ nohup /opt/jdk-17.0.12/bin/java -Xmx450G -Xms20G -jar /opt/gatk/4.6.1.0/gatk-pac
   -L /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/POPv3.1_S3050142/POPv3_AllTargetedRegions.interval_list \
   &> /data/20251218_pon_db_popv3_add_SO31074a.log &
 ```
-6. Run GATK CreateSomaticPanelOfNormals. 
+7. Run GATK CreateSomaticPanelOfNormals. 
 ```bash
 nohup /opt/jdk-17.0.12/bin/java -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
   CreateSomaticPanelOfNormals \
@@ -113,13 +127,13 @@ nohup /opt/jdk-17.0.12/bin/java -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-loca
   -O mutect2_pon_popv3.1_20251218.vcf.gz \
   &> /data/20251218_pon_create_popv3_add_SO31074a.log &
 ```
-7. On your desktop, run the following to decrease the memory of the nextflow4 server. Then, **reboot** nextflow4.
+8. On your desktop, run the following to decrease the memory of the nextflow4 server. Then, **reboot** nextflow4.
 ```
 gcloud compute instances set-machine-type nextflow4 \
     --zone us-central1-a --machine-type e2-custom-4-20480
 ```
-8. Again refer to step 4 to remount the drives.
-9. Create the CNVKit reference.cnn.
+9. Again refer to step 4 to remount the drives.
+10. Create the CNVKit reference.cnn.
 ```bash
 docker run \
     -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a-ULPWGS/variant_calling/cnvkit:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a-ULPWGS/variant_calling/cnvkit \
@@ -136,17 +150,17 @@ cnvkit.py reference \
     CEPH1408-P2-H1_S7/*coverage.cnn \
     -o 20250119_ulpwgs_se81226a_cnvkit_reference.cnn
 ```
-10. Copy the reference.cnn file, and mutect2_pon.vcf.gz to the bait folder.
+11. Copy the reference.cnn file, and mutect2_pon.vcf.gz to the bait folder.
 ```bash
 cp [reference.cnn] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/c
 cp [mutect2_pon.vcf.gz] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/
 ```
-11. Copy the sample fasta files, sample target/antitarget cnn files, and sample vcf files in case you want to add
+12. Copy the sample fasta files, sample target/antitarget cnn files, and sample vcf files in case you want to add
    to the PON later or run on a different pipeline (you can run the fastas through the new pipeline).
 ```
 gcloud storage cp "*.fastq.gz" /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/pon_members/fastqs/
 gcloud storage cp $(find . -name "*.cnn") /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/pon_members/cnn/
-gcloud storage cp $(find . -name "*.mutect2.vcf.gz") /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/pon_members/vcf/
+gcloud storage cp $(find . -name "*.vt.vcf.gz*") /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/pon_members/vcf/
 ```
 
 ## Troubleshooting
