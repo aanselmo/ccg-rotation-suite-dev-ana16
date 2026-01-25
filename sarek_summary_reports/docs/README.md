@@ -19,7 +19,9 @@ patient,status,sample,lane,fastq_1,fastq_2
 A001,1,A001_X101_49707-1-B1,L005,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A001_X101_49707-1-B1_S14_R1_001.fastq.gz,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A001_X101_49707-1-B1_S14_R2_001.fastq.gz
 A008,1,A008_X108_58797-1-C1,L005,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A008_X108_58797-1-C1_S13_R1_001.fastq.gz,gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/demult_revcomp_0089/A008_X108_58797-1-C1_S13_R2_001.fastq.gz
 ```
-
+```bash
+gcloud storage cp ${PROJECT_CODE}_sarek_samplesheet.csv gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/
+```
 🚧 **Under construction.** 🚧 I'm hoping to create something like the python script created by Edwin to run the
 Scaffron pipeline. For now, you can use Edwin's [Quick Search](https://ccgd2.dfci.harvard.edu/minilims/html/quick_search.php)
 to match up the index/barcode with the MBCF fastq.
@@ -229,4 +231,4 @@ AND rec.sample_collaborator_name IN (
 ORDER BY rec.sample_collaborator_name;
 ```
 11. Create a sarek_samplesheet.csv. See [above directions](#1-generate-the-sarek-samplesheet) for details.
-12. Kickoff Sarek pipeline as in [run pipeline directions](./run_pipeline.md)
+12. Kickoff Sarek pipeline as in [run pipeline directions](./run_sarek_pipeline.md)

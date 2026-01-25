@@ -95,36 +95,45 @@ GenomicsDBImport.
 ```
 4. Start the server used to create the GATK PON and login:
 ```bash
-gcloud compute instances start --zone "us-central1-a" --project "ccgd-174313" gatkpon2
-gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "gatkpon2"
+gcloud compute instances create gatkpon3 \
+  --zone=us-central1-a \
+  --source-machine-image=nextflow4image
+gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" gatkpon3
+gcloud compute disks create gatkpondisk \
+  --size=10000GB \
+  --type=pd-balanced \
+  --zone=us-central1-a
+gcloud compute instances attach-disk gatkpon3 \
+  --zone us-central1-a \
+  --disk gatkpondisk
+gcloud compute instances set-machine-type gatkpon3 \
+    --zone us-central1-a --machine-type m1-ultramem-40
+gcloud compute instances start --zone "us-central1-a" --project "ccgd-174313" gatkpon3
+gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "gatkpon3"
 # Remount the fstab entry because it often doesn't load correctly
 sudo umount -l /mnt/storage
 sudo mount /mnt/storage
-# Create a RAID disk setup for temporary saving
-sudo mdadm --create /dev/md0 \
-  --level=0 \
-  --raid-devices=8 \
-  /dev/nvme0n1 /dev/nvme0n2 /dev/nvme0n3 /dev/nvme0n4 /dev/nvme0n5 /dev/nvme0n6 /dev/nvme0n7 /dev/nvme0n8
-sudo mkfs.ext4 /dev/md0
-sudo mkdir /mnt/localssd
-sudo mount /dev/md0 /mnt/localssd
-sudo chown -R :google-sudoers /mnt/localssd
-sudo chmod g+ws /mnt/localssd
-mkdir /mnt/localssd/tmp
-cd /mnt/localssd
+# Mount the persistent disk you made
+sudo mkfs.ext4 -m 0 -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/disk/by-id/google-persistent-disk-1
+sudo mkdir -p /mnt/disks/gatkpondisk
+sudo mount -o discard,defaults /dev/disk/by-id/google-persistent-disk-1 /mnt/disks/gatkpondisk
+sudo chown -R :google-sudoers /mnt/disks/gatkpondisk
+sudo chmod g+ws /mnt/disks/gatkpondisk
+mkdir /mnt/disks/gatkpondisk/tmp
+cd /mnt/disks/gatkpondisk
 ```
 6. Run GenomicsDBImport. This typically takes 1 day to run the GenomicsDBImport.
 See the Broad website for more info: https://gatk.broadinstitute.org/hc/en-us/articles/30332078729883-CreateSomaticPanelOfNormals-BETA
 ```bash
-nohup /opt/java/17.0.12/bin/java -Xmx450G -Xms20G -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
+nohup /opt/jdk-17.0.12/bin/java -Xmx850G -Xms20G -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
   GenomicsDBImport \
   --max-num-intervals-to-import-in-parallel 10 \
-  --tmp-dir /mnt/localssd/tmp \
+  --tmp-dir /mnt/disks/gatkpondisk/tmp \
   -R /mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.fasta \
   --arguments_file /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SO31074a_20251217_w_mnp_flag/[your args].args \
-  --genomicsdb-workspace-path /mnt/localssd/pon_db_popv3_add_SO31074a_5 \
+  --genomicsdb-workspace-path /mnt/disks/gatkpondisk/pon_db_popv3_add_SO31074a_5 \
   -L /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/POPv3.1_S3050142/POPv3_AllTargetedRegions.interval_list \
-  &> /mnt/localssd/20251218_pon_db_popv3_add_SO31074a.log &
+  &> /mnt/disks/gatkpondisk/20251218_pon_db_popv3_add_SO31074a.log &
 ```
 7. Run GATK CreateSomaticPanelOfNormals. 
 ```bash
@@ -134,12 +143,14 @@ nohup /opt/jdk-17.0.12/bin/java -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-loca
   -V gendb://pon_db_popv3_add_SO31074a_5 \
   --create-output-variant-index \
   -O /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/[your_project]/mutect2_pon_popv3.1_20251218.vcf.gz \
-  &>/mnt/localssd/20251218_pon_create_popv3_add_SO31074a.log &
+  &>/mnt/disks/gatkpondisk/20251218_pon_create_popv3_add_SO31074a.log &
 ```
 8. Shut down the gatkpon compute node. Note that the GenomicsDB will be lost if this is run; it shouldn't matter
 because it's a temporary database.
 ```bash
-gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" --discard-local-ssd=true gatkpon2
+gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" gatkpon3
+gcloud compute instances delete --zone=us-central1-a --delete-disks=all gatkpon3
+# TODO: Do I need to delete the gatkpondisk seperately?
 ```
 9. Again refer to step 4 to remount the drives.
 10. Create the CNVKit reference.cnn.
