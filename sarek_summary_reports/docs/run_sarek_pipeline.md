@@ -86,13 +86,6 @@ for file in $(find ${BUCKET_DIR} -name "*.mutect2.vcf.gz")
   /opt/bcftools/1.23/bin/bcftools norm --rm-dup all --output-type z --output ${dedup_file} --write-index=tbi ${vt_file}
 done
 ```
-3. Create an args file for all of the vcf files. Head of the file looks like. It contains args to pass to
-GenomicsDBImport.
-```bash
---variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-A6-19-136b/OP-P1-A6-19-136b.bcftools.vcf.gz
---variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-B6-19-123b/OP-P1-B6-19-123b.bcftools.vcf.gz
---variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-C6-19-138b/OP-P1-C6-19-138b.bcftools.vcf.gz
-```
 4. Start the server used to create the GATK PON and login:
 ```bash
 gcloud compute instances create gatkpon3 \
@@ -122,28 +115,56 @@ sudo chmod g+ws /mnt/disks/gatkpondisk
 mkdir /mnt/disks/gatkpondisk/tmp
 cd /mnt/disks/gatkpondisk
 ```
+4. Localize files. Create an args file for all of the vcf files. Head of the file looks like. It contains args to pass to
+GenomicsDBImport.
+```bash
+gcloud storage cp -r /mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta .
+mkdir -p SureSelect_XTHS_Human_All_Exon_V8_S33266340_create_pon/variant_calling/
+gcloud storage cp -r \
+    gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SureSelect_XTHS_Human_All_Exon_V8_S33266340_create_pon/variant_calling/mutect2 \
+    SureSelect_XTHS_Human_All_Exon_V8_S33266340_create_pon/variant_calling/
+cp /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/SureSelect_XTHS_Human_All_Exon_V8_S33266340/SureSelect_XTHS_Human_All_Exon_V8_S33266340_Covered_20260122.bed .
+```
+Exmaple .args file:
+```bash
+--variant /mnt/disks/gatkpondisk/SureSelect_XTHS_Human_All_Exon_V8_S33266340_create_pon/variant_calling/variant_calling/mutect2/OP-P1-A6-19-136b/OP-P1-A6-19-136b.bcftools.vcf.gz
+--variant /mnt/disks/gatkpondisk/SureSelect_XTHS_Human_All_Exon_V8_S33266340_create_pon/variant_calling/mutect2/OP-P1-B6-19-123b/OP-P1-B6-19-123b.bcftools.vcf.gz
+--variant /mnt/disks/gatkpondisk/SureSelect_XTHS_Human_All_Exon_V8_S33266340_create_pon/variant_calling/mutect2/OP-P1-C6-19-138b/OP-P1-C6-19-138b.bcftools.vcf.gz
+```
 6. Run GenomicsDBImport. This typically takes 1 day to run the GenomicsDBImport.
 See the Broad website for more info: https://gatk.broadinstitute.org/hc/en-us/articles/30332078729883-CreateSomaticPanelOfNormals-BETA
+An article about tuning GenomicsDBImport: https://gatk.broadinstitute.org/hc/en-us/articles/360056138571-GenomicsDBImport-usage-and-performance-guidelines
+    * `--reader-threads` will only work for 1 interval. I have no idea why there would only be 1 interval in a bait bed
+      file. Typically there are thousands. That's why I don't use it.
+    * `--merge-input-intervals` merges all the intervals on 1 contig (i.e. chromosome). Shouldn't matter if we merge it.
+      I'd want to filter out the off-target variants anyway (i.e. keep them in the PON).
+    * `--bypass-feature-reader` skips the checks that GATK does and reads with bcftools instead, I think. Should be
+      fine if you did the bcftools and vt normalization steps earlier.
+    * `--batch-size` number of samples to process at a time.
+    * `--max-num-intervals-to-import-in-parallel` number of intervals in the bed file to process at a time.
 ```bash
-nohup /opt/jdk-17.0.12/bin/java -Xmx850G -Xms20G -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
+nohup /opt/jdk-17.0.12/bin/java -Xmx760G -Xms20G -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
   GenomicsDBImport \
+  --bypass-feature-reader \
+  --merge-input-intervals \
   --max-num-intervals-to-import-in-parallel 10 \
+  --batch-size 50 \
   --tmp-dir /mnt/disks/gatkpondisk/tmp \
-  -R /mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.fasta \
-  --arguments_file /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SO31074a_20251217_w_mnp_flag/[your args].args \
-  --genomicsdb-workspace-path /mnt/disks/gatkpondisk/pon_db_popv3_add_SO31074a_5 \
-  -L /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/POPv3.1_S3050142/POPv3_AllTargetedRegions.interval_list \
+  -R /mnt/disks/gatkpondisk/WholeGenomeFasta/human_g1k_v37_decoy.fasta \
+  --arguments_file /mnt/disks/gatkpondisk/SureSelect_XTHS_Human_All_Exon_V8_S33266340_Covered_20260122/[your args].args \
+  --genomicsdb-workspace-path /mnt/disks/gatkpondisk/pon_db_sureselect_v8_20260125_5 \
+  -L /mnt/disks/gatkpondisk/SureSelect_XTHS_Human_All_Exon_V8_S33266340_Covered_20260122.bed \
   &> /mnt/disks/gatkpondisk/20251218_pon_db_popv3_add_SO31074a.log &
 ```
 7. Run GATK CreateSomaticPanelOfNormals. 
 ```bash
 nohup /opt/jdk-17.0.12/bin/java -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
   CreateSomaticPanelOfNormals \
-  -R /mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.fasta \
+  -R /mnt/disks/gatkpondisk/WholeGenomeFasta/human_g1k_v37_decoy.fasta \
   -V gendb://pon_db_popv3_add_SO31074a_5 \
   --create-output-variant-index \
   -O /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/[your_project]/mutect2_pon_popv3.1_20251218.vcf.gz \
-  &>/mnt/disks/gatkpondisk/20251218_pon_create_popv3_add_SO31074a.log &
+  &> /mnt/disks/gatkpondisk/20251218_pon_create_popv3_add_SO31074a.log &
 ```
 8. Shut down the gatkpon compute node. Note that the GenomicsDB will be lost if this is run; it shouldn't matter
 because it's a temporary database.
