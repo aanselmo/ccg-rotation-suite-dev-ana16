@@ -55,3 +55,17 @@ cd /media/rcsm/rc-stor8/writable/Illumina/Sarek_Qcs_and_Reports/
 mkdir -p [parent_project]/[sub_project]
 cp -r [report_dir] [parent_project]/[sub_project]
 ```
+
+## Edge Cases
+### Regenerate MultiQC
+Let's say you ran Sarek in pieces (e.g. `--tools manta,tiddit` first; then ran `--tools mutect2,cnvkit` after
+you created the PONs). You can recreate the multiqc report like so to include info from all Sarek runs:
+```bash
+PROJECT_CODE=[your project code]
+docker run -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}:/mnt/outdir \
+    -it community.wave.seqera.io/library/multiqc:1.33--ee7739d47738383b bash
+cd /mnt/outdir
+ls  # make sure you have the right dir
+multiqc .
+```
+NOTE: the docker image url can be found in `modules/nf-core/multiqc/main.nf` in the sarek repo.
