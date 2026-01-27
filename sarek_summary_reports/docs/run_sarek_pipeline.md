@@ -81,7 +81,7 @@ for file in $(find ${BUCKET_DIR} -name "*.mutect2.vcf.gz")
   vt_file=${file/mutect2.vcf.gz/vt.vcf}
   dedup_file=${file/mutect2.vcf.gz/dedup.vcf.gz}
   echo ${split_file}
-  /opt/bcftools/1.23/bin/bcftools norm --multiallelics -any --output-type z --output ${split_file} ${file}
+  /opt/bcftools/1.23/bin/bcftools norm --multiallelics -any --output-type z --write-index=tbi --output ${split_file} ${file}
   /opt/vt/vt decompose_blocksub ${split_file} | /opt/vt/vt normalize -r ${GENOME} - > ${vt_file}
   /opt/bcftools/1.23/bin/bcftools norm --rm-dup all --output-type z --output ${dedup_file} --write-index=tbi ${vt_file}
 done
@@ -142,10 +142,10 @@ nohup /opt/jdk-17.0.12/bin/java -Xmx50G -Xms3G -jar /opt/gatk/4.6.1.0/gatk-packa
 nohup /opt/jdk-17.0.12/bin/java -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
   CreateSomaticPanelOfNormals \
   -R /mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.fasta \
-  -V gendb://pon_db_sureselect_v8_20260125_5 \
   --create-output-variant-index \
+  -V gendb://pon_db_sureselect_v8_20260125_5 \
   -O /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/[your_project]/mutect2_pon_popv3.1_20251218.vcf.gz \
-  &> /mnt/disks/gatkpondisk/20251218_pon_create_popv3_add_SO31074a.log &
+  &> /data/20250125_pon_create_popv3_add_SO31074a.log &
 ```
 7. Shut down the gatkpon compute node. Note that the GenomicsDB will be lost if this is run; it shouldn't matter
 because it's a temporary database.
@@ -160,9 +160,10 @@ docker run \
     -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a-ULPWGS/variant_calling/cnvkit:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a-ULPWGS/variant_calling/cnvkit \
     -v /mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta:/mnt/GRCh37 \
     -it quay.io/biocontainers/cnvkit:0.9.10--pyhdfd78af_0   bash
-cnvkit.py reference [*coverage.cnn] -f ucsc.hg19.fa -o Reference.cnn
-
 cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a-ULPWGS/variant_calling/cnvkit
+# Format
+cnvkit.py reference -f ucsc.hg19.fa -o Reference.cnn [*coverage.cnn]
+# Example Command
 cnvkit.py reference \
     -f /mnt/GRCh37/human_g1k_v37_decoy.fasta \
     CEPH1408-P1-H11_S148/*coverage.cnn \
@@ -173,15 +174,22 @@ cnvkit.py reference \
 ```
 10. Copy the reference.cnn file, and mutect2_pon.vcf.gz to the bait folder.
 ```bash
-cp [reference.cnn] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/c
-cp [mutect2_pon.vcf.gz] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/
+PROJECT_CODE=[your project]
+BAIT_FOLDER=[your bait folder]
+cp [reference.cnn] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_FOLDER}/
+cp [mutect2_pon.vcf.gz] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_FOLDER}/
 ```
-11. Copy the sample fasta files, sample target/antitarget cnn files, and sample vcf files in case you want to add
+11. Edit the sarek config file that you created for the bait set [earlier](./README.md#convert-riker-interval_list-to-sarek-bed-file)
+Add the pon, pon_tbi, and cnvkit_reference.
+12. Copy the sample fasta files, sample target/antitarget cnn files, and sample vcf files in case you want to add
    to the PON later or run on a different pipeline (you can run the fastas through the new pipeline).
-```
-gcloud storage cp "*.fastq.gz" /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/pon_members/fastqs/
-gcloud storage cp $(find . -name "*.cnn") /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/pon_members/cnn/
-gcloud storage cp $(find . -name "*.vt.vcf.gz*") /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[bait_set]/pon_members/vcf/
+```bash
+gcloud storage cp "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex/*.fastq.gz" \
+    gs://ccg-bioinformatics/mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_FOLDER}/pon_members/fastqs/
+gcloud storage cp "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/variant_calling/cnvkit/**coverage.cnn" \
+    gs://ccg-bioinformatics/mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_FOLDER}/pon_members/cnvkit/
+gcloud storage cp "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/variant_calling/mutect2/**.dedup.vcf.gz" \
+    gs://ccg-bioinformatics/mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_FOLDER}/pon_members/mutect2/
 ```
 
 ## Troubleshooting
