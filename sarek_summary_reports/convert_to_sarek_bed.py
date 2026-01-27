@@ -43,14 +43,14 @@ def setup_arguments():
 def get_output_file_name(args: argparse.ArgumentParser) -> str:
   output_file_name = args.output_file_name
   today = date.today()
-  date = today.isoformat().replace("-", "")
+  today_no_dash = today.isoformat().replace("-", "")
   if output_file_name == APPEND_OPTION:
     output_file_name = basename(args.interval_list)
     output_path = dirname(args.interval_list)
     if ".interval_list" in output_file_name:
-      output_file_name = output_file_name.replace(".interval_list", f"_{date}{NEW_FILE_ENDING}")
+      output_file_name = output_file_name.replace(".interval_list", f"_{today_no_dash}{NEW_FILE_ENDING}")
     else:
-      output_file_name = output_file_name + f"_{date}{NEW_FILE_ENDING}"
+      output_file_name = output_file_name + f"_{today_no_dash}{NEW_FILE_ENDING}"
     output_file_name = join(output_path, output_file_name)
   return output_file_name
 
