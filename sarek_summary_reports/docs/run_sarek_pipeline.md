@@ -6,16 +6,23 @@ We use GATK.GRCh37 by default as the reference. You might have to change that in
 to GRCh38. I recommend using tmux instead of screen with nextflow. It looks much better in the
 terminal (i.e. no screen tearing). For a basic tutorial of tmux: https://www.redhat.com/en/blog/introduction-tmux-linux
 This typically takes 5-8 hours to run.
+Nextflow creates a .nextflow directory that allows for `-resume`
+    * This .nextflow directory you run in must support [file system locks](https://github.com/ncbi/egapx/issues/150)
+    * If you want a new simultaneous nextflow run, you must
+      [create a new .nextflow directory](https://github.com/nextflow-io/nextflow/discussions/3883) otherwise the locks
+      will interfere.
 ```bash
 gcloud compute ssh --zone "us-central1-a" "nextflow4" --project "ccgd-174313"
-cd /data  # I try to keep the nextflow run database here. When you run it, it appends to the hidden .nextflow folder.
+PROJECT_CODE=[your_project_code]
+mkdir /data/${PROJECT_CODE}
+cd /data/${PROJECT_CODE}  # When you run nextflow, it adds a hidden .nextflow folder.
 tmux  # start new session
 # Make sure to add the bait profile
 /opt/nextflow/25.10.2/nextflow-25.10.2-dist run  /opt/sarek/main.nf \
     -profile docker,google,ccg,[bait_profile] \
-    --input gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SE81226a-ULPWGS/csv/SE81226a_sarek_samplesheet.csv \
-    --outdir gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SE81226a-ULPWGS \
-    -w gs://ccg-bioinformatics/mnt/scratch/ccgd/global/nextflow_execution/SE81226a-ULPWGS
+    --input gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/${PROJECT_CODE}/csv/${PROJECT_CODE}_sarek_samplesheet.csv \
+    --outdir gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/${PROJECT_CODE} \
+    -w gs://ccg-bioinformatics/mnt/scratch/ccgd/global/nextflow_execution/${PROJECT_CODE}
 ```
 
 ## Run Somalier/Fingerprinting
