@@ -321,7 +321,7 @@ bcl-convert \
 ```
 6. Upload fastqs back to gcloud storage.
 ```bash
-gcloud storage rsync -r --exclude=".*Undetermined.*" /data/demultiplex_run196 /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/demultiplex_run196
+gcloud storage rsync -r --exclude=".*Undetermined.*" /mnt/localssd/demultiplex_run196 gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/demultiplex_run196
 ```
 7. Delete the old image:
 ```bash
