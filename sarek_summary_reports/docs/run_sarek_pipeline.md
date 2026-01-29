@@ -95,12 +95,11 @@ done
 ```
 3. Start the server used to create the GATK PON and login:
 ```bash
-gcloud compute instances create gatkpon3 \
+gcloud compute instances create \
   --zone=us-central1-a \
-  --source-machine-image=nextflow4image
-gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" gatkpon3
-gcloud compute instances set-machine-type gatkpon3 \
-    --zone us-central1-a --machine-type n2-highmem-8
+  --source-machine-image=nextflow4image \
+  --machine-type n2-highmem-8 \
+  gatkpon3
 gcloud compute instances start --zone "us-central1-a" --project "ccgd-174313" gatkpon3
 gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "gatkpon3"
 # Remount the fstab entry because it often doesn't load correctly

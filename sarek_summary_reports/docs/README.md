@@ -265,48 +265,45 @@ gcloud storage cp -r [your run] gs://ccg-bioinformatics/mnt/storage/centers/ccgd
 ```
 4. Start the server used to run bcl-convert and login:
 ```bash
-# n2d-custom-40-92160 is 40 cores, 90 * 1024 MB RAM
+# n2d-custom-48-71680 is 48 cores, 70 * 1024 MB RAM
 gcloud compute instances create \
   --zone=us-central1-a \
-  --source-machine-image=nextflow4image \
-  --machine-type n2d-custom-40-92160 \
-  bclconvert2
-gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" bclconvert2
-gcloud compute disks create bclconvertdisk \
-  --size=1500GB \
-  --type=pd-balanced \
-  --zone=us-central1-a
-gcloud compute instances attach-disk  \
-  --zone us-central1-a \
-  --disk bclconvertdisk \
-  bclconvert2
-gcloud compute instances start --zone "us-central1-a" --project "ccgd-174313" bclconvert2
-gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "bclconvert2"
-# Remount the fstab entry because it often doesn't load correctly
-sudo umount -l /mnt/storage
-sudo mount /mnt/storage
-# Mount the persistent disk you made
-sudo mkfs.ext4 -m 0 -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/disk/by-id/google-persistent-disk-1
-sudo mkdir -p /mnt/disks/bclconvertdisk
-sudo mount -o discard,defaults /dev/disk/by-id/google-persistent-disk-1 /mnt/disks/bclconvertdisk
-sudo chown -R :google-sudoers /mnt/disks/bclconvertdisk
-sudo chmod g+ws /mnt/disks/bclconvertdisk
-cd /mnt/disks/bclconvertdisk
+  --source-snapshot=https://compute.googleapis.com/compute/v1/projects/ccgd-174313/global/snapshots/nextflow4-20260125 \
+  --machine-type n2d-custom-48-71680 \
+  --local-ssd=device-name=nvme1,interface=NVME \
+  --local-ssd=device-name=nvme2,interface=NVME \
+  --local-ssd=device-name=nvme3,interface=NVME \
+  --local-ssd=device-name=nvme4,interface=NVME \
+  bclconvert3
+gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "bclconvert3"
+# Create a RAID disk setup for temporary saving
+sudo apt install mdadm
+sudo mdadm --create /dev/md0 \
+  --level=0 \
+  --raid-devices=4 \
+  /dev/nvme0n1 /dev/nvme0n2 /dev/nvme0n3 /dev/nvme0n4
+sudo mkfs.ext4 /dev/md0
+sudo mkdir /mnt/localssd
+sudo mount /dev/md0 /mnt/localssd
+sudo chown -R :google-sudoers /mnt/localssd
+sudo chmod g+ws /mnt/localssd
+cd /mnt/localssd
+# copy files over
+gcloud storage cp -r gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/Basecalls/[your run] .
 ```
 5. Run docker and then bcl-convert:
 ```bash
 tmux
 docker run \
-    -v /mnt/disks/bclconvertdisk:/mnt/disks/bclconvertdisk \
-    -v /mnt/storage/centers/ccgd/Illumina/Basecalls/20260122_LH00547_0196_B23GNT7LT3_JN13826-L001-L002-L003_AB13838-L007:/mnt/storage/centers/ccgd/Illumina/Basecalls/20260122_LH00547_0196_B23GNT7LT3_JN13826-L001-L002-L003_AB13838-L007 \
+    -v /mnt/localssd:/mnt/localssd \
     -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv \
     -it us-central1-docker.pkg.dev/ccgd-174313/sarek/bclconvert:4.4.6 bash
 
 bcl-convert \
-    --bcl-input-directory /mnt/storage/centers/ccgd/Illumina/Basecalls/20260122_LH00547_0196_B23GNT7LT3_JN13826-L001-L002-L003_AB13838-L007 \
+    --bcl-input-directory /mnt/localssd/20260122_LH00547_0196_B23GNT7LT3_JN13826-L001-L002-L003_AB13838-L007 \
     --sample-sheet /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv/SE81226a_run196_bcl2fastq_samplesheet.csv \
-    --output-directory /mnt/disks/bclconvertdisk/demultiplex_run196 \
-    --fastq-gzip-compression-level 9 \
+    --output-directory /mnt/localssd/demultiplex_run196 \
+    --fastq-gzip-compression-level 7 \
     --no-lane-splitting true
 ```
 6. Upload fastqs back to gcloud storage.
@@ -315,6 +312,6 @@ gcloud storage cp -r /data/demultiplex_run196 /mnt/storage/centers/ccgd/Illumina
 ```
 7. Delete the old image:
 ```bash
-gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" bclconvert2
-gcloud compute instances delete --zone=us-central1-a --delete-disks=all bclconvert2
+gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" bclconvert3
+gcloud compute instances delete --zone=us-central1-a --delete-disks=all bclconvert3
 ```
