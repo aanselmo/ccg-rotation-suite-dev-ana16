@@ -242,14 +242,18 @@ No cbcl files found for cycle 3. Attempt 3 of 3. Corrupt or missing .cbcl files 
 ```
 1. Run the [query in step 3](#rerun-old-riker-project) or find some way to get the
    data section of the samplesheet with the same headers `Lane,Sample_ID,index,index2`.
+   **Nota bene** unlike for bcl2fastq index2 should always be in forward orientation.
+   (not reverse compliment.)
 2. Add the following sections to the samplesheet to follow the v2 specification.
-The BCLConvert_Settings section is optional. Other settings are described in the 
-[illumina docs](https://support-docs.illumina.com/SW/BCL_Convert/Content/SW/BCLConvert/SampleSheets_swBCL.htm)
+   The BCLConvert_Settings section is optional. Other settings are described in the 
+   [illumina docs](https://support-docs.illumina.com/SW/BCL_Convert/Content/SW/BCLConvert/SampleSheets_swBCL.htm)
+   **Nota bene** I2 cycles to ignore should be specified in reverse order if the i2 is reverse (i.e. N8I8... not I8N8)
 ```
 [Header],,,
 FileFormatVersion,2,,
 [BCLConvert_Settings],,,
-OverrideCycles,Y151;I8N9;I8N8;Y151,,
+OverrideCycles,R1:Y151;R2:Y151;I1:I8U9;I2:N8I8,,
+BarcodeMismatchesIndex1,1,,
 [BCLConvert_Data],,,
 Lane,Sample_ID,index,index2
 
@@ -276,14 +280,20 @@ gcloud compute instances create \
   --local-ssd=device-name=nvme4,interface=NVME \
   --local-ssd=device-name=nvme5,interface=NVME \
   --local-ssd=device-name=nvme6,interface=NVME \
+  --local-ssd=device-name=nvme7,interface=NVME \
+  --local-ssd=device-name=nvme8,interface=NVME \
   bclconvert3
 gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "bclconvert3"
+# Remount the fstab entry because it often doesn't load correctly
+sudo umount -l /mnt/storage
+sudo mount /mnt/storage
 # Create a RAID disk setup for temporary saving
 sudo apt install mdadm
 sudo mdadm --create /dev/md0 \
   --level=0 \
-  --raid-devices=6 \
-  /dev/nvme0n1 /dev/nvme0n2 /dev/nvme0n3 /dev/nvme0n4 /dev/nvme0n5 /dev/nvme0n6
+  --raid-devices=8 \
+  /dev/nvme0n1 /dev/nvme0n2 /dev/nvme0n3 /dev/nvme0n4 \
+  /dev/nvme0n5 /dev/nvme0n6 /dev/nvme0n7 /dev/nvme0n8
 sudo mkfs.ext4 /dev/md0
 sudo mkdir /mnt/localssd
 sudo mount /dev/md0 /mnt/localssd
@@ -294,6 +304,7 @@ cd /mnt/localssd
 gcloud storage cp -r gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/Basecalls/[your run] .
 ```
 5. Run docker and then bcl-convert:
+Docker image was made from: https://github.com/nf-core/demultiplex/blob/1.7.0/modules/nf-core/bclconvert/Dockerfile
 ```bash
 tmux
 docker run \
@@ -301,13 +312,12 @@ docker run \
     -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv \
     -it us-central1-docker.pkg.dev/ccgd-174313/sarek/bclconvert:4.4.6 bash
 
+# Don't run with --no-lane-splitting. It crashes if there are no reads from a sample in one of the lanes.
 bcl-convert \
     --bcl-input-directory /mnt/localssd/20260122_LH00547_0196_B23GNT7LT3_JN13826-L001-L002-L003_AB13838-L007 \
     --sample-sheet /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv/SE81226a_run196_bcl2fastq_samplesheet.csv \
     --output-directory /mnt/localssd/demultiplex_run196 \
-    --bcl-num-parallel-tiles 8 \
-    --fastq-gzip-compression-level 6 \
-    --no-lane-splitting true
+    --fastq-gzip-compression-level 6
 ```
 6. Upload fastqs back to gcloud storage.
 ```bash
