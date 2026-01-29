@@ -75,7 +75,7 @@ cp -r /opt/sarek/conf/ccg /opt/sarek-create-pon/conf/
 ```
 
 #### Regenerate Old PON
-2. Look on argos-ccgd for samples in the old PON.
+1. Look on argos-ccgd for samples in the old PON.
 ```bash
 ssh argos-ccgd.dfci.harvard.edu
 cd /mnt/storage/centers/ccgd/bmw35/RobustCNV_PON
@@ -233,3 +233,67 @@ ORDER BY rec.sample_collaborator_name;
 ```
 11. Create a sarek_samplesheet.csv. See [above directions](#1-generate-the-sarek-samplesheet) for details.
 12. Kickoff Sarek pipeline as in [run pipeline directions](./run_sarek_pipeline.md)
+
+### Demultiplex Newer Project
+If you get the following error from bcl2fastq, that may mean you have a newer NovaSeq run,
+and you will need to use bcl-convert. Here's how you run it.
+```
+No cbcl files found for cycle 3. Attempt 3 of 3. Corrupt or missing .cbcl files were found for 3 consecutive cycles, verify the source of the data.
+```
+1. Run the [query in step 3](#rerun-old-riker-project) or find some way to get the
+   data section of the samplesheet with the same headers `Lane,Sample_ID,index,index2`.
+2. Add the following sections to the samplesheet to follow the v2 specification.
+The BCLConvert_Settings section is optional. Other settings are described in the 
+[illumina docs](https://support-docs.illumina.com/SW/BCL_Convert/Content/SW/BCLConvert/SampleSheets_swBCL.htm)
+```
+[Header],,,
+FileFormatVersion,2,,
+[BCLConvert_Settings],,,
+OverrideCycles,Y151;I8N9;I8N8;Y151,,
+[BCLConvert_Data],,,
+Lane,Sample_ID,index,index2
+
+your query data...
+```
+3. Upload data to gcloud storage.
+```bash
+ssh argos-ccgd.dfci.harvard.edu
+screen
+qrsh -pe pvm 16
+cd /mnt/storage/centers/ccgd/Illumina/Basecalls
+gcloud storage cp -r [your run] gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/Basecalls/
+```
+4. Start the server used to run bcl-convert and login:
+```bash
+gcloud compute instances create \
+  --zone=us-central1-a \
+  --source-machine-image=nextflow4image \
+  bclconvert2
+gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" bclconvert2
+gcloud compute instances set-machine-type --zone us-central1-a \
+    --machine-type n2-highmem-16 bclconvert2
+gcloud compute instances start --zone "us-central1-a" --project "ccgd-174313" bclconvert2
+gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "bclconvert2"
+# Remount the fstab entry because it often doesn't load correctly
+sudo umount -l /mnt/storage
+sudo mount /mnt/storage
+```
+5. Run docker and then bcl-convert:
+```bash
+tmux
+docker run \
+    -v /data:/data \
+    -v /mnt/storage/centers/ccgd/Illumina/Basecalls/20260122_LH00547_0196_B23GNT7LT3_JN13826-L001-L002-L003_AB13838-L007:/mnt/storage/centers/ccgd/Illumina/Basecalls/20260122_LH00547_0196_B23GNT7LT3_JN13826-L001-L002-L003_AB13838-L007 \
+    -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv \
+    -it us-central1-docker.pkg.dev/ccgd-174313/sarek/bclconvert:4.4.6 bash
+
+bcl-convert \
+    --bcl-input-directory /mnt/storage/centers/ccgd/Illumina/Basecalls/20260122_LH00547_0196_B23GNT7LT3_JN13826-L001-L002-L003_AB13838-L007 \
+    --sample-sheet /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv/SE81226a_run196_bcl2fastq_samplesheet.csv \
+    --output-directory /data/demultiplex_run196 \
+    --fastq-gzip-compression-level 5
+```
+6. Upload fastqs back to gcloud storage.
+```bash
+gcloud storage cp -r /data/demultiplex_run196 /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/
+```
