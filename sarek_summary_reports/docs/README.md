@@ -182,6 +182,7 @@ Lane,Sample_ID,index,index2
 screen
 qrsh -pe pvm 16
 PROJECT_CODE=[YOUR PROJECT CODE]
+# Add `--use-bases-mask Y98,I8n*,I8,Y98` if needed
 /mnt/storage/centers/ccgd/apps/bcl2fastq/2.20.0.422/bin/bcl2fastq \
   --create-fastq-for-index-reads --no-lane-splitting --ignore-missing-positions --ignore-missing-controls \
   --ignore-missing-filter --ignore-missing-bcls -r 6 -w 6  \
