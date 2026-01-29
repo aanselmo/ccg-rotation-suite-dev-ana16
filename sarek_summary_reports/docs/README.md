@@ -265,11 +265,11 @@ gcloud storage cp -r [your run] gs://ccg-bioinformatics/mnt/storage/centers/ccgd
 ```
 4. Start the server used to run bcl-convert and login:
 ```bash
-# n2d-custom-48-71680 is 48 cores, 70 * 1024 MB RAM
+# n2d-custom-48-97280 is 48 cores, 95 * 1024 MB RAM
 gcloud compute instances create \
   --zone=us-central1-a \
   --source-snapshot=https://compute.googleapis.com/compute/v1/projects/ccgd-174313/global/snapshots/nextflow4-20260125 \
-  --machine-type n2d-custom-48-71680 \
+  --machine-type n2d-custom-48-97280 \
   --local-ssd=device-name=nvme1,interface=NVME \
   --local-ssd=device-name=nvme2,interface=NVME \
   --local-ssd=device-name=nvme3,interface=NVME \
@@ -303,7 +303,8 @@ bcl-convert \
     --bcl-input-directory /mnt/localssd/20260122_LH00547_0196_B23GNT7LT3_JN13826-L001-L002-L003_AB13838-L007 \
     --sample-sheet /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv/SE81226a_run196_bcl2fastq_samplesheet.csv \
     --output-directory /mnt/localssd/demultiplex_run196 \
-    --fastq-gzip-compression-level 7 \
+    --bcl-num-parallel-tiles 8 \
+    --fastq-gzip-compression-level 6 \
     --no-lane-splitting true
 ```
 6. Upload fastqs back to gcloud storage.
@@ -312,6 +313,6 @@ gcloud storage cp -r /data/demultiplex_run196 /mnt/storage/centers/ccgd/Illumina
 ```
 7. Delete the old image:
 ```bash
-gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" bclconvert3
+gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" --discard-local-ssd=true bclconvert3
 gcloud compute instances delete --zone=us-central1-a --delete-disks=all bclconvert3
 ```
