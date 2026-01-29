@@ -274,14 +274,16 @@ gcloud compute instances create \
   --local-ssd=device-name=nvme2,interface=NVME \
   --local-ssd=device-name=nvme3,interface=NVME \
   --local-ssd=device-name=nvme4,interface=NVME \
+  --local-ssd=device-name=nvme5,interface=NVME \
+  --local-ssd=device-name=nvme6,interface=NVME \
   bclconvert3
 gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "bclconvert3"
 # Create a RAID disk setup for temporary saving
 sudo apt install mdadm
 sudo mdadm --create /dev/md0 \
   --level=0 \
-  --raid-devices=4 \
-  /dev/nvme0n1 /dev/nvme0n2 /dev/nvme0n3 /dev/nvme0n4
+  --raid-devices=6 \
+  /dev/nvme0n1 /dev/nvme0n2 /dev/nvme0n3 /dev/nvme0n4 /dev/nvme0n5 /dev/nvme0n6
 sudo mkfs.ext4 /dev/md0
 sudo mkdir /mnt/localssd
 sudo mount /dev/md0 /mnt/localssd
@@ -309,7 +311,7 @@ bcl-convert \
 ```
 6. Upload fastqs back to gcloud storage.
 ```bash
-gcloud storage cp -r /data/demultiplex_run196 /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/
+gcloud storage rsync -r --exclude=".*Undetermined.*" /data/demultiplex_run196 /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/demultiplex_run196
 ```
 7. Delete the old image:
 ```bash
