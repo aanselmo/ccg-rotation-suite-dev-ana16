@@ -65,6 +65,12 @@ def process_one_file(one_vcf_file_path: str) -> nw.DataFrame:
   sample_name = basename(one_vcf_file_path).replace(VEP_FILE_ENDING, "")
   one_sample_variants = one_sample_variants.with_columns(nw.lit(sample_name).alias(SAMPLE_COL))
   one_sample_variants = add_recommended_consequence_filter(one_sample_variants)
+
+  # KEEP ONLY PASSING MUTECT2 VARIANTS
+  one_sample_variants = one_sample_variants.filter(
+      nw.col(MUTECT2_FILTER_COL) == "PASS"
+  )
+
   # Select only these columns for now. There are a lot more columns. I made an arbitrary call to get it as similar to
   # the riker report as possible. Also, there a lot of gnomAD columns so I tried to summarize them.
   one_sample_variants = one_sample_variants.select([
