@@ -13,6 +13,7 @@ import narwhals.stable.v2 as nw
 from .snv_indel_sheet import (
     CONSEQUENCE_COL,
     RECOMMENDED_CONSEQUENCE_FILTER,
+    REVIEW_REQUIRED_COL,
     RECOMMENDED_FILTER_COL,
     MUTECT2_FILTER_COL,
     EXISTING_VARIATION_COL,
@@ -111,7 +112,7 @@ def get_variant_summary(all_variants: nw.DataFrame) -> nw.DataFrame:
   summary_table = summary_table.sort(by=SAMPLE_COL)
   summary_table = summary_table.with_columns(
       nw.lit(
-          f"{MUTECT2_FILTER_COL}='PASS';{CONSEQUENCE_COL}={str(RECOMMENDED_CONSEQUENCE_FILTER)}"
+          f"{MUTECT2_FILTER_COL}='PASS';{REVIEW_REQUIRED_COL}='TRUE';{CONSEQUENCE_COL}={str(RECOMMENDED_CONSEQUENCE_FILTER)}"
       ).alias("ccg_recommended_filter")
   )
   return summary_table

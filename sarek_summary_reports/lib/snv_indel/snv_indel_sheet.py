@@ -21,6 +21,7 @@ SAMPLE_COL = "tumor_sample_name"
 REF_COL = "REF"
 ALT_COL = "ALT"
 RECOMMENDED_FILTER_COL = "ccg_recommended_filter"
+REVIEW_REQUIRED_COL = "Review_Required"
 MUTECT2_FILTER_COL = "FILTER"
 CONSEQUENCE_COL = "Consequence"
 AMINO_ACIDS_COL = "Amino_acids"
@@ -45,6 +46,32 @@ def setup_arguments():
   return parser.parse_args()
 
 
+def add_review_required(all_sample_variants: nw.DataFrame) -> nw.DataFrame:
+    sample_variants: pl.DataFrame = all_sample_variants.to_native()
+
+    # gnomADe_AF may be read as String due to "." being used for missing values in VCF
+    sample_variants = sample_variants.with_columns(
+        pl.col("gnomADe_AF")
+        .replace([".",""], None)
+        .cast(pl.Float64)
+        .alias("gnomADe_AF")
+    )
+
+    sample_variants = sample_variants.with_columns(
+        pl.when(
+            (pl.col("BIOTYPE") == "protein_coding") & (
+                (pl.col("gnomADe_AF") <= 0.01) |
+                ((pl.col("gnomADe_AF") <= 0.10) & (pl.col(EXISTING_VARIATION_COL).str.contains("COSV"))) |
+                (pl.col("gnomADe_AF").is_null())
+            )
+        )
+        .then(True)
+        .otherwise(False)
+        .alias("Review_Required")
+    )
+    return nw.from_native(sample_variants)
+
+
 def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame) -> nw.DataFrame:
   sample_variants: pl.DataFrame = all_sample_variants.to_native()
   sample_variants = sample_variants.with_columns(
@@ -52,7 +79,7 @@ def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame) -> nw.
                  .str.split("&")
                  .list.set_intersection(pl.lit(RECOMMENDED_CONSEQUENCE_FILTER))
                  .list.len() > 0
-               ) & (pl.col(MUTECT2_FILTER_COL) == "PASS"))
+               ) & (pl.col(MUTECT2_FILTER_COL) == "PASS") & (pl.col("Review_Required") == True) )
       .then(True)
       .otherwise(False)
       .alias(RECOMMENDED_FILTER_COL)
@@ -64,6 +91,7 @@ def process_one_file(one_vcf_file_path: str) -> nw.DataFrame:
   one_sample_variants = convert_vcf_to_data_frame(one_vcf_file_path)
   sample_name = basename(one_vcf_file_path).replace(VEP_FILE_ENDING, "")
   one_sample_variants = one_sample_variants.with_columns(nw.lit(sample_name).alias(SAMPLE_COL))
+  one_sample_variants = add_review_required(one_sample_variants)
   one_sample_variants = add_recommended_consequence_filter(one_sample_variants)
 
   # KEEP ONLY PASSING MUTECT2 VARIANTS
@@ -74,7 +102,7 @@ def process_one_file(one_vcf_file_path: str) -> nw.DataFrame:
   # Select only these columns for now. There are a lot more columns. I made an arbitrary call to get it as similar to
   # the riker report as possible. Also, there a lot of gnomAD columns so I tried to summarize them.
   one_sample_variants = one_sample_variants.select([
-      SAMPLE_COL, "#CHROM", "POS", REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL, CONSEQUENCE_COL,
+      SAMPLE_COL, "#CHROM", "POS", REF_COL, ALT_COL, REVIEW_REQUIRED_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL, CONSEQUENCE_COL,
       "CANONICAL", VARIANT_CLASS_COL, "SYMBOL", "SYMBOL_SOURCE", "HGNC_ID", "Gene",
       "Feature_type", "Feature", "BIOTYPE", "EXON", "INTRON", "cDNA_position", "CDS_position",
       "Protein_position", AMINO_ACIDS_COL, EXISTING_VARIATION_COL, "AF", "DP",
