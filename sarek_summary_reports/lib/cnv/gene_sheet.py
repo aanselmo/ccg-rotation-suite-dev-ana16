@@ -27,26 +27,81 @@ LOSS_COL = "No. of Samples with Losses"
 GAIN_AND_LOSS_COL = "No. of Samples with Gains & Losses"
 
 
+
 def get_one_sample_variants(one_gene_file: str) -> nw.DataFrame:
-  one_sample_gene_cnvs = nw.from_native(pl.read_csv(
-      one_gene_file,
-      separator="\t",
-      has_header=True,
-      row_index_offset=0,
-      schema_overrides={ CHROMOSOME_COL: AVAILABLE_CHROMOSOMES, "segment_weight": pl.Float64 }
-  ))
-  # The last row has the mean target average
-  one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
-  one_sample_gene_cnvs = one_sample_gene_cnvs.filter((nw.col(CHROMOSOME_COL) != "X") & (nw.col(CHROMOSOME_COL) != "Y"))
-  one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(nw.col(CHROMOSOME_COL).cast(nw.Int8).alias(CHROMOSOME_COL))
-  one_sample_gene_cnvs = one_sample_gene_cnvs.with_columns(
-      nw.lit(one_gene_file.replace(".genemetrics.tsv", "")).alias(SAMPLE_COL)
-  )
-  one_sample_gene_cnvs = one_sample_gene_cnvs.to_native().with_columns(
-      pl.col(SAMPLE_COL).map_elements(lambda filename: get_basename(filename)).alias(SAMPLE_COL)
-  )
-  one_sample_gene_cnvs = nw.from_native(one_sample_gene_cnvs)
-  return one_sample_gene_cnvs
+    # Setup metadata
+    base = get_basename(one_gene_file)
+    sample_name = base.replace(".genemetrics.tsv", "")
+    
+    # Standard 12 columns from CNVkit genemetrics + our Sample column
+    EXPECTED_COLUMNS = [
+        GENE_COL, CHROMOSOME_COL, "start", "end", LOG2_COL, 
+        "depth", "weight", "ci_hi", "ci_lo", "probes", 
+        "segment_weight", "segment_probes", SAMPLE_COL
+    ]
+
+    try:
+        # Attempt to read the file
+        raw_df = pl.read_csv(
+            one_gene_file,
+            separator="\t",
+            has_header=True,
+            schema_overrides={ 
+                CHROMOSOME_COL: AVAILABLE_CHROMOSOMES,
+                "segment_weight": pl.Float64 
+            }
+        )
+
+        # Validation: Handle empty or 5-column "no result" files
+        if raw_df.width < 12 or raw_df.height == 0:
+            print(f"{sample_name}: No data or partial header. Adding dummy row.")
+    
+            # Create a dummy row
+            dummy_df = nw.from_dict({
+                col: [sample_name if col == SAMPLE_COL else None] 
+                for col in EXPECTED_COLUMNS
+            }, backend="polars")
+
+            # Force types to match dfs generated from genemetrics files with actual data
+            # This prevents data type compatibility errors during vertical concat
+            return dummy_df.with_columns([
+                nw.col(GENE_COL).cast(nw.String),
+                nw.col(CHROMOSOME_COL).cast(nw.Int8),
+                nw.col("start").cast(nw.Int64),
+                nw.col("end").cast(nw.Int64),
+                nw.col(LOG2_COL).cast(nw.Float64),
+                nw.col("depth").cast(nw.Float64),
+                nw.col("weight").cast(nw.Float64),
+                nw.col("ci_hi").cast(nw.Float64),
+                nw.col("ci_lo").cast(nw.Float64),
+                nw.col("probes").cast(nw.Int64),
+                nw.col("segment_weight").cast(nw.Float64),
+                nw.col("segment_probes").cast(nw.Int64),
+                nw.col(SAMPLE_COL).cast(nw.String)
+            ])
+
+        # Standard Processing for genemetrics files with actual data
+        df = nw.from_native(raw_df)
+        
+        # Cast and Filter Chromosomes (XY removal)
+        # Important: CHOMOSOME_COL as Int8 data type
+        df = df.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String))
+        df = df.filter(~nw.col(CHROMOSOME_COL).is_in(["X", "Y"]))
+        df = df.with_columns(nw.col(CHROMOSOME_COL).cast(nw.Int8))
+        
+        # Add Sample Column
+        df = df.with_columns(nw.lit(sample_name).alias(SAMPLE_COL))
+        
+        # Ensure we return exactly the columns needed for vertical concat
+        return df.select(EXPECTED_COLUMNS)
+
+    except Exception as e:
+        print(f"Error reading {sample_name}: {e}")
+        # Return a dummy row so the entire report doesn't fail
+        return nw.from_dict({
+            col: [sample_name if col == SAMPLE_COL else None] 
+            for col in EXPECTED_COLUMNS
+        }, backend="polars")
 
 
 def calculate_copy_number(original_df: nw.DataFrame, log2col=LOG2_COL) -> nw.DataFrame:
