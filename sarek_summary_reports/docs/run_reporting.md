@@ -69,3 +69,7 @@ ls  # make sure you have the right dir
 multiqc .
 ```
 NOTE: the docker image url can be found in `modules/nf-core/multiqc/main.nf` in the sarek repo.
+Move the files to mirror the sarek structure.
+```
+gcloud storage mv gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJET_CODE}/multiqc_data gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJET_CODE}/multiqc/
+```
