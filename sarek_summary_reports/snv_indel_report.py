@@ -14,16 +14,18 @@ from glob import glob
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
 from lib.common import (
-    append_common_args, append_bucket_arg, append_reference_arg, get_output_file_name, DEFAULT_EXCEL_OUTPUT
+    append_common_args, append_bucket_arg, append_reference_arg, get_output_file_name, DEFAULT_EXCEL_OUTPUT, DEFAULT_CSV_OUTPUT
 )
 from lib.snv_indel.lego_plot_sheet import graph_lego_plot, UNFILTERED_VCF_FILE_ENDING
 from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
 from lib.snv_indel.variant_summary_sheet import get_variant_summary
 from lib.snv_indel.analysis_legend_sheet import get_legend
 from lib.snv_indel.write_snv_xlsx import write_xlsx
+from lib.snv_indel.write_snv_csv import write_snv_csv_report
 
 
 DEFAULT_SNV_INDEL_REPORT_FILE_ENDING = "snv_indel_report.xlsx"
+CSV_DEFAULT_SNV_INDEL_REPORT_FILE_ENDING = "snv_indel_report.csv"
 
 
 def setup_arguments():
@@ -88,7 +90,7 @@ def main():
   """
   args = setup_arguments()
   (project_code, output_file_name) = get_output_file_name(
-      args, DEFAULT_SNV_INDEL_REPORT_FILE_ENDING, DEFAULT_EXCEL_OUTPUT
+      args, CSV_DEFAULT_SNV_INDEL_REPORT_FILE_ENDING, DEFAULT_CSV_OUTPUT
   )
   (annotated_vcf_files, unfiltered_vcf_files) = gather_input_files(args)
   bed_file = None
@@ -104,8 +106,10 @@ def main():
   all_variants = get_variants(annotated_vcf_files, number_processes)
   variant_summary_table = get_variant_summary(all_variants)
   legend = get_legend(args.reference_genome)
-  lego_plot = graph_task.result()
-  write_xlsx(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
+  #lego_plot = graph_task.result()
+  #write_xlsx(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
+  #write_xlsx(output_file_name, all_variants, variant_summary_table, legend)
+  write_snv_csv_report(output_file_name, all_variants, variant_summary_table, legend)
 
 
 if __name__ == "__main__":

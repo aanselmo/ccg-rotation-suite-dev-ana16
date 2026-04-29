@@ -16,6 +16,7 @@ from polars import Enum as PolarsEnum
 AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
 DEFAULT_HTML_OUTPUT = "output.html"
 DEFAULT_EXCEL_OUTPUT = "output.xlsx"
+DEFAULT_CSV_OUTPUT = "output.csv"
 AVAILABLE_CHROMOSOMES = PolarsEnum([
     "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
     "21", "22", "X", "Y", "MT", "GL000207.1", "GL000226.1", "GL000229.1", "GL000231.1", "GL000210.1", "GL000239.1",
@@ -29,7 +30,7 @@ AVAILABLE_CHROMOSOMES = PolarsEnum([
 ])
 
 
-def append_common_args(parser: ArgumentParser, default_output_file=DEFAULT_EXCEL_OUTPUT):
+def append_common_args(parser: ArgumentParser, default_output_file=DEFAULT_CSV_OUTPUT):
   parser.add_argument("-o", "--output-file", type=str, default=default_output_file,
                       dest="output_file_name", help="The name of the output file. Overrides project_code argument.")
   project_arg = parser.add_argument("-p", "--project", dest="project_code", type=str, default="",

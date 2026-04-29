@@ -68,7 +68,13 @@ def get_one_sample_variants(basename: str, vcf_file: str, tumor_cns_file: str) -
   vcf_df = vcf_df.rename({"#CHROM": CHROMOSOME_COL, "POS": START_COL})
   vcf_df = vcf_df.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
   tumor_cns_df = tumor_cns_df.with_columns(nw.col(CHROMOSOME_COL).cast(nw.String).alias(CHROMOSOME_COL))
+
+  # Ensure the start/position column is an integer in both DataFrames
+  vcf_df = vcf_df.with_columns(nw.col(START_COL).cast(nw.Int64))
+  tumor_cns_df = tumor_cns_df.with_columns(nw.col(START_COL).cast(nw.Int64))
+
   filtered_tumor_cns_df = tumor_cns_df.join(vcf_df, on=[CHROMOSOME_COL, START_COL], how="inner")
+
   filtered_tumor_cns_df = filtered_tumor_cns_df.with_columns(nw.lit(basename).alias(SAMPLE_COL))
   columns_to_select = tumor_cns_df.collect_schema().names()
   columns_to_select.append(SAMPLE_COL)
