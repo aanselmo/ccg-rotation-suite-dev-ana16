@@ -52,24 +52,35 @@ def get_gs_uri_from_blob(blob: storage.Blob) -> str:
 
 
 def get_files_in_folder(client: storage.Client, gcp_folder_uri: str, recursive=True):
+  """
+  :return list(storage.Blob): returns a list of blobs to easily filter through.
+  """
+  PAGE_SIZE = 100
   (bucket, folder_uri) = split_uri(gcp_folder_uri)
-  all_files = []
+  iter_blobs = []
   if recursive:
-    all_files = client.list_blobs(bucket, prefix=folder_uri)
+    iter_blobs = client.list_blobs(bucket, prefix=folder_uri, page_size=PAGE_SIZE)
   else:
-    all_files = client.list_blobs(bucket, prefix=folder_uri, delimiter="/")
-  return all_files
+    iter_blobs = client.list_blobs(bucket, prefix=folder_uri, delimiter="/", page_size=PAGE_SIZE)
+  list_blobs = []
+  for one_page in iter_blobs.pages:
+    for blob in one_page:
+      list_blobs.append(blob)
+  return list_blobs
 
 
-def get_head_of_gcp_gzip_file(client: storage.Client, gcp_file_uri: str, size_bytes=200):
+def get_head_of_gcp_gzip_file(gcp_blob: storage.Blob, num_lines=1):
   """
   Get the head of a .gz file that is on a Google bucket.
-  :param file_path str: should follow GCP conventions e.g. gs://mbcgs/x_folder/y_file.gz
+  :param gcp_blob storage.Blob: should follow GCP conventions e.g. gs://mbcgs/x_folder/y_file.gz
   :param size_bytes int: size in Bytes to read
   """
-  blob = get_blob_from_gs_uri(gcp_file_uri, client)
-  partial_bytes = blob.download_as_bytes(start=0, end=size_bytes)
   head_of_file = ""
-  with gzip.GzipFile(fileobj=io.BytesIO(partial_bytes)) as f:
-      head_of_file = f.read().decode("utf-8")
+  with gcp_blob.open("rb") as f:
+    with gzip.GzipFile(fileobj=f) as gz:
+      for line_num in range(num_lines):
+        line = gz.readline()
+        if not line:
+          break
+        head_of_file = head_of_file + line.decode("utf-8")
   return head_of_file

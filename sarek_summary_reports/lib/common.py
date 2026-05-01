@@ -13,6 +13,7 @@ from datetime import date
 from os.path import join
 from polars import Enum as PolarsEnum
 
+BASE_CLOUD_DIR = "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek"
 AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
 DEFAULT_HTML_OUTPUT = "output.html"
 DEFAULT_EXCEL_OUTPUT = "output.xlsx"
