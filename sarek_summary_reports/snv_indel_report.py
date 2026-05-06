@@ -9,12 +9,12 @@ __credits__ = ["Neil A. Patel"]
 
 import argparse
 import io
-from os import cpu_count
 from glob import glob
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
 from lib.common import (
-    append_common_args, append_bucket_arg, append_reference_arg, get_output_file_name, DEFAULT_EXCEL_OUTPUT, DEFAULT_CSV_OUTPUT
+    append_common_args, append_bucket_arg, append_reference_arg, append_processes_arg, get_output_file_name,
+    DEFAULT_CSV_OUTPUT
 )
 from lib.snv_indel.lego_plot_sheet import graph_lego_plot, UNFILTERED_VCF_FILE_ENDING
 from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
@@ -30,15 +30,11 @@ CSV_DEFAULT_SNV_INDEL_REPORT_FILE_ENDING = "snv_indel_report.csv"
 
 def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
-  this_pc_cpus = cpu_count() - 1 if cpu_count() else 1  # subtract 1 for this script.
-  print(f"Process (CPU) Count Available: {this_pc_cpus}")
   append_common_args(parser)
   append_bucket_arg(parser)
   append_reference_arg(parser)
+  append_processes_arg(parser)
   parser.add_argument("-a", "--annotated-vcf-files", dest="annotated_vcf_files", default=[], action="extend", nargs="+",
-                      help=f"A list of paths to {VEP_FILE_ENDING} files with the actual variant calls in them.")
-  parser.add_argument("-n", "--number-processes", dest="number_processes",
-                      default=this_pc_cpus, type=int,
                       help=f"A list of paths to {VEP_FILE_ENDING} files with the actual variant calls in them.")
   parser.add_argument("-u", "--unfiltered-vcf-files", dest="unfiltered_vcf_files", default=[], action="extend",
                       nargs="+",

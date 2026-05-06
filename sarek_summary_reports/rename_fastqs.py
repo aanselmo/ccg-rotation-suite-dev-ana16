@@ -19,7 +19,7 @@ from os import makedirs
 from os.path import join, basename, abspath, dirname
 from concurrent.futures import ProcessPoolExecutor
 import narwhals.stable.v2 as nw
-from lib.common import append_common_args, DEFAULT_CSV_OUTPUT, BASE_CLOUD_DIR
+from lib.common import append_common_args, append_processes_arg, DEFAULT_CSV_OUTPUT, BASE_CLOUD_DIR
 from lib.lims import get_one_project_metadata, get_indices_of_samples
 from lib.google import get_storage_client, get_head_of_gcp_gzip_file, get_files_in_folder, get_blob_from_gs_uri
 
@@ -48,6 +48,7 @@ def setup_arguments():
       + "random names. This makes sure that the collaborator sample name is in the file name for the fastq."
   ))
   project_arg = append_common_args(parser)
+  append_processes_arg(parser)
   project_arg.required = True
   parser.add_argument("-m", "--mbcf-dir", dest="mbcf_dir", type=str, default="", required=True,
                       help="The MBCF Bucket Directory with all the fastqs in them (e.g. gs://mbcgs/260424_AB14103_fastq).")
@@ -65,38 +66,35 @@ def get_output_file_name(args, file_ending: str, default_file_name: str) -> tupl
   return (project_code, output_file_name)
 
 
-def determine_file_indices(gcp_storage_client, fastq_blob) -> list[str]:
+def determine_file_indices(fastq_uri: str) -> list[str]:
   """
   Find the molecular barcodes used in the fastq.
   :return list[str]: Can be a list of 1 if there is 1 barcode. Usually, however, in CCG we use dual-indices.
       e.g. [TGAGCTAG, AACCGTTC]
   """
-  indices_in_file: list[str] = []
-  readname_line = get_head_of_gcp_gzip_file(fastq_blob, num_lines=1)
+  indices_in_file: list[str] = ["", ""]
+  storage_client = get_storage_client()
+  readname_line = get_head_of_gcp_gzip_file(storage_client, fastq_uri, num_lines=1)
   position_result = re.search(r":[A-Z+]+$", readname_line)  # last section of read name with index/indices in them.
-  indices_in_file = readname_line[position_result.start() + 1:].strip()
-  indices_in_file = indices_in_file.split("+")
-  indices_in_file = [index.replace("N", "[A-Z]") for index in indices_in_file]
+  if position_result:
+    indices_in_file = readname_line[position_result.start() + 1:].strip()
+    indices_in_file = indices_in_file.split("+")
+    indices_in_file = [index.replace("N", "[A-Z]") for index in indices_in_file]
   return indices_in_file
 
 
-def get_all_fastq_indices(gcp_storage_client, mbcf_directory: str) -> nw.DataFrame:
+def get_all_fastq_indices(gcp_storage_client, mbcf_directory: str, max_workers=1) -> nw.DataFrame:
   all_fastqs = get_files_in_folder(gcp_storage_client, mbcf_directory)
   r1_read_regex = re.compile(f".*{ALL_READ_TYPES[0]}_001.fastq.gz")
+  r1s_in_dir = list(filter(r1_read_regex.match, all_fastqs))
   # These are parallel arrays that will later be put into a DataFrame
-  r1s_in_dir = []
-  for fastq in all_fastqs:
-    if r1_read_regex.match(fastq.name):
-      r1s_in_dir.append(fastq)
   first_barcodes = []
   second_barcodes = []
-  for r1_file in r1s_in_dir:
-    indices_in_file = determine_file_indices(gcp_storage_client, r1_file)
-    first_barcodes.append(indices_in_file[0])
-    if len(indices_in_file) > 0:
-      second_barcodes.append(indices_in_file[1])
-    else:
-      second_barcodes.append("")
+  all_indices = []
+  with ProcessPoolExecutor(max_workers=max_workers) as determine_indices_pool:
+    all_indices = list(determine_indices_pool.map(determine_file_indices, r1s_in_dir))
+  if all_indices:
+    first_barcodes, second_barcodes = zip(*all_indices)
   r1_fastqs_with_indices = nw.DataFrame.from_dict({
     R1_FASTQ_COL: r1s_in_dir,
     FIRST_BARCODE_COL: first_barcodes,
@@ -112,6 +110,7 @@ def get_all_lims_indices(project_code: str) -> nw.DataFrame:
   first_barcodes = []
   second_barcodes = []
   project_metadata = get_one_project_metadata(project_code)
+  breakpoint()
   all_samples = project_metadata["samples"]
   for one_sample in all_samples:
     lims_sample_names.append(one_sample["name"])
@@ -146,18 +145,19 @@ def main():
       DEFAULT_CSV_OUTPUT
   )
   gcp_storage_client = get_storage_client()
-  # 1. Get the folder of MBCF Fastqs
   mbcf_dir = args.mbcf_dir
-  # 2a. Get indices in fastqs.
-  fastq_indices = get_all_fastq_indices(gcp_storage_client, mbcf_dir)
-  # 2b. Get indices in LIMS.
+  print("Get indices and collaborator names from LIMS.")
   lims_indices = get_all_lims_indices(project_code)
-  # 2c. Outer join in polars?
+  lims_indices.head()
+  print("Get indices in fastqs.")
+  fastq_indices = get_all_fastq_indices(gcp_storage_client, mbcf_dir, args.number_processes)
+  fastq_indices.head()
+  print("Mapping collaborator names in LIMS to fastq indices.")
   mapped_indices = fastq_indices.join(lims_indices, on=[FIRST_BARCODE_COL, SECOND_BARCODE_COL], how="full")
   # 3. create a table of how it did the matching. Output the .csv
   with TemporaryFile(mode='w+') as f:
     mapped_indices.write_csv(f)
-    upload_location = get_blob_from_gs_uri(join(BASE_CLOUD_DIR, project_code, output_file_name))
+    upload_location = get_blob_from_gs_uri(gcp_storage_client, join(BASE_CLOUD_DIR, project_code, output_file_name))
     upload_location.upload_from_filename(f)
   # 4. Copy the fastqs to the correct directory.
 

@@ -40,7 +40,7 @@ def split_uri(gcp_uri: str) -> tuple[str, str]:
   return (bucket_name, rest_path)
 
 
-def get_blob_from_gs_uri(gcp_path: str, storage_client: storage.Client) -> storage.Blob:
+def get_blob_from_gs_uri(storage_client: storage.Client, gcp_path: str) -> storage.Blob:
   (bucket_name, rest_path) = split_uri(gcp_path)
   bucket = storage_client.bucket(bucket_name)
   blob_of_path = storage.Blob(bucket=bucket, name=rest_path)
@@ -53,7 +53,7 @@ def get_gs_uri_from_blob(blob: storage.Blob) -> str:
 
 def get_files_in_folder(client: storage.Client, gcp_folder_uri: str, recursive=True):
   """
-  :return list(storage.Blob): returns a list of blobs to easily filter through.
+  :return list(str): returns a list gs uris to easily filter through.
   """
   PAGE_SIZE = 100
   (bucket, folder_uri) = split_uri(gcp_folder_uri)
@@ -65,17 +65,18 @@ def get_files_in_folder(client: storage.Client, gcp_folder_uri: str, recursive=T
   list_blobs = []
   for one_page in iter_blobs.pages:
     for blob in one_page:
-      list_blobs.append(blob)
+      list_blobs.append(get_gs_uri_from_blob(blob))
   return list_blobs
 
 
-def get_head_of_gcp_gzip_file(gcp_blob: storage.Blob, num_lines=1):
+def get_head_of_gcp_gzip_file(client: storage.Client, uri: str, num_lines=1):
   """
   Get the head of a .gz file that is on a Google bucket.
   :param gcp_blob storage.Blob: should follow GCP conventions e.g. gs://mbcgs/x_folder/y_file.gz
   :param size_bytes int: size in Bytes to read
   """
   head_of_file = ""
+  gcp_blob = get_blob_from_gs_uri(client, uri)
   with gcp_blob.open("rb") as f:
     with gzip.GzipFile(fileobj=f) as gz:
       for line_num in range(num_lines):

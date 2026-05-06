@@ -8,7 +8,7 @@ __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
 from argparse import ArgumentParser
-from os import makedirs
+from os import makedirs, cpu_count
 from datetime import date
 from os.path import join
 from polars import Enum as PolarsEnum
@@ -44,10 +44,23 @@ def append_bucket_arg(parser: ArgumentParser):
                       help=("The sarek base folder with all of the other files within it. You can either enter this"
                             + "or pass all the files individually."))
 
+
 def append_reference_arg(parser: ArgumentParser):
   parser.add_argument("-r", "--reference", dest="reference_genome", type=str, default="GRCh37",
                       choices=AVAILABLE_GENOME_VERSIONS,
                       help="The Genome Version. Options are 'GRCh37' or 'GRCh38'.")
+
+
+def append_processes_arg(parser: ArgumentParser):
+  this_pc_cpus = cpu_count() - 1 if cpu_count() else 1  # subtract 1 for this script.
+  print(f"Process (CPU) Count Available: {this_pc_cpus}")
+  parser.add_argument("-n", "--number-processes", dest="number_processes",
+                      default=this_pc_cpus, type=int,
+                      help=(f"Number of processes available on the multiprocessing sections."
+                          + " Default is number of processes minus 1 (for this process)."
+                          + " I haven't added threads because"
+                          + " the documentation for google.cloud.storage says it's unlikely to change anything."))
+
 
 
 def get_output_file_name(args, file_ending: str, default_file_name: str) -> tuple[str, str]:
