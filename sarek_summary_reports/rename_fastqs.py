@@ -238,6 +238,7 @@ def main():
     upload_location.upload_from_filename(map_temp_file.name)
   print("Copy the fastqs to the project directory.")
   copy_all_fastqs(mapped_indices, args.number_processes)
+  print("Done.")
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ __credits__ = ["Neil A. Patel"]
 from os.path import join, abspath, dirname
 import gzip
 import io
+import warnings
 from google.oauth2 import service_account
 from google.cloud import storage
 
@@ -99,7 +100,13 @@ def copy_gcp_file(client: storage.Client, source_uri: str, destination_uri: str)
   token = None
   destination_blob = get_blob_from_gs_uri(client, destination_uri)
   source_blob = get_blob_from_gs_uri(client, source_uri)
-  while True:
-    token, bytes_rewritten, total_bytes = destination_blob.rewrite(source_blob, token=token)
-    if token is None:
-      break
+  destination_blob.reload()
+  source_blob.reload()
+  if destination_blob.crc32c != source_blob.crc32c:
+    while True:
+      token, bytes_rewritten, total_bytes = destination_blob.rewrite(source_blob, token=token)
+      if token is None:
+        break
+    destination_blob.reload()
+    if destination_blob.crc32c != source_blob.crc32c:
+      warnings.warn(f"Did not copy correctly: {destination_uri}")
