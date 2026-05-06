@@ -69,19 +69,37 @@ def get_files_in_folder(client: storage.Client, gcp_folder_uri: str, recursive=T
   return list_blobs
 
 
-def get_head_of_gcp_gzip_file(client: storage.Client, uri: str, num_lines=1):
+def get_head_of_gcp_gzip_file(client: storage.Client, uri: str, size_bytes=2048, num_lines=1):
   """
   Get the head of a .gz file that is on a Google bucket.
   :param gcp_blob storage.Blob: should follow GCP conventions e.g. gs://mbcgs/x_folder/y_file.gz
-  :param size_bytes int: size in Bytes to read
+  :param size_bytes int: size in Bytes to read.
+  :param num_lines int: Number of lines to return from the size_bytes head that is read.
   """
   head_of_file = ""
   gcp_blob = get_blob_from_gs_uri(client, uri)
-  with gcp_blob.open("rb") as f:
-    with gzip.GzipFile(fileobj=f) as gz:
-      for line_num in range(num_lines):
-        line = gz.readline()
-        if not line:
-          break
-        head_of_file = head_of_file + line.decode("utf-8")
+  gcp_blob.reload()
+  if gcp_blob.size < size_bytes:
+    return ""
+
+  data = gcp_blob.download_as_bytes(start=0, end=size_bytes)
+  with gzip.GzipFile(fileobj=io.BytesIO(data)) as gz:
+    for line_num in range(num_lines):
+      line = gz.readline()
+      if not line:
+        break
+      head_of_file = head_of_file + line.decode("utf-8")
   return head_of_file
+
+
+def copy_gcp_file(client: storage.Client, source_uri: str, destination_uri: str):
+  """
+  Copy a GCP file that is already on GCP (i.e. use the rewrite API).
+  """
+  token = None
+  destination_blob = get_blob_from_gs_uri(client, destination_uri)
+  source_blob = get_blob_from_gs_uri(client, source_uri)
+  while True:
+    token, bytes_rewritten, total_bytes = destination_blob.rewrite(source_blob, token=token)
+    if token is None:
+      break

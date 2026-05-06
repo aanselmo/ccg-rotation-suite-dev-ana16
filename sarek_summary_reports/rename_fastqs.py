@@ -13,15 +13,18 @@ import argparse
 import re
 import io
 import warnings
-from tempfile import TemporaryFile
+from tempfile import NamedTemporaryFile
+from itertools import cycle
 from datetime import date
 from os import makedirs
 from os.path import join, basename, abspath, dirname
 from concurrent.futures import ProcessPoolExecutor
-import narwhals.stable.v2 as nw
+import polars as pl
 from lib.common import append_common_args, append_processes_arg, DEFAULT_CSV_OUTPUT, BASE_CLOUD_DIR
 from lib.lims import get_one_project_metadata, get_indices_of_samples
-from lib.google import get_storage_client, get_head_of_gcp_gzip_file, get_files_in_folder, get_blob_from_gs_uri
+from lib.google import (
+    get_storage_client, get_head_of_gcp_gzip_file, get_files_in_folder, get_blob_from_gs_uri, copy_gcp_file
+)
 
 
 PROJECT_FASTQS_DIR = join("preprocessing", "fastq")
@@ -32,12 +35,15 @@ ALL_READ_TYPES = ["R1", "R2", "R3", "I1", "I2"]
 BEFORE_LANE_START = -21
 READ_TYPE_START = -15
 READ_TYPE_END = -13
-EXTERNAL_NAME_REGEX = re.compile("S[0-9]+")
+EXTERNAL_NAME_REGEX = r"S[0-9]+"
 NUMBER_OF_ROWS = 0
 NUMBER_OF_COLUMNS = 1
 R1_FASTQ_COL = "r1_fastqs"
-FIRST_BARCODE_COL = "first_barcode"
-SECOND_BARCODE_COL = "second_barcode"
+FIRST_BARCODE_LIMS_COL = "first_barcode_lims"
+SECOND_BARCODE_LIMS_COL = "second_barcode_lims"
+FIRST_BARCODE_FASTQ_COL = "first_barcode_fastq"
+SECOND_BARCODE_FASTQ_COL = "second_barcode_fastq"
+SECOND_BARCODE_REVCOMP_COL = "second_barcode_lims_revcomp"
 LIMS_SAMPLE_NAMES_COL = "lims_sample_names"
 COLLABORATOR_SAMPLE_NAMES_COL = "collaborator_sample_names"
 
@@ -83,7 +89,7 @@ def determine_file_indices(fastq_uri: str) -> list[str]:
   return indices_in_file
 
 
-def get_all_fastq_indices(gcp_storage_client, mbcf_directory: str, max_workers=1) -> nw.DataFrame:
+def get_all_fastq_indices(gcp_storage_client, mbcf_directory: str, max_workers=1) -> pl.DataFrame:
   all_fastqs = get_files_in_folder(gcp_storage_client, mbcf_directory)
   r1_read_regex = re.compile(f".*{ALL_READ_TYPES[0]}_001.fastq.gz")
   r1s_in_dir = list(filter(r1_read_regex.match, all_fastqs))
@@ -95,15 +101,15 @@ def get_all_fastq_indices(gcp_storage_client, mbcf_directory: str, max_workers=1
     all_indices = list(determine_indices_pool.map(determine_file_indices, r1s_in_dir))
   if all_indices:
     first_barcodes, second_barcodes = zip(*all_indices)
-  r1_fastqs_with_indices = nw.DataFrame.from_dict({
+  r1_fastqs_with_indices = pl.from_dict({
     R1_FASTQ_COL: r1s_in_dir,
-    FIRST_BARCODE_COL: first_barcodes,
-    SECOND_BARCODE_COL: second_barcodes
-  }, backend="polars")
+    FIRST_BARCODE_FASTQ_COL: first_barcodes,
+    SECOND_BARCODE_FASTQ_COL: second_barcodes
+  })
   return r1_fastqs_with_indices
 
 
-def get_all_lims_indices(project_code: str) -> nw.DataFrame:
+def get_all_lims_indices(project_code: str) -> pl.DataFrame:
   # These are parallel arrays that will later be put into a DataFrame
   lims_sample_names = []
   collaborator_sample_names = []
@@ -125,13 +131,43 @@ def get_all_lims_indices(project_code: str) -> nw.DataFrame:
     row_index = lims_sample_names.index(one_lims_sample_name)
     first_barcodes[row_index] = one_first_sequence
     second_barcodes[row_index] = one_second_sequence
-  lims_indices = nw.DataFrame.from_dict({
+  second_revcomp = map(reverse_complement, second_barcodes)
+  lims_indices = pl.from_dict({
     LIMS_SAMPLE_NAMES_COL: lims_sample_names,
     COLLABORATOR_SAMPLE_NAMES_COL: collaborator_sample_names,
-    FIRST_BARCODE_COL: first_barcodes,
-    SECOND_BARCODE_COL: second_barcodes
-  }, backend="polars")
+    FIRST_BARCODE_LIMS_COL: first_barcodes,
+    SECOND_BARCODE_LIMS_COL: second_barcodes,
+    SECOND_BARCODE_REVCOMP_COL: second_revcomp
+  })
   return lims_indices
+
+
+def copy_one_fastq(all_args: tuple[str, str, str]):
+  (fastq, sample_name, destination_folder) = all_args
+  gcp_storage_client = get_storage_client()
+  external_name_matches = [match for match in re.finditer(EXTERNAL_NAME_REGEX, fastq)]
+  tail_filename = fastq[external_name_matches[-1].start():]
+  dest_file_name = sample_name + "_" + tail_filename
+  destination_uri = join(destination_folder, dest_file_name)
+  copy_gcp_file(gcp_storage_client, fastq, destination_uri)
+
+
+def copy_all_fastqs(mapped_indices: pl.DataFrame, destination_folder: str, max_workers=1):
+  mapped_indices = mapped_indices.drop_nulls([R1_FASTQ_COL, COLLABORATOR_SAMPLE_NAMES_COL])
+  r1_fastqs = mapped_indices.get_column(R1_FASTQ_COL).to_list()
+  sample_names = mapped_indices.get_column(COLLABORATOR_SAMPLE_NAMES_COL).to_list()
+  all_copy_args = zip(r1_fastqs, sample_names, cycle([destination_folder]))
+  with ProcessPoolExecutor(max_workers=max_workers) as copy_pool:
+    copy_pool.map(copy_one_fastq, all_copy_args)
+
+
+def reverse_complement(barcode: str) -> str:
+  """
+  A fast way to find the reverse complement of a sequence. See:
+  https://stackoverflow.com/questions/8776924/finding-the-complement-of-a-dna-sequence
+  """
+  REVCOMP_TABLE = str.maketrans("ACGT", "TGCA")
+  return barcode.translate(REVCOMP_TABLE)[::-1]
 
 
 def main():
@@ -151,15 +187,28 @@ def main():
   print(lims_indices.head())
   print("Get indices in fastqs.")
   fastq_indices = get_all_fastq_indices(gcp_storage_client, mbcf_dir, args.number_processes)
+  fastq_indices = fastq_indices.filter(pl.col(FIRST_BARCODE_FASTQ_COL) != "")
+  fastq_indices = fastq_indices.filter(pl.col(SECOND_BARCODE_FASTQ_COL) != "")
   print(fastq_indices.head())
   print("Mapping collaborator names in LIMS to fastq indices.")
-  mapped_indices = fastq_indices.join(lims_indices, on=[FIRST_BARCODE_COL, SECOND_BARCODE_COL], how="full")
-  # 3. create a table of how it did the matching. Output the .csv
-  with TemporaryFile(mode='w+') as f:
-    mapped_indices.write_csv(f)
+  mapped_indices = fastq_indices.join_where(
+      lims_indices,
+      (
+          pl.col(FIRST_BARCODE_LIMS_COL).str.contains(pattern=pl.col(FIRST_BARCODE_FASTQ_COL))
+          & (pl.col(SECOND_BARCODE_LIMS_COL).str.contains(pattern=pl.col(SECOND_BARCODE_FASTQ_COL))
+             | pl.col(SECOND_BARCODE_REVCOMP_COL).str.contains(pattern=pl.col(SECOND_BARCODE_FASTQ_COL)))
+      )
+  )
+  print(mapped_indices.head())
+  print("Writing mapping to output file.")
+  with NamedTemporaryFile(mode='w+') as map_temp_file:
+    mapped_indices.write_csv(map_temp_file.name)
     upload_location = get_blob_from_gs_uri(gcp_storage_client, join(BASE_CLOUD_DIR, project_code, output_file_name))
-    upload_location.upload_from_filename(f)
-  # 4. Copy the fastqs to the correct directory.
+    upload_location.upload_from_filename(map_temp_file.name)
+    breakpoint()
+  print("Copy the fastqs to the correct directory.")
+  detination_folder = join(BASE_CLOUD_DIR, project_code, PROJECT_FASTQS_DIR)
+  # copy_all_fastqs(mapped_indices, detination_folder, args.number_processes)
 
 
 if __name__ == "__main__":
