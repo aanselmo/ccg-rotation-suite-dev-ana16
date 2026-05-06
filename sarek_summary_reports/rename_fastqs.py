@@ -109,8 +109,8 @@ def get_all_lims_indices(project_code: str) -> nw.DataFrame:
   collaborator_sample_names = []
   first_barcodes = []
   second_barcodes = []
+  FIRST_LIBRARY = 0
   project_metadata = get_one_project_metadata(project_code)
-  breakpoint()
   all_samples = project_metadata["samples"]
   for one_sample in all_samples:
     lims_sample_names.append(one_sample["name"])
@@ -120,8 +120,8 @@ def get_all_lims_indices(project_code: str) -> nw.DataFrame:
   indices_response = get_indices_of_samples(lims_sample_names)
   for one_sample in indices_response:
     one_lims_sample_name = one_sample["name"]
-    one_first_sequence = one_sample["libraries"]["index"]["firstSequence"]
-    one_second_sequence = one_sample["libraries"]["index"]["secondSequence"]
+    one_first_sequence = one_sample["libraries"][FIRST_LIBRARY]["index"]["firstSequence"]
+    one_second_sequence = one_sample["libraries"][FIRST_LIBRARY]["index"]["secondSequence"]
     row_index = lims_sample_names.index(one_lims_sample_name)
     first_barcodes[row_index] = one_first_sequence
     second_barcodes[row_index] = one_second_sequence

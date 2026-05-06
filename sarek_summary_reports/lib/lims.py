@@ -38,8 +38,9 @@ def get_one_project_metadata(one_project: str) -> list:
   """
   Get's metadata for 1 project only.
   """
+  FIRST_PROJECT = 0
   project_metadata = get_all_projects_metadata([one_project])
-  return project_metadata
+  return project_metadata[FIRST_PROJECT]
 
 
 def get_indices_of_samples(all_samples: list[str]) -> list:
@@ -49,6 +50,5 @@ def get_indices_of_samples(all_samples: list[str]) -> list:
   """
   samples_query_string = json.dumps(all_samples).replace(" ", "")
   response = requests.get(INDICES_API_URL, params={"samples": samples_query_string})
-  breakpoint()
   all_indices_of_samples = response.json()["data"]
   return all_indices_of_samples
