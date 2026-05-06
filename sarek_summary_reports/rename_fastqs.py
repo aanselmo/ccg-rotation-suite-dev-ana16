@@ -109,7 +109,7 @@ def get_all_lims_indices(project_code: str) -> nw.DataFrame:
   collaborator_sample_names = []
   first_barcodes = []
   second_barcodes = []
-  FIRST_LIBRARY = 0
+  FIRST_ELEMENT = 0
   project_metadata = get_one_project_metadata(project_code)
   all_samples = project_metadata["samples"]
   for one_sample in all_samples:
@@ -120,8 +120,8 @@ def get_all_lims_indices(project_code: str) -> nw.DataFrame:
   indices_response = get_indices_of_samples(lims_sample_names)
   for one_sample in indices_response:
     one_lims_sample_name = one_sample["name"]
-    one_first_sequence = one_sample["libraries"][FIRST_LIBRARY]["index"]["firstSequence"]
-    one_second_sequence = one_sample["libraries"][FIRST_LIBRARY]["index"]["secondSequence"]
+    one_first_sequence = one_sample["libraries"][FIRST_ELEMENT]["index"]["firstSequence"][FIRST_ELEMENT]
+    one_second_sequence = one_sample["libraries"][FIRST_ELEMENT]["index"]["secondSequence"][FIRST_ELEMENT]
     row_index = lims_sample_names.index(one_lims_sample_name)
     first_barcodes[row_index] = one_first_sequence
     second_barcodes[row_index] = one_second_sequence
@@ -148,10 +148,10 @@ def main():
   mbcf_dir = args.mbcf_dir
   print("Get indices and collaborator names from LIMS.")
   lims_indices = get_all_lims_indices(project_code)
-  lims_indices.head()
+  print(lims_indices.head())
   print("Get indices in fastqs.")
   fastq_indices = get_all_fastq_indices(gcp_storage_client, mbcf_dir, args.number_processes)
-  fastq_indices.head()
+  print(fastq_indices.head())
   print("Mapping collaborator names in LIMS to fastq indices.")
   mapped_indices = fastq_indices.join(lims_indices, on=[FIRST_BARCODE_COL, SECOND_BARCODE_COL], how="full")
   # 3. create a table of how it did the matching. Output the .csv
