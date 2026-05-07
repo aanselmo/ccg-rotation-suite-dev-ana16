@@ -9,10 +9,11 @@ __credits__ = ["Neil A. Patel"]
 
 
 import argparse
-import warnings
+import re
 from datetime import date
 from os import makedirs
 from os.path import join
+from pathlib import Path
 import polars as pl
 from lib.common import append_common_args, DEFAULT_CSV_OUTPUT
 
@@ -20,6 +21,7 @@ from lib.common import append_common_args, DEFAULT_CSV_OUTPUT
 DEFAULT_GROUPS_FILE_ENDING = "somalier_groups.csv"
 PATIENT_COL = "patient"
 SAMPLE_COL = "sample"
+
 
 def setup_arguments():
   parser = argparse.ArgumentParser(description=(
@@ -44,6 +46,12 @@ def get_output_file_name(args, file_ending: str, default_file_name: str) -> tupl
   return (project_code, output_file_name)
 
 
+def remove_trailing_commas(file_to_modify: str):
+  file_path = Path(file_to_modify)
+  text_without_trailing_commas = re.sub(r",+$", "", file_path.read_text(), flags=re.MULTILINE)
+  file_path.write_text(text_without_trailing_commas)
+
+
 def main():
   """
   Runs the whole script.
@@ -56,13 +64,15 @@ def main():
   )
   patients_and_samples = pl.read_csv(args.recalibrated_csv, columns=[PATIENT_COL, SAMPLE_COL])
   patients_and_samples = patients_and_samples.group_by(PATIENT_COL).agg(pl.col(SAMPLE_COL))
-  patients_and_samples = patients_and_samples.select(
-      # This is how nextflow's somalier pipeline runs it. patient_sample
-      pl.col(SAMPLE_COL).list.eval(pl.col(PATIENT_COL) + "_" + pl.element())
-  )
-  patients_and_samples = patients_and_samples.select(pl.col(SAMPLE_COL).explode())
-  patients_and_samples.write_csv(output_file_name)
-
+  patients_and_samples = patients_and_samples.map_rows(lambda row: (
+      row[0],
+      # This is how nextflow's somalier pipeline runs it. [patient]_[sample]
+      [row[0] + "_" + one_sample for one_sample in row[1]]
+  ))
+  patients_and_samples = patients_and_samples[:, 1].list.to_struct(n_field_strategy="max_width").struct.unnest()
+  patients_and_samples.write_csv(output_file_name, include_header=False)
+  remove_trailing_commas(output_file_name)
+  print("Done.")
 
 
 if __name__ == "__main__":
