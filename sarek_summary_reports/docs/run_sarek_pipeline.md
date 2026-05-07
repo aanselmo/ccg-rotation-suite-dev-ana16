@@ -50,7 +50,12 @@ PROJECT_CODE=[Your project code]
   --outdir /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
   -w gs://ccg-scratch/mnt/scratch/ccgd/global/nextflow_execution/${PROJECT_CODE}
 ```
-2. Create a groups_file.csv if necessary. There is no need a groups_file.csv if all samples derive from different
+2. Create a groups_file.csv if necessary. The command to generate the groups file is the following:
+```bash
+/opt/ccgd-rotation-suite/sarek_summary_reports/create_somalier_groups.py -p ${PROJECT_CODE} \
+    -r /home/nap24/Documents/Pipeline/${PROJECT_CODE}/recalibrated.csv
+```
+There is no need a groups_file.csv if all samples derive from different
 organisms/patients/individuals. The structure of the groups_file is mentioned in the
 [somalier relate documentation](https://github.com/brentp/somalier/blob/v0.2.19/README.md#somalier-relate).
 Basically, comma seperated groups by line:
@@ -58,7 +63,7 @@ Basically, comma seperated groups by line:
 normal1,tumor1a,tumor1b
 normal2,tumor2a
 ```
-Run Somalier relate:
+3. Run Somalier relate:
 ```bash
 docker run \
     -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/reports/somalier:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/reports/somalier \
