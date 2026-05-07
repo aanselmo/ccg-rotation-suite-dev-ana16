@@ -20,8 +20,8 @@ tmux  # start new session
 # Make sure to add the bait profile
 /opt/nextflow/25.10.2/nextflow-25.10.2-dist run  /opt/sarek/main.nf \
     -profile docker,google,ccg,[bait_profile] \
-    --input gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/${PROJECT_CODE}/csv/${PROJECT_CODE}_sarek_samplesheet.csv \
-    --outdir gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/${PROJECT_CODE} \
+    --input gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/${PROJECT_CODE}_sarek_samplesheet.csv \
+    --outdir gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
     -w gs://ccg-bioinformatics/mnt/scratch/ccgd/global/nextflow_execution/${PROJECT_CODE}
 ```
 
@@ -29,7 +29,7 @@ tmux  # start new session
 1. Run somalier extract. Somalier has not been incorporated into the pipeline. Pass the recalibrated.csv samplesheet
 into somalier. Manually creating recalibrated.csv is **NOT** required. It's produced by Sarek. It will take about an
 1-2 hours to run. An example of the recalibrated.csv is as follows. The patient is the individual name. The sex can be 
-NA if unknoown (the column is not actually used by somalier - just output by sarek). The sample is the sample name.
+NA if unknown (the column is not actually used by somalier - just output by sarek). The sample is the sample name.
 The cram and crai point to the files that will be fingerprinted. These can also be genomic vcf files (created by 
 GATK HaplotypeCaller). They probably can also bam and bai files (I haven't tried). The restrictions of what
 cram and crai can be are set by

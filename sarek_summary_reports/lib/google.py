@@ -52,7 +52,7 @@ def get_gs_uri_from_blob(blob: storage.Blob) -> str:
   return f"gs://{blob.bucket.name}/{blob.name}"
 
 
-def get_files_in_folder(client: storage.Client, gcp_folder_uri: str, recursive=True):
+def get_files_in_folder(client: storage.Client, gcp_folder_uri: str, recursive=True) -> list[str]:
   """
   :return list(str): returns a list gs uris to easily filter through.
   """

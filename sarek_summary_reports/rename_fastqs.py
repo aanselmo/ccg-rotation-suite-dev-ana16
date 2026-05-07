@@ -230,6 +230,8 @@ def main():
       )
   )
   mapped_indices = get_all_destination_uris(mapped_indices, project_code, other_fastqs)
+  if mapped_indices.shape[0] < lims_indices.shape[0]:
+    warnings.warn("Some samples' fastqs were not found.")
   print(mapped_indices.head())
   print("Writing mapping to output file.")
   with NamedTemporaryFile(mode='w+') as map_temp_file:
