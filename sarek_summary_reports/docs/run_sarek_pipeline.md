@@ -43,8 +43,8 @@ After you have a samplesheet.csv too run somalier. You can run it by the followi
 ```bash
 cd /data
 PROJECT_CODE=[Your project code]
-/opt/nextflow/25.10.2/nextflow-25.10.2-dist run /opt/somalier/main.nf \
-  -c /opt/somalier/nextflow.config \
+/opt/nextflow/25.10.2/nextflow-25.10.2-dist run /opt/ccg-nf-extensions/workflows/somalier/main.nf \
+  -c /opt/ccg-nf-extensions/nextflow.config \
   -profile docker,google \
   --sample_sheet gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/recalibrated.csv \
   --outdir /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
