@@ -53,7 +53,8 @@ PROJECT_CODE=[Your project code]
 2. Create a groups_file.csv if necessary. The command to generate the groups file is the following:
 ```bash
 /opt/ccgd-rotation-suite/sarek_summary_reports/create_somalier_groups.py -p ${PROJECT_CODE} \
-    -r /home/nap24/Documents/Pipeline/${PROJECT_CODE}/recalibrated.csv
+    -r /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/recalibrated.csv
+cp somalier_groups.csv /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/
 ```
 There is no need a groups_file.csv if all samples derive from different
 organisms/patients/individuals. The structure of the groups_file is mentioned in the
@@ -66,10 +67,10 @@ normal2,tumor2a
 3. Run Somalier relate:
 ```bash
 docker run \
-    -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/reports/somalier:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/reports/somalier \
+    -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
     -w /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/reports/somalier \
     -it quay.io/biocontainers/somalier:0.2.19--h0c29559_0 bash
-somalier relate [--groups groups_file.csv] $(find . -name "*.somalier")
+somalier relate --groups ../../csv/somalier_groups.csv $(find . -name "*.somalier")
 ```
 
 ## Generate PON
