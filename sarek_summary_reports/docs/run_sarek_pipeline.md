@@ -112,7 +112,6 @@ gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "gatkpon3"
 sudo umount -l /mnt/storage
 sudo mount /mnt/storage
 ```
-```
 4. Create an args file for all of the vcf files. Head of the file looks like. It contains args to pass to
 GenomicsDBImport.
 Exmaple .args file:
