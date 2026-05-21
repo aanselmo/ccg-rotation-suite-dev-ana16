@@ -307,21 +307,23 @@ gcloud storage cp -r gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/B
 Docker image was made from: https://github.com/nf-core/demultiplex/blob/1.7.0/modules/nf-core/bclconvert/Dockerfile
 ```bash
 tmux
+PROJECT_CODE=[project code]
 docker run \
     -v /mnt/localssd:/mnt/localssd \
-    -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv \
+    -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}$/csv:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv \
     -it us-central1-docker.pkg.dev/ccgd-174313/sarek/bclconvert:4.4.6 bash
 
 # Don't run with --no-lane-splitting. It crashes if there are no reads from a sample in one of the lanes.
+PROJECT_CODE=[project code]
 bcl-convert \
     --bcl-input-directory /mnt/localssd/20260122_LH00547_0196_B23GNT7LT3_JN13826-L001-L002-L003_AB13838-L007 \
-    --sample-sheet /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/csv/SE81226a_run196_bcl2fastq_samplesheet.csv \
-    --output-directory /mnt/localssd/demultiplex_run196 \
+    --sample-sheet /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/${PROJECT_CODE}_bclconvert_samplesheet.csv \
+    --output-directory /mnt/localssd/${PROJECT_CODE}_fastqs \
     --fastq-gzip-compression-level 6
 ```
 6. Upload fastqs back to gcloud storage.
 ```bash
-gcloud storage rsync -r --exclude=".*Undetermined.*" /mnt/localssd/demultiplex_run196 gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a/demultiplex_run196
+gcloud storage rsync -r --exclude=".*Undetermined.*" /mnt/localssd/${PROJECT_CODE}_fastqs gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/preprocessing/fastq
 ```
 7. Delete the old image:
 ```bash

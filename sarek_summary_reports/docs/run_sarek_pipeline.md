@@ -22,7 +22,7 @@ tmux  # start new session
     -profile docker,google,ccg,[bait_profile] \
     --input gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/${PROJECT_CODE}_sarek_samplesheet.csv \
     --outdir gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
-    -w gs://ccg-bioinformatics/mnt/scratch/ccgd/global/nextflow_execution/${PROJECT_CODE}
+    -w gs://ccg-scratch/mnt/scratch/ccgd/global/nextflow_execution/${PROJECT_CODE}
 ```
 
 ## Run Somalier/Fingerprinting
@@ -47,7 +47,7 @@ PROJECT_CODE=[Your project code]
   -c /opt/ccg-nf-extensions/nextflow.config \
   -profile docker,google \
   --sample_sheet gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/recalibrated.csv \
-  --outdir /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
+  --outdir gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
   -w gs://ccg-scratch/mnt/scratch/ccgd/global/nextflow_execution/${PROJECT_CODE}
 ```
 2. Create a groups_file.csv if necessary. The command to generate the groups file is the following:
