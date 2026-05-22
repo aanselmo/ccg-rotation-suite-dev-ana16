@@ -73,6 +73,45 @@ docker run \
 somalier relate --groups ../../csv/somalier_groups.csv $(find . -name "*.somalier")
 ```
 
+## Run Picard HsMetrics
+1. Convert the .bed to .interval_list if not already done.
+```bash
+java -jar picard.jar BedToIntervalList \
+    -I /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/TLP_v3_TE_98697476/TLP_v3_TE_98697476_targets_20260506.bed \
+    -O /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/TLP_v3_TE_98697476/TLP_v3_TE_98697476_targets_20260508.interval_list \
+    -SD /mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.dict
+```
+2. Use the markduplicates.csv to run picard. After quality recalibration, all the bases outside of the bait regions
+will be marked as low quality and unusable.
+```bash
+/opt/nextflow/25.10.2/nextflow-25.10.2-dist run /opt/ccg-nf-extensions/workflows/picard/collecthsmetrics/main.nf \
+  -c /opt/ccg-nf-extensions/nextflow.config \
+  -profile docker,google \
+  --converted_csv gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/markduplicates.csv \
+  --bait_intervals  gs://ccg-bioinformatics/mnt/storage/centers/ccgd/reference_files/baits/GRCh37/TLP_v3_TE_98697476/TLP_v3_TE_98697476_targets_20260508.interval_list \
+  --target_intervals gs://ccg-bioinformatics/mnt/storage/centers/ccgd/reference_files/baits/GRCh37/TLP_v3_TE_98697476/TLP_v3_TE_98697476_targets_20260508.interval_list \
+  --outdir /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
+  -w gs://ccg-scratch/mnt/scratch/ccgd/global/nextflow_execution/${PROJECT_CODE}
+```
+3. Copy the header. Then copy all the hsmetrics from all the samples into 1 file.
+```bash
+TODAY_DATE=$(date --iso-8601 | tr -d "-")
+PROJECT_CODE_LOWERCASE=$(echo ${PROJECT_CODE} | tr "[:upper:]" "[:lower:]")
+OUTPUT_FILE="../ccg_${PROJECT_CODE_LOWERCASE}_reports/${TODAY_DATE}_${PROJECT_CODE_LOWERCASE}_hsmetrics_report.csv"
+
+cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/reports/picard
+readarray -d '' hsmetrics_files < <(find . -name "*.CollectHsMetrics.coverage_metrics" -type f -print0)
+# Copy header
+head -n7 "${hsmetrics_files[0]}" | tail -n1 > ${OUTPUT_FILE}
+for one_file in "${hsmetrics_files[@]}"; do
+  SAMPLE_NAME=$(basename ${one_file} .CollectHsMetrics.coverage_metrics)
+  echo $SAMPLE_NAME
+  # Copy data from each file.
+  head -n8 $one_file | tail -n1 | tr -d '\n' | sed "s/\t\t$//" >> ${OUTPUT_FILE}
+  echo -e "${SAMPLE_NAME}" >> ${OUTPUT_FILE}
+done
+```
+
 ## Generate PON
 1. Run Sarek. Pretty much the same except use the /opt/sarek-create-pon directory, create_pon profile, and make sure no
 PON is set. Use the create_pon flag as the last profile to make sure the PON is not set. I set Sarek to use the Broad
