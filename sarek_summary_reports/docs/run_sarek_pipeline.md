@@ -160,11 +160,8 @@ Exmaple .args file:
 ```bash
 --variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-A6-19-136b/OP-P1-A6-19-136b.bcftools.vcf.gz
 --variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-B6-19-123b/OP-P1-B6-19-123b.bcftools.vcf.gz
---variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-C6-19-138b/OP-P1-C6-19-138b.bcftools.vcf.gz
-```
-5. Run GenomicsDBImport. This typically takes 1 day to run the GenomicsDBImport.
-See the Broad website for more info: https://gatk.broadinstitute.org/hc/en-us/articles/30332078729883-CreateSomaticPanelOfNormals-BETA
-An article about tuning GenomicsDBImport: https://gatk.broadinstitute.org/hc/en-us/articles/360056138571-GenomicsDBImport-usage-and-performance-guidelines
+--variant gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3_2/variant_calling/mutect2/OP-P1-C6-19-138b/OP-P1-C6-19Process `NFCORE_SAREK:SAREK:FASTQ_PREPROCESS_GATK:FASTP` input file name collision -- There are multiple input files for each of the following file names: 4
+9_10_KAPA3uM_14cyc_S29_L002_R1_001.fastq.gzt-usage-and-performance-guidelines
 Useful params:
     * `--batch-size` number of samples to process at a time.
     * `--max-num-intervals-to-import-in-parallel` number of intervals in the bed file to process at a time.
