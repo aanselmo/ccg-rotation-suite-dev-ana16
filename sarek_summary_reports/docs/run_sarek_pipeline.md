@@ -13,10 +13,10 @@ Nextflow creates a .nextflow directory that allows for `-resume`
       will interfere.
 ```bash
 gcloud compute ssh --zone "us-central1-a" "nextflow4" --project "ccgd-174313"
+tmux  # start new session
 PROJECT_CODE=[your_project_code]
 mkdir /data/${PROJECT_CODE}
 cd /data/${PROJECT_CODE}  # When you run nextflow, it adds a hidden .nextflow folder.
-tmux  # start new session
 # Make sure to add the bait profile
 /opt/nextflow/25.10.2/nextflow-25.10.2-dist run  /opt/sarek/main.nf \
     -profile docker,google,ccg,[bait_profile] \
@@ -113,10 +113,13 @@ done
 ```
 
 ## Generate PON
-1. Run Sarek. Pretty much the same except use the /opt/sarek-create-pon directory, create_pon profile, and make sure no
-PON is set. Use the create_pon flag as the last profile to make sure the PON is not set. I set Sarek to use the Broad
-PON by default so that's why you have to do this. Also, go into the `[bait_profile]` and make sure no PON or
-reference.cnn is set there.
+1. Run Sarek. Pretty much the same except the following:
+    * Use the create_pon flag as the last profile to make sure the PON is not set. I set Sarek to use the
+      Broad PON by default so that's why you have to do this.
+    * Go into the `[bait_profile]` and make sure no PON or reference.cnn is set there.
+    * Status should be 1 for all normals if creating a PON. Normals should be treated like tumor
+      samples when run through Sarek (when creating a PON). This is because HaplotypeCaller will run instead of Mutect2
+      if the status is 0. You need Mutect2 to run in order to create a PON against Mutect2.
 ```bash
 /opt/nextflow/25.10.2/nextflow-25.10.2-dist run  /opt/sarek-create-pon/main.nf \
     -profile docker,google,ccg,[bait_profile],create_pon \

@@ -210,8 +210,6 @@ gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pip
 ```
 10. Grab the other columns with a query.
     * **Nota bene:** You might only need to grab one lane if you used `--no-lane-splitting` on the demultiplexing step.
-    * **Nota bene bis:** Status should be 1 for all normals if creating a PON. Normals should be treated like tumor
-      samples when run through Sarek (when creating a PON).
 ```sql
 SELECT i.individual_collaborator_name as patient,
 IF(rec.genomic_source_id=2, 0, 1) AS status,
