@@ -57,9 +57,9 @@ def setup_arguments():
   project_arg = append_common_args(parser)
   append_bucket_arg(parser)
   parser.add_argument("-n", "--number-processes", dest="number_processes",
-                      default=100, type=int,
+                      default=200, type=int,
                       help=(f"Number of processes available on the multiprocessing sections."
-                            + " Default is 100. This is what I've found optimal from testing."
+                            + " Default is 200. This is what I've found optimal from testing."
                             + " Be careful! If a CPU heavy task is introduced to this script, lower the default."))
   project_arg.required = True
   parser.add_argument("-m", "--mbcf-dir", dest="mbcf_dir", type=str, default="", required=True,
