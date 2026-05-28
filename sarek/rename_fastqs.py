@@ -18,7 +18,7 @@ from os import makedirs
 from os.path import join
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import polars as pl
-from lib.common import append_common_args, append_processes_arg, DEFAULT_CSV_OUTPUT, BASE_CLOUD_DIR
+from lib.common import append_common_args, append_bucket_arg, DEFAULT_CSV_OUTPUT, BASE_CLOUD_DIR
 from lib.lims import get_one_project_metadata, get_indices_of_samples
 from lib.google import (
     get_storage_client, get_head_of_gcp_gzip_file, get_files_in_folder, get_blob_from_gs_uri, copy_gcp_file
@@ -55,6 +55,7 @@ def setup_arguments():
       + "random names. This makes sure that the collaborator sample name is in the file name for the fastq."
   ))
   project_arg = append_common_args(parser)
+  append_bucket_arg(parser)
   parser.add_argument("-n", "--number-processes", dest="number_processes",
                       default=100, type=int,
                       help=(f"Number of processes available on the multiprocessing sections."
@@ -242,14 +243,21 @@ def main():
              | pl.col(SECOND_BARCODE_REVCOMP_COL).str.contains(pattern=pl.col(SECOND_BARCODE_FASTQ_COL)))
       )
   )
-  mapped_indices = get_all_destination_uris(mapped_indices, project_code, other_fastqs)
+  if args.bucket_folder:
+    mapped_indices = get_all_destination_uris(mapped_indices, args.bucket_folder, other_fastqs)
+  else:
+    mapped_indices = get_all_destination_uris(mapped_indices, project_code, other_fastqs)
   if mapped_indices.shape[0] < lims_indices.shape[0]:
     warnings.warn("Some samples' fastqs were not found.")
   print(mapped_indices.head())
   print("Writing mapping to output file.")
   with NamedTemporaryFile(mode='w+') as map_temp_file:
     mapped_indices.write_csv(map_temp_file.name)
-    upload_location = get_blob_from_gs_uri(gcp_storage_client, join(BASE_CLOUD_DIR, project_code, output_file_name))
+    if args.bucket_folder:
+      upload_location = get_blob_from_gs_uri(gcp_storage_client,
+                                             join(BASE_CLOUD_DIR, args.bucket_folder, output_file_name))
+    else:
+      upload_location = get_blob_from_gs_uri(gcp_storage_client, join(BASE_CLOUD_DIR, project_code, output_file_name))
     upload_location.upload_from_filename(map_temp_file.name)
   print("Copy the fastqs to the project directory.")
   copy_all_fastqs(mapped_indices, args.number_processes)
