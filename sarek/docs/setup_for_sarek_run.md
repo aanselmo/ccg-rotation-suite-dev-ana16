@@ -5,12 +5,15 @@ Directions on how to rename fastqs and then create Sarek Samplesheet.
 1. If your project is in MiniLIMS, this is straightforward. Run the following command:
 ```bash
 ssh ccg3.dfci.harvard.edu
-
+/data/ccg-rotation-suite/sarek/rename_fastqs.py -p [project code] -m gs://mbcgs/260424_AB14103_fastq
 ```
 
 ## Basic Samplesheet Creation
 1. If your project is in MiniLIMS, this is straightforward. Run the following command:
-
+```bash
+ssh ccg3.dfci.harvard.edu
+/data/ccg-rotation-suite/sarek/generate_sarek_samplesheet.py -p [project code]
+```
 
 ## Edge Cases
 ### Manually Creating the Samplesheet
