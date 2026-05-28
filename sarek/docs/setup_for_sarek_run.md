@@ -1,10 +1,15 @@
 # Setup for Sarek Run
-Directions on how to create Sarek Samplesheet and then rename fastqs.
+Directions on how to rename fastqs and then create Sarek Samplesheet.
+
+## Rename Fastqs
+1. If your project is in MiniLIMS, this is straightforward. Run the following command:
+```bash
+ssh ccg3.dfci.harvard.edu
+
+```
 
 ## Basic Samplesheet Creation
 1. If your project is in MiniLIMS, this is straightforward. Run the following command:
-
-## Rename Fastqs
 
 
 ## Edge Cases
