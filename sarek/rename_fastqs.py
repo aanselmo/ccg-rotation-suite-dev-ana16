@@ -23,6 +23,7 @@ from lib.lims import get_one_project_metadata, get_indices_of_samples
 from lib.google import (
     get_storage_client, get_head_of_gcp_gzip_file, get_files_in_folder, get_blob_from_gs_uri, copy_gcp_file
 )
+from pip._vendor.rich.progress import Progress
 
 
 PROJECT_FASTQS_DIR = join("preprocessing", "fastq")
@@ -54,7 +55,11 @@ def setup_arguments():
       + "random names. This makes sure that the collaborator sample name is in the file name for the fastq."
   ))
   project_arg = append_common_args(parser)
-  append_processes_arg(parser)
+  parser.add_argument("-n", "--number-processes", dest="number_processes",
+                      default=100, type=int,
+                      help=(f"Number of processes available on the multiprocessing sections."
+                          + " Default is 100. This is what I've found optimal from testing."
+                          + " Be careful! If a CPU heavy task is introduced to this script, lower the default."))
   project_arg.required = True
   parser.add_argument("-m", "--mbcf-dir", dest="mbcf_dir", type=str, default="", required=True,
                       help="The MBCF Bucket Directory with all the fastqs in them (e.g. gs://mbcgs/260424_AB14103_fastq).")
@@ -154,7 +159,11 @@ def copy_all_fastqs(mapped_indices: pl.DataFrame, max_workers=1):
   all_destination_uris = mapped_indices.get_column(DESTINATION_URI_COL).to_list()
   all_copy_args = zip(fastqs, all_destination_uris)
   with ProcessPoolExecutor(max_workers=max_workers) as copy_pool:
-    copy_pool.map(copy_one_fastq, all_copy_args)
+    with Progress() as progress:
+      copy_progress_bar = progress.add_task("Copying Fastq Files...", total=len(all_copy_args))
+      for one_arg_set in all_copy_args:
+        future_callback = copy_pool.submit(copy_one_fastq, one_arg_set)
+        future_callback.add_done_callback(lambda p: progress.update(copy_progress_bar, advance=1))
 
 
 def get_reverse_complement(barcode: str) -> str:

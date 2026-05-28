@@ -2,7 +2,7 @@
 Directions on how to rename fastqs and then create Sarek Samplesheet.
 
 ## Rename Fastqs
-1. If your project is in MiniLIMS, this is straightforward. Run the following command:
+1. If your project is in MiniLIMS, this is straightforward. It takes about 2 minutes to run. Run the following command:
 ```bash
 ssh ccg3.dfci.harvard.edu
 /data/ccg-rotation-suite/sarek/rename_fastqs.py -p [project code] -m gs://mbcgs/260424_AB14103_fastq
