@@ -1,4 +1,4 @@
-#!/usr/local/miniforge3/bin/python
+#!/data/python-venv/for_ccg_rotation_suite/bin/python
 
 """
 Use this script to generate a samplesheet for Sarek.
