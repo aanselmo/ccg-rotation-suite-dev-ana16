@@ -16,7 +16,7 @@ from tempfile import NamedTemporaryFile
 from datetime import date
 from os import makedirs
 from os.path import join
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import polars as pl
 from lib.common import append_common_args, append_processes_arg, DEFAULT_CSV_OUTPUT, BASE_CLOUD_DIR
 from lib.lims import get_one_project_metadata, get_indices_of_samples
@@ -58,8 +58,8 @@ def setup_arguments():
   parser.add_argument("-n", "--number-processes", dest="number_processes",
                       default=100, type=int,
                       help=(f"Number of processes available on the multiprocessing sections."
-                          + " Default is 100. This is what I've found optimal from testing."
-                          + " Be careful! If a CPU heavy task is introduced to this script, lower the default."))
+                            + " Default is 100. This is what I've found optimal from testing."
+                            + " Be careful! If a CPU heavy task is introduced to this script, lower the default."))
   project_arg.required = True
   parser.add_argument("-m", "--mbcf-dir", dest="mbcf_dir", type=str, default="", required=True,
                       help="The MBCF Bucket Directory with all the fastqs in them (e.g. gs://mbcgs/260424_AB14103_fastq).")
@@ -73,7 +73,7 @@ def get_output_file_name(args, file_ending: str, default_file_name: str) -> tupl
   if output_file_name == default_file_name and args.project_code:
     project_code = args.project_code
     makedirs(PROJECT_FASTQS_DIR, exist_ok=True)
-    output_file_name = join(PROJECT_FASTQS_DIR, f"{today}_{project_code.lower()}_{file_ending}") 
+    output_file_name = join(PROJECT_FASTQS_DIR, f"{today}_{project_code.lower()}_{file_ending}")
   return (project_code, output_file_name)
 
 
@@ -108,9 +108,9 @@ def get_all_fastq_indices(gcp_storage_client, mbcf_directory: str, max_workers=1
   if all_indices:
     first_barcodes, second_barcodes = zip(*all_indices)
   r1_fastqs_with_indices = pl.from_dict({
-    FASTQ_COL: r1s_in_dir,
-    FIRST_BARCODE_FASTQ_COL: first_barcodes,
-    SECOND_BARCODE_FASTQ_COL: second_barcodes
+      FASTQ_COL: r1s_in_dir,
+      FIRST_BARCODE_FASTQ_COL: first_barcodes,
+      SECOND_BARCODE_FASTQ_COL: second_barcodes
   })
   return (r1_fastqs_with_indices, others_in_dir)
 
@@ -139,11 +139,11 @@ def get_all_lims_indices(project_code: str) -> pl.DataFrame:
     second_barcodes[row_index] = one_second_sequence
   second_revcomp = map(get_reverse_complement, second_barcodes)
   lims_indices = pl.from_dict({
-    LIMS_SAMPLE_NAMES_COL: lims_sample_names,
-    COLLABORATOR_SAMPLE_NAMES_COL: collaborator_sample_names,
-    FIRST_BARCODE_LIMS_COL: first_barcodes,
-    SECOND_BARCODE_LIMS_COL: second_barcodes,
-    SECOND_BARCODE_REVCOMP_COL: second_revcomp
+      LIMS_SAMPLE_NAMES_COL: lims_sample_names,
+      COLLABORATOR_SAMPLE_NAMES_COL: collaborator_sample_names,
+      FIRST_BARCODE_LIMS_COL: first_barcodes,
+      SECOND_BARCODE_LIMS_COL: second_barcodes,
+      SECOND_BARCODE_REVCOMP_COL: second_revcomp
   })
   return lims_indices
 
@@ -159,11 +159,15 @@ def copy_all_fastqs(mapped_indices: pl.DataFrame, max_workers=1):
   all_destination_uris = mapped_indices.get_column(DESTINATION_URI_COL).to_list()
   all_copy_args = zip(fastqs, all_destination_uris)
   with ProcessPoolExecutor(max_workers=max_workers) as copy_pool:
+    futures = [
+        copy_pool.submit(copy_one_fastq, one_arg_set)
+        for one_arg_set in all_copy_args
+    ]
     with Progress() as progress:
-      copy_progress_bar = progress.add_task("Copying Fastq Files...", total=len(all_copy_args))
-      for one_arg_set in all_copy_args:
-        future_callback = copy_pool.submit(copy_one_fastq, one_arg_set)
-        future_callback.add_done_callback(lambda p: progress.update(copy_progress_bar, advance=1))
+      copy_progress_bar = progress.add_task("Copying Fastq Files...", total=len(futures))
+      for future in as_completed(futures):
+        future.result()  # raises exceptions if any
+        progress.update(copy_progress_bar, advance=1)
 
 
 def get_reverse_complement(barcode: str) -> str:
