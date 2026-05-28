@@ -100,8 +100,10 @@ def copy_gcp_file(client: storage.Client, source_uri: str, destination_uri: str)
   token = None
   destination_blob = get_blob_from_gs_uri(client, destination_uri)
   source_blob = get_blob_from_gs_uri(client, source_uri)
-  destination_blob.reload()
+  if destination_blob.exists():
+    destination_blob.reload()
   source_blob.reload()
+  # Skip this file if it passes checksum check (i.e. it's already copied).
   if destination_blob.crc32c != source_blob.crc32c:
     while True:
       token, bytes_rewritten, total_bytes = destination_blob.rewrite(source_blob, token=token)

@@ -1,4 +1,4 @@
-#!/usr/local/miniforge3/bin/python
+#!/data/python-venv/for_ccg_rotation_suite/bin/python
 
 """
 Use this script to rename the fastqs sent by MBCF for Sarek. The fastqs received from MBCF a lot of times have random
