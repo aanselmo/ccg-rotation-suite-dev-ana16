@@ -55,7 +55,7 @@ def determine_file_indices(fastq_uri: str) -> list[str]:
   return indices_in_file
 
 
-def get_all_fastq_indices(gcp_storage_client, mbcf_directory: str, max_workers=1) -> pl.DataFrame:
+def get_all_fastq_indices(gcp_storage_client, mbcf_directory: str, max_workers=1) -> tuple[pl.DataFrame, list[str]]:
   all_fastqs = get_files_in_folder(gcp_storage_client, mbcf_directory)
   r1_read_regex = re.compile(f".*{AllReadTypes.R1.value}_001.fastq.gz")
   r1s_in_dir = list(filter(r1_read_regex.match, all_fastqs))
