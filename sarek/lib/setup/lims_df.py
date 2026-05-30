@@ -15,9 +15,11 @@ FIRST_BARCODE_LIMS_COL = "first_barcode_lims"
 SECOND_BARCODE_LIMS_COL = "second_barcode_lims"
 SECOND_BARCODE_REVCOMP_COL = "second_barcode_lims_revcomp"
 LIMS_SAMPLE_NAMES_COL = "lims_sample_names"
-COLLABORATOR_SAMPLE_NAMES_COL = "collaborator_sample_names"
+COLLABORATOR_SAMPLE_NAMES_COL = "sample"
 LIMS_SUBJECT_COL = "subject_id"
 PATIENT_COL = "patient"
+STATUS_COL = "status"
+
 
 def get_reverse_complement(barcode: str) -> str:
   """
@@ -34,6 +36,7 @@ def get_all_lims_data(project_code: str) -> pl.DataFrame:
   collaborator_sample_names = []
   lims_subject_ids = []
   collaborator_subject_ids = []
+  sample_classes = []
   first_barcodes = []
   second_barcodes = []
   FIRST_ELEMENT = 0
@@ -44,6 +47,10 @@ def get_all_lims_data(project_code: str) -> pl.DataFrame:
     collaborator_sample_names.append(one_sample["externalId"])
     lims_subject_ids.append(one_sample["subjectId"])
     collaborator_subject_ids.append(one_sample["externalSubjectId"])
+    if one_sample["sampleClass"] == "Tumor":
+      sample_classes = 1
+    elif one_sample["sampleClass"] == "Normal":
+      sample_classes = 0
   first_barcodes = [""] * len(lims_sample_names)
   second_barcodes = [""] * len(lims_sample_names)
   indices_response = get_indices_of_samples(lims_sample_names)
@@ -62,6 +69,7 @@ def get_all_lims_data(project_code: str) -> pl.DataFrame:
       SECOND_BARCODE_LIMS_COL: second_barcodes,
       SECOND_BARCODE_REVCOMP_COL: second_revcomp,
       LIMS_SUBJECT_COL: lims_subject_ids,
-      PATIENT_COL: collaborator_subject_ids
+      PATIENT_COL: collaborator_subject_ids,
+      STATUS_COL: sample_classes,
   })
   return lims_indices

@@ -11,6 +11,7 @@ import re
 from os.path import join
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import polars as pl
+from enum import StrEnum
 from pip._vendor.rich.progress import Progress
 from ..google import (
     get_storage_client, get_head_of_gcp_gzip_file, get_files_in_folder, get_blob_from_gs_uri, copy_gcp_file
@@ -20,9 +21,13 @@ from .lims_df import COLLABORATOR_SAMPLE_NAMES_COL
 
 
 PROJECT_FASTQS_DIR = join("preprocessing", "fastq")
-# The first read type should be one that all samples have. It should always include the indices in the read names
-# of the fastq
-ALL_READ_TYPES = ["R1", "R2", "R3", "I1", "I2"]
+class AllReadTypes(StrEnum):
+  # R1 contains the indices and read names
+  R1 = "R1"
+  R2 = "R2"
+  R3 = "R3"
+  I1 = "I1"
+  I2 = "I2"
 BEFORE_LANE_START = -21
 READ_TYPE_START = -15
 READ_TYPE_END = -13
@@ -52,7 +57,7 @@ def determine_file_indices(fastq_uri: str) -> list[str]:
 
 def get_all_fastq_indices(gcp_storage_client, mbcf_directory: str, max_workers=1) -> pl.DataFrame:
   all_fastqs = get_files_in_folder(gcp_storage_client, mbcf_directory)
-  r1_read_regex = re.compile(f".*{ALL_READ_TYPES[0]}_001.fastq.gz")
+  r1_read_regex = re.compile(f".*{AllReadTypes.R1.value}_001.fastq.gz")
   r1s_in_dir = list(filter(r1_read_regex.match, all_fastqs))
   others_in_dir = list(filter(lambda x: not r1_read_regex.match(x), all_fastqs))
   # These are parallel arrays that will later be put into a DataFrame
@@ -113,7 +118,8 @@ def get_all_destination_uris(mapped_indices: pl.DataFrame, project_code: str, ot
     tail_filename = get_tail_filename(r1_fastq)
     r1_dest_name = join(DESTINATION_FOLDER, collaborator_name_col[fastq_index] + "_" + tail_filename)
     all_r1_dest.append(r1_dest_name)
-    not_r1_read = "|".join(ALL_READ_TYPES[1:])
+    not_r1_read = [read_type.value for read_type in AllReadTypes].remove(AllReadTypes.R1.value)
+    not_r1_read = "|".join(not_r1_read)
     not_r1_read = f"({not_r1_read})"
     fastq_search = re.compile(f"{r1_fastq[:READ_TYPE_START]}{not_r1_read}{r1_fastq[READ_TYPE_END:]}")
     other_fastqs_for_sample = list(filter(fastq_search.match, other_fastqs))
