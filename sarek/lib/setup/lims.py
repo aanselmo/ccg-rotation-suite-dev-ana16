@@ -11,9 +11,7 @@ import json
 import requests
 
 
-DOMAIN = "https://ccgd2.dfci.harvard.edu/minilims/"
-# project.php is a POST request with a secretKey and project in the body of the request (as multipart form data).
-PROJECT_API_URL = DOMAIN + "api/get/10x-samplesheet/from/project.php"
+DOMAIN = "https://ccgd-build.dfci.harvard.edu/minilims_nap24/"
 # getIndicesFromSamples.php is a GET request with sample query params in the url
 # Example: https://ccgd2.dfci.harvard.edu/minilims/api/getIndicesFromSamples.php?samples=["S_035150"]
 INDICES_API_URL = DOMAIN + "api/getIndicesFromSamples.php"

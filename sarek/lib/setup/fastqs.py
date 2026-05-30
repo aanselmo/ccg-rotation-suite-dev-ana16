@@ -28,7 +28,7 @@ class AllReadTypes(StrEnum):
   R3 = "R3"
   I1 = "I1"
   I2 = "I2"
-BEFORE_LANE_START = -21
+START_LANE_NUMBER = -20
 READ_TYPE_START = -15
 READ_TYPE_END = -13
 EXTERNAL_NAME_REGEX = r"S[0-9]+"
@@ -72,6 +72,10 @@ def get_all_fastq_indices(gcp_storage_client, mbcf_directory: str, max_workers=1
       FASTQ_COL: r1s_in_dir,
       FIRST_BARCODE_FASTQ_COL: first_barcodes,
       SECOND_BARCODE_FASTQ_COL: second_barcodes
+  }, schema={
+      FASTQ_COL: pl.String,
+      FIRST_BARCODE_FASTQ_COL: pl.String,
+      SECOND_BARCODE_FASTQ_COL: pl.String   
   })
   return (r1_fastqs_with_indices, others_in_dir)
 
@@ -114,11 +118,13 @@ def get_all_destination_uris(mapped_indices: pl.DataFrame, project_code: str, ot
   all_r1_dest = []
   all_other_mapped_fastqs = []
   all_other_dest = []
+  all_other_collaborator_names = []
   for fastq_index, r1_fastq in enumerate(r1_fastq_col):
     tail_filename = get_tail_filename(r1_fastq)
     r1_dest_name = join(DESTINATION_FOLDER, collaborator_name_col[fastq_index] + "_" + tail_filename)
     all_r1_dest.append(r1_dest_name)
-    not_r1_read = [read_type.value for read_type in AllReadTypes].remove(AllReadTypes.R1.value)
+    not_r1_read = [read_type.value for read_type in AllReadTypes]
+    not_r1_read.remove(AllReadTypes.R1.value)
     not_r1_read = "|".join(not_r1_read)
     not_r1_read = f"({not_r1_read})"
     fastq_search = re.compile(f"{r1_fastq[:READ_TYPE_START]}{not_r1_read}{r1_fastq[READ_TYPE_END:]}")
@@ -128,7 +134,12 @@ def get_all_destination_uris(mapped_indices: pl.DataFrame, project_code: str, ot
       other_dest_name = join(DESTINATION_FOLDER, collaborator_name_col[fastq_index] + "_" + other_tail)
       all_other_mapped_fastqs.append(other)
       all_other_dest.append(other_dest_name)
+      all_other_collaborator_names.append(collaborator_name_col[fastq_index])
   mapped_indices = mapped_indices.with_columns(pl.Series(name=DESTINATION_URI_COL, values=all_r1_dest))
-  other_mapped_fastqs = pl.from_dict({FASTQ_COL: all_other_mapped_fastqs, DESTINATION_URI_COL: all_other_dest})
+  other_mapped_fastqs = pl.from_dict({
+      FASTQ_COL: all_other_mapped_fastqs,
+      DESTINATION_URI_COL: all_other_dest,
+      COLLABORATOR_SAMPLE_NAMES_COL: all_other_collaborator_names
+  })
   all_destinations = pl.concat([mapped_indices, other_mapped_fastqs], how="diagonal_relaxed")
   return all_destinations

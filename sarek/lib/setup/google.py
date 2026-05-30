@@ -17,7 +17,7 @@ from google.cloud import storage
 
 
 GCP_PROJECT = "ccgd-174313"
-git_repo_dir = abspath(dirname(dirname(dirname(__file__))))
+git_repo_dir = abspath(dirname(dirname(dirname(dirname(__file__)))))
 JSON_KEY = join(git_repo_dir, "secrets", "rnaseq_ccgd-174313-98def6888a16.json")
 
 

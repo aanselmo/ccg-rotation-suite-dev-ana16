@@ -26,7 +26,7 @@ from lib.setup.lims_df import (
 )
 from lib.setup.fastqs import (
     FIRST_BARCODE_FASTQ_COL, SECOND_BARCODE_FASTQ_COL, copy_all_fastqs, get_all_destination_uris, get_all_fastq_indices,
-    PROJECT_FASTQS_DIR, DESTINATION_URI_COL, AllReadTypes, BEFORE_LANE_START
+    PROJECT_FASTQS_DIR, DESTINATION_URI_COL, AllReadTypes, START_LANE_NUMBER
 )
 
 
@@ -87,19 +87,22 @@ def map_lims_to_fastq(project_code, bucket_folder, r1_fastq_indices, lims_indice
 def create_sarek_samplesheet(mapped_indices: pl.DataFrame) -> pl.DataFrame:
   samplesheet = mapped_indices.select([PATIENT_COL, STATUS_COL, COLLABORATOR_SAMPLE_NAMES_COL, DESTINATION_URI_COL])
   # Drop all others besides R1 & R2 fastqs if exist
-  r1_r2_read = f"({AllReadTypes.R1.value}|{AllReadTypes.R2.value})"
-  r1_r2_read = f"{r1_r2_read}_001.fastq.gz$"
-  r1_r2_regex = re.compile(r1_r2_read)
-  r1_regex = re.compile(f"{AllReadTypes.R1.value}_001.fastq.gz$")
-  r2_regex = re.compile(f"{AllReadTypes.R2.value}_001.fastq.gz$")
-  samplesheet = samplesheet.with_columns(
-      pl.col(DESTINATION_URI_COL).str.contains(r1_r2_regex).alias(DESTINATION_URI_COL)
+  r1_r2_regex = f"({AllReadTypes.R1.value}|{AllReadTypes.R2.value})"
+  r1_r2_regex = f"{r1_r2_regex}_001.fastq.gz$"
+  r1_regex = f"{AllReadTypes.R1.value}_001.fastq.gz$"
+  r2_regex = f"{AllReadTypes.R2.value}_001.fastq.gz$"
+  samplesheet = samplesheet.filter(
+      pl.col(DESTINATION_URI_COL).str.contains(r1_r2_regex)
   )
   # Group fastqs by unique sample name
   samplesheet = samplesheet.group_by(COLLABORATOR_SAMPLE_NAMES_COL).agg(
       pl.col(DESTINATION_URI_COL),
-      pl.col(PATIENT_COL).unique(),
-      pl.col(STATUS_COL).unique(),
+      pl.col(PATIENT_COL).drop_nulls(),
+      pl.col(STATUS_COL).drop_nulls(),
+  )
+  samplesheet = samplesheet.with_columns(
+      pl.col(PATIENT_COL).list.first(),
+      pl.col(STATUS_COL).list.first()
   )
   # R1 fastqs are fastq_1 and R2 fastqs are fastq_2
   samplesheet = samplesheet.with_columns(
@@ -110,14 +113,16 @@ def create_sarek_samplesheet(mapped_indices: pl.DataFrame) -> pl.DataFrame:
           pl.element().str.contains(r2_regex)
       )).list.first().alias(FASTQ2_COL),
   )
-  samplesheet = samplesheet.with_columns(pl.col(FASTQ1_COL).str.slice(BEFORE_LANE_START, 3).alias(LANE_COL))
+  samplesheet = samplesheet.with_columns(pl.col(FASTQ1_COL).str.slice(START_LANE_NUMBER, 4).alias(LANE_COL))
   samplesheet = samplesheet.select([
       PATIENT_COL, STATUS_COL, COLLABORATOR_SAMPLE_NAMES_COL, LANE_COL, FASTQ1_COL, FASTQ2_COL
   ])
   return samplesheet
 
 
-def write_output_files(args, mapped_indices: pl.DataFrame, gcp_storage_client, fastq_map_name, samplesheet_name):
+def write_output_files(args, gcp_storage_client,
+                       mapped_indices: pl.DataFrame, fastq_map_name,
+                       sarek_samplesheet: pl.DataFrame, samplesheet_name):
   print("Writing mapping to output file.")
   with NamedTemporaryFile(mode='w+') as map_temp_file:
     mapped_indices.write_csv(map_temp_file.name)
@@ -129,15 +134,15 @@ def write_output_files(args, mapped_indices: pl.DataFrame, gcp_storage_client, f
                                              join(BASE_CLOUD_DIR, args.project_code, fastq_map_name))
     upload_location.upload_from_filename(map_temp_file.name)
   print("Writing sarek samplesheet to output file.")
-  with NamedTemporaryFile(mode='w+') as map_temp_file:
-    mapped_indices.write_csv(map_temp_file.name)
+  with NamedTemporaryFile(mode='w+') as samplesheet_temp_file:
+    sarek_samplesheet.write_csv(samplesheet_temp_file.name, quote_style="non_numeric")
     if args.bucket_folder:
       upload_location = get_blob_from_gs_uri(gcp_storage_client,
                                              join(BASE_CLOUD_DIR, args.bucket_folder, samplesheet_name))
     else:
       upload_location = get_blob_from_gs_uri(gcp_storage_client,
                                              join(BASE_CLOUD_DIR, args.project_code, samplesheet_name))
-    upload_location.upload_from_filename(samplesheet_name.name)
+    upload_location.upload_from_filename(samplesheet_temp_file.name)
 
 
 def main():
@@ -149,7 +154,7 @@ def main():
   gcp_storage_client = get_storage_client()
   mbcf_dir = args.mbcf_dir
   print("Get indices and collaborator names from LIMS.")
-  lims_indices = get_all_lims_data(project_code)
+  lims_indices = get_all_lims_data(args.project_code)
   print(lims_indices.head())
   print("Get indices in fastqs.")
   (r1_fastq_indices, other_fastqs) = get_all_fastq_indices(gcp_storage_client, mbcf_dir, args.number_processes)
@@ -160,7 +165,8 @@ def main():
   mapped_indices = map_lims_to_fastq(
       args.project_code, args.bucket_folder, r1_fastq_indices, lims_indices, other_fastqs
   )
-  write_output_files(args, mapped_indices, gcp_storage_client, fastq_map_name, samplesheet_name)
+  sarek_samplesheet = create_sarek_samplesheet(mapped_indices)
+  write_output_files(args, gcp_storage_client, mapped_indices, fastq_map_name, sarek_samplesheet, samplesheet_name)
   print("Copy the fastqs to the project directory.")
   copy_all_fastqs(mapped_indices, args.number_processes)
   print("Done.")

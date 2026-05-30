@@ -19,6 +19,7 @@ COLLABORATOR_SAMPLE_NAMES_COL = "sample"
 LIMS_SUBJECT_COL = "subject_id"
 PATIENT_COL = "patient"
 STATUS_COL = "status"
+REVCOMP_TABLE = str.maketrans("ACGT", "TGCA")
 
 
 def get_reverse_complement(barcode: str) -> str:
@@ -26,7 +27,6 @@ def get_reverse_complement(barcode: str) -> str:
   A fast way to find the reverse complement of a sequence. See:
   https://stackoverflow.com/questions/8776924/finding-the-complement-of-a-dna-sequence
   """
-  REVCOMP_TABLE = str.maketrans("ACGT", "TGCA")
   return barcode.translate(REVCOMP_TABLE)[::-1]
 
 
@@ -44,13 +44,21 @@ def get_all_lims_data(project_code: str) -> pl.DataFrame:
   all_samples = project_metadata["samples"]
   for one_sample in all_samples:
     lims_sample_names.append(one_sample["name"])
-    collaborator_sample_names.append(one_sample["externalId"])
+    one_external_id = one_sample["externalId"]
+    if type(one_external_id) is not str:
+      collaborator_sample_names.append(f"S{one_external_id}")
+    else:
+      collaborator_sample_names.append(one_external_id)
     lims_subject_ids.append(one_sample["subjectId"])
-    collaborator_subject_ids.append(one_sample["externalSubjectId"])
-    if one_sample["sampleClass"] == "Tumor":
-      sample_classes = 1
-    elif one_sample["sampleClass"] == "Normal":
-      sample_classes = 0
+    one_external_subject_id = one_sample["externalSubjectId"]
+    if type(one_external_subject_id) is not str:
+      collaborator_subject_ids.append(f"P{one_external_subject_id}")
+    else:
+      collaborator_subject_ids.append(one_external_subject_id)
+    if one_sample["sampleClass"] == "Normal":
+      sample_classes.append(0)
+    else:
+      sample_classes.append(1)
   first_barcodes = [""] * len(lims_sample_names)
   second_barcodes = [""] * len(lims_sample_names)
   indices_response = get_indices_of_samples(lims_sample_names)
@@ -71,5 +79,14 @@ def get_all_lims_data(project_code: str) -> pl.DataFrame:
       LIMS_SUBJECT_COL: lims_subject_ids,
       PATIENT_COL: collaborator_subject_ids,
       STATUS_COL: sample_classes,
+  }, schema={
+      LIMS_SAMPLE_NAMES_COL: pl.String,
+      COLLABORATOR_SAMPLE_NAMES_COL: pl.String,
+      FIRST_BARCODE_LIMS_COL: pl.String,
+      SECOND_BARCODE_LIMS_COL: pl.String,
+      SECOND_BARCODE_REVCOMP_COL: pl.String,
+      LIMS_SUBJECT_COL: pl.String,
+      PATIENT_COL: pl.String,
+      STATUS_COL: pl.Int8,  
   })
   return lims_indices
