@@ -8,7 +8,7 @@ __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
 import polars as pl
-from ..lims import get_one_project_metadata, get_indices_of_samples
+from .lims import get_one_project_metadata, get_indices_of_samples
 
 
 FIRST_BARCODE_LIMS_COL = "first_barcode_lims"

@@ -19,7 +19,7 @@ from os import makedirs
 from os.path import join
 import polars as pl
 from lib.common import append_project_arg, append_bucket_arg, DEFAULT_CSV_OUTPUT, BASE_CLOUD_DIR
-from lib.google import get_storage_client, get_blob_from_gs_uri
+from lib.setup.google import get_storage_client, get_blob_from_gs_uri
 from lib.setup.lims_df import (
     FIRST_BARCODE_LIMS_COL, SECOND_BARCODE_LIMS_COL, SECOND_BARCODE_REVCOMP_COL, get_all_lims_data,
     PATIENT_COL, STATUS_COL, COLLABORATOR_SAMPLE_NAMES_COL
