@@ -1,8 +1,9 @@
 #!/data/python-venv/for_ccg_rotation_suite/bin/python
 
 """
-Use this script to rename the fastqs sent by MBCF for Sarek. The fastqs received from MBCF a lot of times have random
-names. This makes sure that the collaborator sample name is in the file name for the fastq.
+Use this script to rename the fastqs sent by MBCF for Sarek and then create a Sarek Samplesheet. The fastqs received
+from MBCF a lot of times have random names. This makes sure that the collaborator sample name is in the file name
+for the fastq.
 """
 
 __docformat__ = "reStructuredText"
@@ -18,7 +19,7 @@ from os import makedirs
 from os.path import join
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import polars as pl
-from lib.common import append_common_args, append_bucket_arg, DEFAULT_CSV_OUTPUT, BASE_CLOUD_DIR
+from lib.common import append_project_arg, append_bucket_arg, DEFAULT_CSV_OUTPUT, BASE_CLOUD_DIR
 from lib.lims import get_one_project_metadata, get_indices_of_samples
 from lib.google import (
     get_storage_client, get_head_of_gcp_gzip_file, get_files_in_folder, get_blob_from_gs_uri, copy_gcp_file
@@ -27,6 +28,8 @@ from pip._vendor.rich.progress import Progress
 
 
 PROJECT_FASTQS_DIR = join("preprocessing", "fastq")
+PROJECT_CSV_DIR = "csv"
+DEFAULT_SAREK_SAMPLESHEET_FILE_ENDING = "sarek_samplesheet.csv"
 DEFAULT_FASTQ_MAP_CSV = "mbcf_fastq_map.csv"
 # The first read type should be one that all samples have. It should always include the indices in the read names
 # of the fastq
@@ -51,10 +54,11 @@ DESTINATION_URI_COL = "destination_uris"
 
 def setup_arguments():
   parser = argparse.ArgumentParser(description=(
-      "Use this script to rename the fastqs sent by MBCF for Sarek. The fastqs received from MBCF a lot of times have"
-      + "random names. This makes sure that the collaborator sample name is in the file name for the fastq."
+      "Use this script to rename the fastqs sent by MBCF for Sarek and then create a Sarek Samplesheet. The fastqs"
+      + " received from MBCF a lot of times have random names. This makes sure that the collaborator sample name"
+      + " is in the file name for the fastq."
   ))
-  project_arg = append_common_args(parser)
+  project_arg = append_project_arg(parser)
   append_bucket_arg(parser)
   parser.add_argument("-n", "--number-processes", dest="number_processes",
                       default=200, type=int,
@@ -67,7 +71,7 @@ def setup_arguments():
   return parser.parse_args()
 
 
-def get_output_file_name(args, file_ending: str, default_file_name: str) -> tuple[str, str]:
+def get_all_output_file_names(args, file_ending: str, default_file_name: str) -> tuple[str, str, str]:
   output_file_name = args.output_file_name
   today = date.today().strftime('%Y%m%d')
   project_code = "test"

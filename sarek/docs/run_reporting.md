@@ -20,7 +20,7 @@ Remember to run [somalier](./run_sarek_pipeline.md#run-somalierfingerprinting) b
 gcloud compute ssh --zone "us-central1-a" "nextflow4" --project "ccgd-174313"
 PROJECT_CODE=[YOUR PROJECT CODE]
 cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}
-/opt/ccgd-rotation-suite/sarek_summary_reports/aggregate_report.py -p ${PROJECT_CODE} --bucket .
+/opt/ccg-rotation-suite/sarek/aggregate_report.py -p ${PROJECT_CODE} --bucket .
 ```
 
 ## 3. Copy Number Variation (CNV) report
@@ -29,7 +29,7 @@ cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}
 gcloud compute ssh --zone "us-central1-a" "nextflow4" --project "ccgd-174313"
 PROJECT_CODE=[YOUR PROJECT CODE]
 cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}
-/opt/ccgd-rotation-suite/sarek_summary_reports/cnv_report.py -p ${PROJECT_CODE} --bucket .
+/opt/ccg-rotation-suite/sarek/cnv_report.py -p ${PROJECT_CODE} --bucket .
 ```
 
 ## 4. Single nucleotide variant and Insertion-Deletion (SNV & Indel) Report
@@ -39,7 +39,7 @@ about 30 seconds - 1 minute to run.
 gcloud compute ssh --zone "us-central1-a" "nextflow4" --project "ccgd-174313"
 PROJECT_CODE=[YOUR PROJECT CODE]
 cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}
-/opt/ccgd-rotation-suite/sarek_summary_reports/snv_indel_report.py -p ${PROJECT_CODE} --bucket . \
+/opt/ccg-rotation-suite/sarek/snv_indel_report.py -p ${PROJECT_CODE} --bucket . \
     --bed-file /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/[Your bed file]
 ```
 

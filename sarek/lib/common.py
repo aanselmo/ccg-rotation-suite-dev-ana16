@@ -31,11 +31,17 @@ AVAILABLE_CHROMOSOMES = PolarsEnum([
 ])
 
 
+
+def append_project_arg(parser: ArgumentParser):
+  project_arg = parser.add_argument("-p", "--project", dest="project_code", type=str, default="",
+                    help="The project code for the report. Used to generate filename with the project_code in it.")
+  return project_arg
+
+
 def append_common_args(parser: ArgumentParser, default_output_file=DEFAULT_CSV_OUTPUT):
   parser.add_argument("-o", "--output-file", type=str, default=default_output_file,
                       dest="output_file_name", help="The name of the output file. Overrides project_code argument.")
-  project_arg = parser.add_argument("-p", "--project", dest="project_code", type=str, default="",
-                      help="The project code for the report. Used to generate filename with the project_code in it.")
+  project_arg = append_project_arg(parser)
   return project_arg
 
 
