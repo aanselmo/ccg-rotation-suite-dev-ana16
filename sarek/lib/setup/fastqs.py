@@ -14,7 +14,7 @@ import polars as pl
 from enum import StrEnum
 from pip._vendor.rich.progress import Progress
 from .google import (
-    get_storage_client, get_head_of_gcp_gzip_file, get_files_in_folder, get_blob_from_gs_uri, copy_gcp_file
+    get_storage_client, get_head_of_gcp_gzip_file, get_files_in_folder, copy_gcp_file
 )
 from ..common import BASE_CLOUD_DIR
 from .lims_df import COLLABORATOR_SAMPLE_NAMES_COL

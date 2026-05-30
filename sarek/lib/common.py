@@ -29,7 +29,9 @@ AVAILABLE_CHROMOSOMES = PolarsEnum([
     "GL000215.1", "GL000205.1", "GL000219.1", "GL000224.1", "GL000223.1", "GL000195.1", "GL000212.1", "GL000222.1",
     "GL000200.1", "GL000193.1", "GL000194.1", "GL000225.1", "GL000192.1"
 ])
-
+CONSOLE_RED = "\x1b[91m"
+CONSOLE_BOLD = "\x1b[1m"
+CONSOLE_FONT_RESET = "\x1b[0m"
 
 
 def append_project_arg(parser: ArgumentParser):
