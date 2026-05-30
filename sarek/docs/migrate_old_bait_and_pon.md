@@ -123,8 +123,9 @@ AND rec.sample_collaborator_name IN (
 )*/
 ORDER BY rec.sample_collaborator_name;
 ```
-2. Create a sarek_samplesheet.csv. See [above directions](#1-generate-the-sarek-samplesheet) for details.
-3. Kickoff Sarek pipeline as shown below [run pipeline directions](#run-sarek-for-pon-migration)
+2. Create a sarek_samplesheet.csv. See [above directions](./setup_for_sarek_run.md#manually-creating-the-samplesheet)
+   for details.
+3. Kickoff Sarek pipeline as shown below in [run pipeline directions](#run-sarek-for-pon-migration)
 
 ## Run Sarek for PON Migration
 1. Run Sarek. Pretty much the same except the following:
