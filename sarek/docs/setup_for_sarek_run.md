@@ -45,7 +45,7 @@ cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/preprocessi
 find . -name "*.fastq.gz" | xargs -n1 basename | sort | uniq -d
 # should return empty if there are no duplicates.
 ```
-3. Double check the same file is not specified twice.
+3. Double check the same file is not specified twice in the samplesheet.
 4. Surround all strings with quotes in the csv. A shortcut:
 ```bash
 # Open in Libreoffice > Save As > Select "Edit filter settings" > Select "Quote all text cells"

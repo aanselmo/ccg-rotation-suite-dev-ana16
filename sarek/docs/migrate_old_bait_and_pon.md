@@ -1,8 +1,18 @@
-# Regenerate Old Bait and PON
+# Migrate Old Bait and PON
 If you're running a bait set for the first time through Sarek, it's a good idea to generate a PON before the actual run
 you need to do or at least generate the bed file.
 
-## Convert Riker .interval_list to Sarek .bed file
+The basic workflow to migrate the old bait and PON is the following:
+1. [Convert the Riker .interval_list to Sarek](#convert-riker-interval_list-to-sarek-bed-file--hsmetrics-interval_list)
+2. [Find the old PON](#find-old-pon)
+3. [Demultiplex](./demultiplex.md#demultiplex-old-riker-project)
+4. [Create Sarek Samplesheet after Demultiplexing](#create-sarek-samplesheet-after-demultiplexing)
+5. [Run Sarek for PON Migration](#run-sarek-for-pon-migration)
+6. [Create Mutect2 PON](#create-mutect2-pon)
+7. [Create CNVKit PON](#create-cnvkit-pon)
+
+
+## Convert Riker .interval_list to Sarek .bed file & hsmetrics .interval_list
 1. Sarek runs on .bed files (not GATK .interval_list files). Convert the interval list to a .bed file.
 ```bash
 ssh argos-ccgd.dfci.harvard.edu
@@ -33,9 +43,19 @@ vim /opt/sarek/conf/ccg/ccg.config
 # use the same bait name next to the supplier id for the profile name though.
 cp -r /opt/sarek/conf/ccg /opt/sarek-create-pon/conf/
 ```
+5. Create a new .interval_list for picard hsmetrics.
+```bash
+java -jar /opt/picard/3.4.0/picard.jar BedToIntervalList \
+    -I /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/TLP_v3_TE_98697476/TLP_v3_TE_98697476_targets_20260506.bed \
+    -O /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/TLP_v3_TE_98697476/TLP_v3_TE_98697476_targets_20260508.interval_list \
+    -SD /mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.dict
+```
 
-## Regenerate Old PON
-1. Look on argos-ccgd for samples in the old PON.
+## Find Old PON
+1. Look on argos-ccgd for samples in the old PON. You'll need about 15 samples to get meh CNV & Mutect2 results.
+   You'll need about 30 samples to get good enough CNV & Mutect2 results. The samples in RobustCNV_PON folder have been
+   manually curated by Bruce and I by eye. If they had max 1 or 2 CNV, we considered the normal good enough and added
+   them to the RobustCNV_PON folder.
 ```bash
 ssh argos-ccgd.dfci.harvard.edu
 cd /mnt/storage/centers/ccgd/bmw35/RobustCNV_PON
@@ -62,12 +82,15 @@ WHERE rs.sample_collaborator_name IN (
   [FROM FIND COMMAND]
 ) AND bs.bait_set_name = "Your bait set";
 ```
-3. Restore the old Riker runs and proceed to [rerun old riker project directions](#rerun-old-riker-project)
-4. Proceed to [Generate PON](./run_sarek_pipeline.md#generate-pon)
+3. Restore the old Riker runs and proceed to [demultiplexing](./demultiplex.md#demultiplex-old-riker-project)
+4. Proceed below to [create sarek samplesheet](#create-sarek-samplesheet-after-demultiplexing)
 
 
 ## Create Sarek Samplesheet After Demultiplexing
-9. Run the following to get the fastqs to add to the samplesheet:
+See [documentation for troubleshooting samplesheets](./setup_for_sarek_run.md#troubleshooting) if you encounter an
+error.
+
+1. Run the following to get the fastqs to add to the samplesheet:
 ```bash
 # For fastq_1 column
 gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex/*R1*"
@@ -75,10 +98,15 @@ gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pip
 gcloud storage ls "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex/*R2*"
 ```
 10. Grab the other columns with a query.
-    * **Nota bene:** You might only need to grab one lane if you used `--no-lane-splitting` on the demultiplexing step.
+    * ***Nota bene: Please set all samples to status of 1 (i.e. tumor)*** for PON creation.
+      If the status is 0, then HaplotypeCaller will be run instead of Mutect2! We need Mutect2 in the PON to filter out
+      calls against Mutect2.
+    * **Nota bene bis:** You might only need to grab one lane if you used `--no-lane-splitting` on the demultiplexing
+      step.
 ```sql
 SELECT i.individual_collaborator_name as patient,
-IF(rec.genomic_source_id=2, 0, 1) AS status,
+/* Set all status to tumor */
+IF(rec.genomic_source_id=2, 1, 1) AS status,
 rec.sample_collaborator_name AS sample,
 SUBSTRING_INDEX(pl.platform_location_description, "_", -1) AS lane
 FROM project proj
@@ -95,25 +123,27 @@ AND rec.sample_collaborator_name IN (
 )*/
 ORDER BY rec.sample_collaborator_name;
 ```
-11. Create a sarek_samplesheet.csv. See [above directions](#1-generate-the-sarek-samplesheet) for details.
-12. Kickoff Sarek pipeline as in [run pipeline directions](./run_sarek_pipeline.md)
+2. Create a sarek_samplesheet.csv. See [above directions](#1-generate-the-sarek-samplesheet) for details.
+3. Kickoff Sarek pipeline as shown below [run pipeline directions](#run-sarek-for-pon-migration)
 
-## Generate PON
+## Run Sarek for PON Migration
 1. Run Sarek. Pretty much the same except the following:
     * Use the create_pon flag as the last profile to make sure the PON is not set. I set Sarek to use the
       Broad PON by default so that's why you have to do this.
     * Go into the `[bait_profile]` and make sure no PON or reference.cnn is set there.
-    * Status should be 1 for all normals if creating a PON. Normals should be treated like tumor
+    * **Status should be 1 for all normals if creating a PON.** Normals should be treated like tumor
       samples when run through Sarek (when creating a PON). This is because HaplotypeCaller will run instead of Mutect2
       if the status is 0. You need Mutect2 to run in order to create a PON against Mutect2.
 ```bash
-/opt/nextflow/25.10.2/nextflow-25.10.2-dist run  /opt/sarek-create-pon/main.nf \
+/opt/nextflow/25.10.2/nextflow-25.10.2-dist run  /opt/sarek/main.nf \
     -profile docker,google,ccg,[bait_profile],create_pon \
     --input gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3/csv/recalibrated.csv \
     --outdir gs://ccg-bioinformatics/mnt/storage/centers/ccgd/nap24/pipeline_rnd/pipeline_sarek/SCB1046d_pon_popv3 \
     -w gs://ccg-bioinformatics/mnt/scratch/ccgd/global/nextflow_execution/SCB1046d_pon_popv3
 ```
-2. Run bcftools norm to normalize variants into a single letter per line.
+
+## Create Mutect2 PON
+1. Run bcftools norm to normalize variants into a single letter per line.
 ```bash
 BUCKET_DIR="/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/[your bucket folder]"
 GENOME="/mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.fasta"
@@ -127,7 +157,7 @@ for file in $(find ${BUCKET_DIR} -name "*.mutect2.vcf.gz")
   /opt/bcftools/1.23/bin/bcftools norm --rm-dup all --output-type z --output ${dedup_file} --write-index=tbi ${vt_file}
 done
 ```
-3. Start the server used to create the GATK PON and login:
+2. Start the server used to create the GATK PON and login:
 ```bash
 gcloud compute instances create \
   --zone=us-central1-a \
@@ -140,7 +170,7 @@ gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "gatkpon3"
 sudo umount -l /mnt/storage
 sudo mount /mnt/storage
 ```
-4. Create an args file for all of the vcf files. Head of the file looks like. It contains args to pass to
+3. Create an args file for all of the vcf files. Head of the file looks like. It contains args to pass to
 GenomicsDBImport.
 Exmaple .args file:
 ```bash
@@ -173,7 +203,7 @@ nohup /opt/jdk-17.0.12/bin/java -Xmx50G -Xms3G -jar /opt/gatk/4.6.1.0/gatk-packa
   -L /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/SureSelect_XTHS_Human_All_Exon_V8_S33266340/SureSelect_XTHS_Human_All_Exon_V8_S33266340_Covered_20260122.bed \
   &> /data/20260125_pon_db_sureselect_v8_6.log &
 ```
-6. Run GATK CreateSomaticPanelOfNormals. 
+4. Run GATK CreateSomaticPanelOfNormals. 
 ```bash
 nohup /opt/jdk-17.0.12/bin/java -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-local.jar \
   CreateSomaticPanelOfNormals \
@@ -183,14 +213,19 @@ nohup /opt/jdk-17.0.12/bin/java -jar /opt/gatk/4.6.1.0/gatk-package-4.6.1.0-loca
   -O /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/[your_project]/mutect2_pon_popv3.1_20251218.vcf.gz \
   &> /data/20250125_pon_create_popv3_add_SO31074a.log &
 ```
-7. Shut down the gatkpon compute node. Note that the GenomicsDB will be lost if this is run; it shouldn't matter
+5. Shut down the gatkpon compute node. Note that the GenomicsDB will be lost if this is run; it shouldn't matter
 because it's a temporary database.
 ```bash
 gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" gatkpon3
 gcloud compute instances delete --zone=us-central1-a --delete-disks=all gatkpon3
 ```
-8. Again refer to step 4 to remount the drives.
-9. Create the CNVKit reference.cnn.
+
+## Create CNVKit PON
+1. SSH onto nextflow4.
+```bash
+gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" nextflow4
+```
+2. Create the CNVKit reference.cnn.
 ```bash
 docker run \
     -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a-ULPWGS/variant_calling/cnvkit:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SE81226a-ULPWGS/variant_calling/cnvkit \
@@ -208,16 +243,16 @@ cnvkit.py reference \
     CEPH1408-P2-H1_S7/*coverage.cnn \
     -o 20250119_ulpwgs_se81226a_cnvkit_reference.cnn
 ```
-10. Copy the reference.cnn file, and mutect2_pon.vcf.gz to the bait folder.
+3. Copy the reference.cnn file, and mutect2_pon.vcf.gz to the bait folder.
 ```bash
 PROJECT_CODE=[your project]
 BAIT_FOLDER=[your bait folder]
 cp [reference.cnn] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_FOLDER}/
 cp [mutect2_pon.vcf.gz] /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/${BAIT_FOLDER}/
 ```
-11. Edit the sarek config file that you created for the bait set [earlier](./README.md#convert-riker-interval_list-to-sarek-bed-file)
+4. Edit the sarek config file that you created for the bait set [earlier](./README.md#convert-riker-interval_list-to-sarek-bed-file)
 Add the pon, pon_tbi, and cnvkit_reference.
-12. Copy the sample fasta files, sample target/antitarget cnn files, and sample vcf files in case you want to add
+5. Copy the sample fasta files, sample target/antitarget cnn files, and sample vcf files in case you want to add
    to the PON later or run on a different pipeline (you can run the fastas through the new pipeline).
 ```bash
 gcloud storage cp "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/demultiplex/*.fastq.gz" \

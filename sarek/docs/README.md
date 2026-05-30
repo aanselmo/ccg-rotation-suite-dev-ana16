@@ -12,7 +12,7 @@ Steps of running sarek are:
 
 ## Edge Cases
 ### Demultiplex
-Please see [Demultiplexing Docs](./demultiplex.md)
+Please see [Demultiplexing Docs](./demultiplex.md). MBCF usually does the demultiplexing for us so you don't have to.
 
 ### Migrate Old Bait and PON
 Please see [Migrate Old Bait and PON Docs](./migrate_old_bait_and_pon.md)

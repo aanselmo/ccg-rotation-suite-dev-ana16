@@ -76,12 +76,7 @@ somalier relate --groups ../../csv/somalier_groups.csv $(find . -name "*.somalie
 
 ## Run Picard HsMetrics
 1. Convert the .bed to .interval_list if not already done.
-```bash
-java -jar /opt/picard/3.4.0/picard.jar BedToIntervalList \
-    -I /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/TLP_v3_TE_98697476/TLP_v3_TE_98697476_targets_20260506.bed \
-    -O /mnt/storage/centers/ccgd/reference_files/baits/GRCh37/TLP_v3_TE_98697476/TLP_v3_TE_98697476_targets_20260508.interval_list \
-    -SD /mnt/storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/igenomes/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.dict
-```
+See [step 5](./migrate_old_bait_and_pon.md#convert-riker-interval_list-to-sarek-bed-file--hsmetrics-interval_list)
 2. Use the markduplicates.csv to run picard. After quality recalibration, all the bases outside of the bait regions
 will be marked as low quality and unusable.
 ```bash
