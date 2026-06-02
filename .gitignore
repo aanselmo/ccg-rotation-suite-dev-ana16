@@ -19,3 +19,6 @@ low-coverage/*
 
 # For trial and error scratch code I write.
 scratch/*
+
+# For passwords, keys, and secret files:
+secrets/*

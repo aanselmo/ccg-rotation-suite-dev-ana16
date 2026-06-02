@@ -8,11 +8,12 @@ __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
 from argparse import ArgumentParser
-from os import makedirs
+from os import makedirs, cpu_count
 from datetime import date
 from os.path import join
 from polars import Enum as PolarsEnum
 
+BASE_CLOUD_DIR = "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek"
 AVAILABLE_GENOME_VERSIONS = ["GRCh37", "GRCh38"]
 DEFAULT_HTML_OUTPUT = "output.html"
 DEFAULT_EXCEL_OUTPUT = "output.xlsx"
@@ -28,13 +29,21 @@ AVAILABLE_CHROMOSOMES = PolarsEnum([
     "GL000215.1", "GL000205.1", "GL000219.1", "GL000224.1", "GL000223.1", "GL000195.1", "GL000212.1", "GL000222.1",
     "GL000200.1", "GL000193.1", "GL000194.1", "GL000225.1", "GL000192.1"
 ])
+CONSOLE_RED = "\x1b[91m"
+CONSOLE_BOLD = "\x1b[1m"
+CONSOLE_FONT_RESET = "\x1b[0m"
+
+
+def append_project_arg(parser: ArgumentParser):
+  project_arg = parser.add_argument("-p", "--project", dest="project_code", type=str, default="",
+                    help="The project code for the report. Used to generate filename with the project_code in it.")
+  return project_arg
 
 
 def append_common_args(parser: ArgumentParser, default_output_file=DEFAULT_CSV_OUTPUT):
   parser.add_argument("-o", "--output-file", type=str, default=default_output_file,
                       dest="output_file_name", help="The name of the output file. Overrides project_code argument.")
-  project_arg = parser.add_argument("-p", "--project", dest="project_code", type=str, default="",
-                      help="The project code for the report. Used to generate filename with the project_code in it.")
+  project_arg = append_project_arg(parser)
   return project_arg
 
 
@@ -43,10 +52,23 @@ def append_bucket_arg(parser: ArgumentParser):
                       help=("The sarek base folder with all of the other files within it. You can either enter this"
                             + "or pass all the files individually."))
 
+
 def append_reference_arg(parser: ArgumentParser):
   parser.add_argument("-r", "--reference", dest="reference_genome", type=str, default="GRCh37",
                       choices=AVAILABLE_GENOME_VERSIONS,
                       help="The Genome Version. Options are 'GRCh37' or 'GRCh38'.")
+
+
+def append_processes_arg(parser: ArgumentParser):
+  this_pc_cpus = cpu_count() - 1 if cpu_count() else 1  # subtract 1 for this script.
+  print(f"Process (CPU) Count Available: {this_pc_cpus}")
+  parser.add_argument("-n", "--number-processes", dest="number_processes",
+                      default=this_pc_cpus, type=int,
+                      help=(f"Number of processes available on the multiprocessing sections."
+                          + " Default is number of processes minus 1 (for this process)."
+                          + " I haven't added threads because"
+                          + " the documentation for google.cloud.storage says it's unlikely to change anything."))
+
 
 
 def get_output_file_name(args, file_ending: str, default_file_name: str) -> tuple[str, str]:
