@@ -55,6 +55,9 @@ def setup_arguments():
   parser.add_argument("-m", "--mbcf-dir", dest="mbcf_dir", type=str, default="", required=True,
                       help=("The MBCF Bucket Directory with all the fastqs in them"
                             + " (e.g. gs://mbcgs/260424_AB14103_fastq)."))
+  parser.add_argument("-l", "--lims-override", dest="lims_override", type=argparse.FileType('r', encoding='UTF-8'),
+                      help=("If you're working on an R&D project, it won't be in LIMS. Pass a .csv with columns:"
+                            + " patient,status,sample,lane,first_barcode,second_barcode"))
   parser.add_argument("-d", "--max-hamming-distance", dest="max_hamming_distance", type=int, default=1,
                       help=("The maximum allowed hamming distance"
                             + " between the indices in the mbcf_dir and indices in lims."))
@@ -183,7 +186,11 @@ def main():
   gcp_storage_client = get_storage_client()
   mbcf_dir = args.mbcf_dir
   print("Get indices and collaborator names from LIMS.")
-  lims_indices = get_all_lims_data(args.project_code)
+  lims_indices = pl.DataFrame()
+  if args.lims_override:
+    lims_indices = pl.read_csv(args.lims_override)
+  else:
+    lims_indices = get_all_lims_data(args.project_code)
   print("Get indices in fastqs.")
   (r1_fastq_indices, other_fastqs) = get_all_fastq_indices(gcp_storage_client, mbcf_dir, args.number_processes)
   r1_fastq_indices = r1_fastq_indices.filter(pl.col(FIRST_BARCODE_FASTQ_COL) != "")
