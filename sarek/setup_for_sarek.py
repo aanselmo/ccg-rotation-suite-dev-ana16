@@ -57,7 +57,7 @@ def setup_arguments():
                             + " (e.g. gs://mbcgs/260424_AB14103_fastq)."))
   parser.add_argument("-l", "--lims-override", dest="lims_override", type=argparse.FileType('r', encoding='UTF-8'),
                       help=("If you're working on an R&D project, it won't be in LIMS. Pass a .csv with columns:"
-                            + " patient,status,sample,lane,first_barcode,second_barcode"))
+                            + " patient,status,sample,first_barcode,second_barcode"))
   parser.add_argument("-d", "--max-hamming-distance", dest="max_hamming_distance", type=int, default=1,
                       help=("The maximum allowed hamming distance"
                             + " between the indices in the mbcf_dir and indices in lims."))
