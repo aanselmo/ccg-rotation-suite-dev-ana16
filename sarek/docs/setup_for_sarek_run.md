@@ -9,6 +9,20 @@ ssh ccg3.dfci.harvard.edu
 ```
 
 ## Edge Cases
+### R&D Project - No LIMS
+R&D projects are frequently not uploaded to LIMS.
+1. Please create a lims_override.csv with the following columns that LIMS would have:
+```
+patient,status,sample,first_barcode,second_barcode
+```
+2. Upload the file to ccg3 and run:
+```
+scp [lims_override.csv] ccg3.dfci.harvard.edu:~/.
+ssh ccg3.dfci.harvard.edu
+/data/ccg-rotation-suite/sarek/setup_for_sarek.py -p [project code] -m gs://mbcgs/260424_AB14103_fastq \
+    -l ~/[lims_override.csv]
+```
+
 ### Manually Creating the Samplesheet
 An example of a samplesheet is as follows
 (as described in [Sarek docs](https://nf-co.re/sarek/3.7.1/docs/usage/)). The patient an id for the individual/organism.
@@ -29,8 +43,8 @@ to match up the index/barcode with the MBCF fastq if the project is in LIMS.
 
 ![minilims_quick_search](./minilims_quick_search.png)
 
-However, if the sample names are not in LIMS, and is in some excel sheet somewhere, use your judgement on creating the
-samplesheet.
+However, if the sample names are not in LIMS, you can try the [lims override above](#rd-project---no-lims). However,
+if that doesn't work use your judgement on creating the samplesheet.
 
 ## Troubleshooting
 ## File collisions
