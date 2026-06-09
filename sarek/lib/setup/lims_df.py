@@ -11,9 +11,9 @@ import polars as pl
 from .lims import get_one_project_metadata, get_indices_of_samples
 
 
-FIRST_BARCODE_LIMS_COL = "first_barcode_lims"
-SECOND_BARCODE_LIMS_COL = "second_barcode_lims"
-SECOND_BARCODE_REVCOMP_COL = "second_barcode_lims_revcomp"
+FIRST_BARCODE_LIMS_COL = "first_barcode"
+SECOND_BARCODE_LIMS_COL = "second_barcode"
+SECOND_BARCODE_REVCOMP_COL = "second_barcode_revcomp"
 LIMS_SAMPLE_NAMES_COL = "lims_sample_names"
 COLLABORATOR_SAMPLE_NAMES_COL = "sample"
 LIMS_SUBJECT_COL = "subject_id"

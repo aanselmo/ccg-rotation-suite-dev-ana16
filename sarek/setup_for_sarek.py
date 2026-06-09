@@ -24,7 +24,7 @@ from lib.common import (
 from lib.setup.google import get_storage_client, get_blob_from_gs_uri
 from lib.setup.lims_df import (
     FIRST_BARCODE_LIMS_COL, SECOND_BARCODE_LIMS_COL, SECOND_BARCODE_REVCOMP_COL, get_all_lims_data,
-    PATIENT_COL, STATUS_COL, COLLABORATOR_SAMPLE_NAMES_COL
+    PATIENT_COL, STATUS_COL, COLLABORATOR_SAMPLE_NAMES_COL, get_reverse_complement
 )
 from lib.setup.fastqs import (
     FIRST_BARCODE_FASTQ_COL, SECOND_BARCODE_FASTQ_COL, copy_all_fastqs, get_all_destination_uris, get_all_fastq_indices,
@@ -55,6 +55,9 @@ def setup_arguments():
   parser.add_argument("-m", "--mbcf-dir", dest="mbcf_dir", type=str, default="", required=True,
                       help=("The MBCF Bucket Directory with all the fastqs in them"
                             + " (e.g. gs://mbcgs/260424_AB14103_fastq)."))
+  parser.add_argument("-l", "--lims-override", dest="lims_override", type=argparse.FileType('r', encoding='UTF-8'),
+                      help=("If you're working on an R&D project, it won't be in LIMS. Pass a .csv with columns:"
+                            + " patient,status,sample,first_barcode,second_barcode"))
   parser.add_argument("-d", "--max-hamming-distance", dest="max_hamming_distance", type=int, default=1,
                       help=("The maximum allowed hamming distance"
                             + " between the indices in the mbcf_dir and indices in lims."))
@@ -69,10 +72,19 @@ def get_all_output_file_names(project_code: str) -> tuple[str, str]:
 
 
 def get_hamming(row: tuple):
-  row_hamming = sum(map(not_equal_operator, (row[1] + row[2]), (row[5] + row[6])))
-  rev_comp_hamming = sum(map(not_equal_operator, (row[1] + row[2]), (row[5] + row[7])))
+  row_hamming = sum(map(not_equal_operator, (row[0] + row[1]), (row[2] + row[3])))
+  rev_comp_hamming = sum(map(not_equal_operator, (row[0] + row[1]), (row[2] + row[4])))
   row_hamming = rev_comp_hamming if rev_comp_hamming < row_hamming else row_hamming
   return row_hamming
+
+
+def get_hamming_column(all_potential_matches: pl.DataFrame) -> pl.DataFrame:
+  all_potential_matches = all_potential_matches.select([
+      FIRST_BARCODE_FASTQ_COL, SECOND_BARCODE_FASTQ_COL,
+      FIRST_BARCODE_LIMS_COL, SECOND_BARCODE_LIMS_COL, SECOND_BARCODE_REVCOMP_COL
+  ])
+  hamming_results = all_potential_matches.map_rows(get_hamming)
+  return hamming_results
 
 
 def map_lims_to_fastq(
@@ -93,7 +105,7 @@ def map_lims_to_fastq(
   remaining_fastq_indices = r1_fastq_indices.join(mapped_indices, how="anti",
                                             on=[FIRST_BARCODE_FASTQ_COL, SECOND_BARCODE_FASTQ_COL])
   remaining_fastq_indices = remaining_fastq_indices.join(lims_indices, how="cross")
-  hamming_results = remaining_fastq_indices.map_rows(get_hamming)
+  hamming_results = get_hamming_column(remaining_fastq_indices)
   remaining_fastq_indices = pl.concat([remaining_fastq_indices, hamming_results], how="horizontal")
   remaining_fastq_indices = remaining_fastq_indices.filter(pl.col("map") <= max_hamming_distance)
   remaining_fastq_indices = remaining_fastq_indices.drop("map")
@@ -183,7 +195,14 @@ def main():
   gcp_storage_client = get_storage_client()
   mbcf_dir = args.mbcf_dir
   print("Get indices and collaborator names from LIMS.")
-  lims_indices = get_all_lims_data(args.project_code)
+  lims_indices = pl.DataFrame()
+  if args.lims_override:
+    lims_indices = pl.read_csv(args.lims_override)
+    rev_comp = map(get_reverse_complement, lims_indices.get_column(SECOND_BARCODE_LIMS_COL).to_list())
+    rev_comp = pl.Series(name=SECOND_BARCODE_REVCOMP_COL, values=rev_comp)
+    lims_indices.insert_column(-1, rev_comp)
+  else:
+    lims_indices = get_all_lims_data(args.project_code)
   print("Get indices in fastqs.")
   (r1_fastq_indices, other_fastqs) = get_all_fastq_indices(gcp_storage_client, mbcf_dir, args.number_processes)
   r1_fastq_indices = r1_fastq_indices.filter(pl.col(FIRST_BARCODE_FASTQ_COL) != "")
