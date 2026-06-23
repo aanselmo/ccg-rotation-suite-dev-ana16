@@ -74,7 +74,7 @@ def get_fingerprinting_block(tsv_somalier_pairs: str):
                 pd_somalier_data.loc[:, MATCH_STATUS_COL] == MATCH_STATUS.INAPPROPRIATE_MATCH,
                 [SAMPLE_A_COL, SAMPLE_B_COL, RELATEDNESS_COL, IBS0_COL, IBS2_COL]
             ],
-            label="Innappropriate Matches",
+            label="Inappropriate Matches",
             index=False,
         ),
         rc.DataTable(

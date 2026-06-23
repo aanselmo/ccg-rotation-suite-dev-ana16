@@ -32,7 +32,7 @@ def get_storage_client():
 
 def split_uri(gcp_uri: str) -> tuple[str, str]:
   """
-  Split a GCP uri into it's bucket and the rest of the path.
+  Split a GCP uri into its bucket and the rest of the path.
   gs://mbcgs/x_folder/y_file.gz -> (mbcgs, x_folder/y_file.gz)
   """
   split_path = gcp_uri.split("/")

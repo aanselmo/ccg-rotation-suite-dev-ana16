@@ -120,8 +120,8 @@ def parse_info_section_headers(all_variants: pl.DataFrame) -> pl.DataFrame:
 
 def split_format_column(format_and_data_cols: pl.DataFrame) -> pl.DataFrame:
   """
-  Take a Dataframe with the format column (i.e. header column names) and it's data column and split the data into
-  it's own column. The format column should be first, followed by the data column.
+  Take a Dataframe with the format column (i.e. header column names) and its data column and split the data into
+  its own column. The format column should be first, followed by the data column.
   :param df pl.DataFrame: A dataframe with 2 columns only.
   :return pl.DataFrame: A dataframe with those 2 columns split.
   """
@@ -146,7 +146,7 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
       separator="\t",
       schema_overrides={"#CHROM": AVAILABLE_CHROMOSOMES},
   )
-  # Data Col of Fromat Header Starts off as the same name so it's not constant.
+  # Data Col of Fromat Header Starts off as the same name so its not constant.
   data_col_of_format_header = get_format_data_column_name(df)
   format_data = split_format_column(df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
   df = df.with_columns(pl.col(INFO_COL).str.split(";").list.to_struct(upper_bound=20).struct.unnest())
