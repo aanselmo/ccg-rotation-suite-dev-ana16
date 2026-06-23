@@ -1,7 +1,7 @@
 #!/usr/local/miniforge3/bin/python
 
 """
-Collect the basic metrics for the table in the aggregate report.
+Collect the data for the "aggregate_summary" table in the aggregate report.
 """
 
 __docformat__ = "reStructuredText"
@@ -14,17 +14,17 @@ import polars as pl
 import narwhals.stable.v2 as nw
 
 
-PCT_TARGET_NOT_COV_COL = "% Target Bases not Covered"
+PCT_TARGET_NOT_COV_COL = "% target not covered"
 
 def debug_df(name, df, n=10):
     print(f"\n===== {name} (top {n}) =====")
     print(df.head(n))
     print("Shape:", df.shape)
 
-def get_pct_targets(cumcov_dist_file: str, include_not_covered: bool = False):
+def get_pct_targets(cumcov_dist_file: str, include_not_covered: bool = True):
     """
-    Return % Targets at 20x, 30x, 100x
-    Optionally include % Target Bases not covered
+    Return % targets at 20x, 30x, 50x, 100x
+    Optionally include % Target bases not covered
     """
 
     all_coverages = nw.from_native(pl.read_csv(
@@ -48,7 +48,7 @@ def get_pct_targets(cumcov_dist_file: str, include_not_covered: bool = False):
             how="horizontal"
         )
 
-    for column in ["20", "30", "100"]:
+    for column in ["20", "30", "50", "100"]:
         if column in all_coverages.columns:
             cumcov_df = nw.concat([cumcov_df, all_coverages.select(column)], how="horizontal")
         elif column == "20":
@@ -64,21 +64,6 @@ def get_pct_targets(cumcov_dist_file: str, include_not_covered: bool = False):
         nw.col("Sample").str.replace(".recal", "")
     )
 
-    # --- OPTIONAL: Not covered column ---
-    if include_not_covered:
-        not_covered_col = (
-            nw.lit(100)
-            - nw.col("0").str.split(", ").list.get(1)
-              .str.strip_chars(")")
-              .cast(nw.Float64)
-              .cast(nw.Int16)
-        ).alias(PCT_TARGET_NOT_COV_COL)
-
-        summarized_pct_targets = nw.concat(
-            [summarized_pct_targets, cumcov_df.select(not_covered_col)],
-            how="horizontal"
-        )
-
     # --- Coverage columns ---
     non_zero_coverage_cols = list(set(cumcov_df.columns) - set(["Sample", "0"]))
     non_zero_coverage_cols = sorted([int(c) for c in non_zero_coverage_cols])
@@ -90,8 +75,9 @@ def get_pct_targets(cumcov_dist_file: str, include_not_covered: bool = False):
               .str.strip_chars(")")
               .cast(nw.Float64)
               .fill_null(0.0)
-              .cast(nw.Int16)
-              .alias(f"% Target Bases at {cov_column}x"),
+              # .cast(nw.Int16)
+              .round(2)
+              .alias(f"% target bases at {cov_column}x"),
         )
 
         summarized_pct_targets = nw.concat(
@@ -99,7 +85,29 @@ def get_pct_targets(cumcov_dist_file: str, include_not_covered: bool = False):
             how="horizontal"
         )
 
-    debug_df("Summarized_pct_targets", summarized_pct_targets, n=10)
+    # --- OPTIONAL: Not covered column ---
+    if include_not_covered:
+        not_covered_col = (
+            nw.lit(100)
+            - nw.col("0").str.split(", ").list.get(1)
+              .str.strip_chars(")")
+              .cast(nw.Float64)
+              # .cast(nw.Int16)
+              .round(2)
+        ).alias(PCT_TARGET_NOT_COV_COL)
+
+        summarized_pct_targets = nw.concat(
+            [summarized_pct_targets, cumcov_df.select(not_covered_col)],
+            how="horizontal"
+        )
+
+    # --- Rename columns to match old riker reports ---
+    summarized_pct_targets = summarized_pct_targets.rename({
+       "Sample" : "Sample ID"
+    })
+
+    
+    debug_df("Summarized_pct_targets", summarized_pct_targets.to_native(), n=10)
 
     return summarized_pct_targets
 
@@ -113,11 +121,12 @@ def get_mtc_and_pct_selected(mos_files) -> nw.DataFrame:
     pct_selected_bases = total_bases_on_target / total_bases
     sample = basename(one_file).replace(".recal.mosdepth.summary.txt", "")
     one_row = {
-      "Sample": sample,
-      "% Selected": pct_selected_bases * 100.0,
-      "Mean Target Coverage": mtc,
+      "Sample ID": sample,
+      "% Selected bases": pct_selected_bases * 100.0,
+      "Mean target Coverage": mtc,
     }
-    all_mtc_and_pct_selected = nw.concat([all_mtc_and_pct_selected, nw.from_dict(one_row, backend="polars")], how="vertical")
+    all_mtc_and_pct_selected = nw.concat([all_mtc_and_pct_selected, nw.from_dict(one_row, backend="polars")], 
+                                         how="vertical")
   debug_df("All_MTC_and_Pct", all_mtc_and_pct_selected, n=10)
   return all_mtc_and_pct_selected
 
@@ -133,7 +142,7 @@ def get_total_reads(sam_files: list[str]) -> nw.DataFrame:
           total_reads = line.split("\t")[2]  # 3rd column
           break
     one_row = {
-      "Sample": sample_name,
+      "Sample ID": sample_name,
       "Total Reads": total_reads,
     }
     all_total_reads = nw.concat([all_total_reads, nw.from_dict(one_row, backend="polars")], how="vertical")
@@ -155,7 +164,7 @@ def get_pct_duplication(duplicate_marking_files: list[str]) -> nw.DataFrame:
     one_file_metrics = nw.from_native(pl.read_csv(file_path, skip_lines=start_row, n_rows=1, separator="\t"))
     pct_dup = one_file_metrics.get_column("PERCENT_DUPLICATION")[0]
     one_row = {
-      "Sample": sample_name,
+      "Sample ID": sample_name,
       "% Duplication": pct_dup * 100.0,
     }
     all_pct_duplication = nw.concat([all_pct_duplication, nw.from_dict(one_row, backend="polars")], how="vertical")
@@ -169,15 +178,14 @@ def create_summary_table(
   total_reads = get_total_reads(sam_files)
   mtc_and_pct_selected = get_mtc_and_pct_selected(mos_files)
   pct_duplication = get_pct_duplication(duplicate_marking_files)
-  summary_table = total_reads.join(mtc_and_pct_selected, on="Sample", how="full", suffix="_mos")
-  summary_table = summary_table.join(pct_duplication, on="Sample", how="full", suffix="_dup")
-  summary_table = summary_table.join(summarized_pct_targets, on="Sample", how="full", suffix="_target")
+  summary_table = total_reads.join(mtc_and_pct_selected, on="Sample ID", how="full", suffix="_mos")
+  summary_table = summary_table.join(pct_duplication, on="Sample ID", how="full", suffix="_dup")
+  summary_table = summary_table.join(summarized_pct_targets, on="Sample ID", how="full", suffix="_target")
   summary_table = summary_table.with_columns(
-    nw.coalesce("Sample", "Sample_mos", "Sample_target", "Sample_dup", nw.lit("")).alias("Sample")
+    nw.coalesce("Sample ID", "Sample ID_mos", "Sample ID_target", "Sample ID_dup", nw.lit("")).alias("Sample ID")
   )
-  summary_table = summary_table.drop(["Sample_mos", "Sample_target", "Sample_dup"])
+  summary_table = summary_table.drop(["Sample ID_mos", "Sample ID_target", "Sample ID_dup"])
   return summary_table.to_pandas()
-
 
 
 
