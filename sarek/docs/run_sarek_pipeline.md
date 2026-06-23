@@ -133,7 +133,7 @@ Use the `-resume` flag to resume. Example Resume command:
 ```
 
 ⚠️ **NOTE:** Nextflow does take about 1 hour to resume towards the end of the pipeline. Unlike cromwell's resume
-feature, which just saves the last failure in the database, nextflow has to retrace it's steps through the run's
+feature, which just saves the last failure in the database, nextflow has to retrace its steps through the run's
 execution graph. On a positive note, Cromwell's resume only works on clusters (not the cloud) so nextflow has the
 upper hand there.
 

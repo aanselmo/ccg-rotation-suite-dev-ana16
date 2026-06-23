@@ -1,5 +1,5 @@
 # Sarek Directions
-These are directions for running the Sarek pipeline and it's reporting scripts.
+These are directions for running the Sarek pipeline and its reporting scripts.
 
 ## Basic Workflow
 Steps of running sarek are:
