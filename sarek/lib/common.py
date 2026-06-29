@@ -36,7 +36,7 @@ CONSOLE_FONT_RESET = "\x1b[0m"
 
 def append_project_arg(parser: ArgumentParser):
   project_arg = parser.add_argument("-p", "--project", dest="project_code", type=str, default="",
-                    help="The project code for the report. Used to generate filename with the project_code in it.")
+                                    help="The project code for the report. Used to generate filename with the project_code in it.")
   return project_arg
 
 
@@ -65,10 +65,9 @@ def append_processes_arg(parser: ArgumentParser):
   parser.add_argument("-n", "--number-processes", dest="number_processes",
                       default=this_pc_cpus, type=int,
                       help=(f"Number of processes available on the multiprocessing sections."
-                          + " Default is number of processes minus 1 (for this process)."
-                          + " I haven't added threads because"
-                          + " the documentation for google.cloud.storage says it's unlikely to change anything."))
-
+                            + " Default is number of processes minus 1 (for this process)."
+                            + " I haven't added threads because"
+                            + " the documentation for google.cloud.storage says it's unlikely to change anything."))
 
 
 def get_output_file_name(args, file_ending: str, default_file_name: str) -> tuple[str, str]:
@@ -82,3 +81,9 @@ def get_output_file_name(args, file_ending: str, default_file_name: str) -> tupl
     makedirs(project_report_dir, exist_ok=True)
     output_file_name = join(project_report_dir, f"{today}_{project_code.lower()}_{file_ending}")
   return (project_code, output_file_name)
+
+
+def debug_df(name, df, n=10):
+  print(f"\n===== {name} (top {n}) =====")
+  print(df.head(n))
+  print("Shape:", df.shape)

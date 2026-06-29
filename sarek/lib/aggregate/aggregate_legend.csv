@@ -1,10 +1,50 @@
-Metric,Definition
-"Picard Metrics","Definitions can be found at https://broadinstitute.github.io/picard/picard-metric-definitions.html"
-"% Selected","The fraction of the bases that are aligned to the baited region (bases on target .bed) / (total bases sequenced)"
-"Mean Target Coverage","The average number of sequences bases per base of target region in the .bed."
-"% Duplication","The fraction of the mapped sequence that is a duplicated because of PCR amplification."
-"% Target Bases at 20x","The fraction of all target bases achieving 20X or greater coverage."
-"Somalier Metrics","Definitions can be found at https://github.com/brentp/somalier"
-"relatedness","Coefficient of relationship is 1.00 when samples are identical: https://en.wikipedia.org/wiki/Coefficient_of_relationship."
-"IBS0","Number of sites not matching (one sample is hom-ref and the other is hom-alt)."
-"IBS2","Number of sites matching (two samples have same genotype)."
+Tab,Metric,Source,Definition
+GENERAL REFERENCE,Picard Metrics,Picard,Definitions can be found at https://broadinstitute.github.io/picard/picard-metric-definitions.html
+GENERAL REFERENCE,Somalier Metrics,Somalier,Definitions can be found at https://github.com/brentp/somalier
+GENERAL REFERENCE,Sarek Metrics,Sarek,Definitions can be found at https://nf-co.re/sarek/3.8.1/docs/output/
+metrics,Sample ID,User input,"Sample identifier. Aliases in some other files include ""sample"" and ""sample_collaborator_name"""
+metrics,Library,miniLIMS,"Library identifier, e.g. L_123456"
+metrics,Barcode Set,miniLIMS,"Barcode plate, e.g. IDT_UDI_UMI_192_P2"
+metrics,Index,miniLIMS,"Specific barcode ID, e.g. IDT_UDI_UMI_192_P2_A02"
+metrics,First barcode,miniLIMS,8nt sequence of first barcode
+metrics,Second barcode,miniLIMS,8nt sequence of second barcode
+metrics,Subject ID,miniLIMS,Subject identifier
+metrics,Capture name,miniLIMS,Capture identifier
+metrics,TOTAL_READS,Picard,The total number of reads including all PF and non-PF reads. When CATEGORY equals PAIR this value will be 2x the number of clusters.
+metrics,PF_READS,Picard,The number of PF reads where PF is defined as passing Illumina's filter.
+metrics,PCT_PF_READS,Picard,The fraction of reads that are PF (PF_READS / TOTAL_READS)
+metrics,PCT_SELECTED_BASES,Picard,The fraction of PF_BASES_ALIGNED located on or near a baited region (ON_BAIT_BASES + NEAR_BAIT_BASES)/PF_BASES_ALIGNED.
+metrics,Mean_full_targets_Coverage,Picard,Alias MEAN_TARGET_COVERAGE; The mean coverage of a target region.
+metrics,FOLD_ENRICHMENT,Picard,The fold by which the baited region has been amplified above genomic background.
+metrics,ESTIMATED_LIBRARY_SIZE,Picard,The estimated number of unique molecules in the library based on PE duplication.
+metrics,Pct_full_targets_Bases_20x,Picard,"Alias ""PCT_TARGET_BASES_20X""; The fraction of all target bases achieving 20X or greater coverage."
+metrics,Pct_full_targets_Bases_30x,Picard,"Alias ""PCT_TARGET_BASES_30X""; The fraction of all target bases achieving 30X or greater coverage."
+metrics,Pct_full_targets_Bases_50x,Picard,"Alias ""PCT_TARGET_BASES_50X""; The fraction of all target bases achieving 50X or greater coverage."
+metrics,Pct_full_targets_Bases_100x,Picard,"Alias ""PCT_TARGET_BASES_100X""; The fraction of all target bases achieving 100X or greater coverage."
+metrics,PCT_PF_UQ_READS_ALIGNED,Picard,"Fraction of PF_READS that are unique and align to the reference genome, PF_UQ_READS_ALIGNED/PF_READS"
+metrics,Pct_full_targets_Not_Covered,Picard,"Alias ""ZERO_CVG_TARGETS_PCT""; The fraction of targets that did not reach coverage=1 over any base."
+metrics,PCT_USABLE_BASES_ON_BAIT,Picard,"The number of aligned, de-duped, on-bait bases out of the PF bases available."
+metrics,% Bases Duplicated,Picard,The fraction of aligned bases that were filtered out because they were in reads marked as duplicates.
+metrics,% Reads Duplicated,Sarek,The fraction of reads that were marked as duplicates. Additional details at https://nf-co.re/sarek/3.8.1/docs/output/#mark-duplicates
+aggregate_summary,Sample ID,User input,"Same as ""Sample ID"" in metrics tab"
+aggregate_summary,Library,miniLIMS,"Same as ""Library"" in metrics tab"
+aggregate_summary,Index,miniLIMS,"Same as ""Index"" in metrics tab"
+aggregate_summary,Capture name,miniLIMS,"Same as ""Capture name"" in metrics tab"
+aggregate_summary,Total Reads,Picard,"Same as ""TOTAL_READS"" in metrics tab"
+aggregate_summary,% Selected bases,Picard,"Same as ""PCT_SELECTED_BASES"" in metrics tab"
+aggregate_summary,Mean target Coverage,Picard,"Same as ""Mean_full_targets_Coverage"" in metrics tab"
+aggregate_summary,% Bases Duplicated,Picard,"Same as ""% Bases Duplicated"" from metrics tab"
+aggregate_summary,% Duplication,Sarek,"Same as ""% Reads Duplicated"" from metrics tab"
+aggregate_summary,% target bases at 20x,Picard,"Same as ""Pct_full_targets_Bases_20x"" from metrics tab"
+aggregate_summary,% target bases at 30x,Picard,"Same as ""Pct_full_targets_Bases_30x"" from metrics tab"
+aggregate_summary,% target bases at 50x,Picard,"Same as ""Pct_full_targets_Bases_50x"" from metrics tab"
+aggregate_summary,% target bases at 100x,Picard,"Same as ""Pct_full_targets_Bases_100x"" from metrics tab"
+aggregate_summary,% target not covered,Picard,"Same as ""Pct_full_targets_Not_Covered"" from metrics tab"
+fingerprint_issues,Sample1,User input,"same as ""Sample ID"" in metrics tab"
+fingerprint_issues,Sample2,User input,"Same as ""Sample ID"" in metrics tab"
+fingerprint_issues,Type,Somalier,Type of unexpected fingerprinting result.
+fingerprint_issues,Relatedness,Somalier,Coefficient of relationship is 1.00 when samples are identical: https://en.wikipedia.org/wiki/Coefficient_of_relationship.
+fingerprint_issues,ibs0,Somalier,Number of sites not matching (one sample is hom-ref and the other is hom-alt).
+fingerprint_issues,ibs2,Somalier,Number of sites matching (two samples have same genotype).
+fingerprint_issues,Expected Relatedness,Somalier,"1 for samples expected to match, -1 for samples expected to not match"
+FP_relatedness_matrix,Somalier Relatedness,Somalier,"Same as ""Relatedness"" from fingerprint_issues tab"

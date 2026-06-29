@@ -14,13 +14,15 @@ However, that is a lot of work that remains to be done.
 are needed.
 
 ## 2. Aggregation Metrics report
-Remember to run [somalier](./run_sarek_pipeline.md#run-somalierfingerprinting) before this.
-1. Run the following commands.
+Remember to run [somalier](./run_sarek_pipeline.md#run-somalierfingerprinting) before this. We moved aggregate report
+generation off of Google cloud and onto the `ccg3` server so that we can incorporate data from miniLIMS.  
+1. Run the following commands on `ccg3`.
 ```bash
-gcloud compute ssh --zone "us-central1-a" "nextflow4" --project "ccgd-174313"
+BASE_DIR="/data/sarek/aggregate/"
 PROJECT_CODE=[YOUR PROJECT CODE]
-cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}
-/opt/ccg-rotation-suite/sarek/aggregate_report.py -p ${PROJECT_CODE} --bucket .
+mkdir ${BASE_DIR}/${PROJECT_CODE}
+cd ${BASE_DIR}/${PROJECT_CODE}
+/data/ccg-rotation-suite/sarek/aggregate_report.py -p ${PROJECT_CODE} --bucket .
 ```
 
 ## 3. Copy Number Variation (CNV) report
@@ -48,6 +50,7 @@ cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}
 2. Download the files to your desktop to view:
 ```bash
 gcloud storage cp -r "gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/reports/ccg_*_reports" .
+
 ```
 3. Copy the files to the writable:
 ```bash

@@ -8,50 +8,41 @@ __docformat__ = "reStructuredText"
 __credits__ = ["Brandon Sie"]
 
 
-from os.path import basename
-import pandas as pd
 import polars as pl
 import narwhals.stable.v2 as nw
+from ..common import debug_df
 
 
-def debug_df(name, df, n=10):
-    print(f"\n===== {name} (top {n}) =====")
-    print(df.head(n))
-    print("Shape:", df.shape)
+def create_concordance_matrix(fingerprint_table):
+  """
+  Transform the somalier paired data output into a wide matrix.  
+  """
 
+  # to make a complete matrix, combine (1) original paired data (2) inverted data (swap sample_a and sample_b
+  # and (3) self-self pairs with relatedness value set to 1.0.
 
-def create_concordance_matrix(somalier_pairs: str):
-    """
-    Transform the somalier paired data output into a wide matrix.  
-    """
+  pl_fingerprint_original = (
+      fingerprint_table.to_native()
+      .select("Sample1", "Sample2", "Relatedness")
+      .with_columns(pl.col("Relatedness").cast(pl.Float64, strict=False).fill_nan(None))
+  )
+  pl_fingerprint_inverted = (pl_fingerprint_original.rename({"Sample1": "Sample2", "Sample2": "Sample1"})
+                             .select("Sample1", "Sample2", "Relatedness"))
+  fingerprint_samples_unique = (list(set(fingerprint_table["Sample1"].to_list())
+                                     .union(set(fingerprint_table["Sample2"].to_list()))))
+  pl_fingerprint_self = pl.DataFrame({
+      "Sample1": fingerprint_samples_unique,
+      "Sample2": fingerprint_samples_unique,
+      "Relatedness": 1.0
+  })
 
-    fingerprint_table = nw.from_native(pl.read_csv(
-        somalier_pairs,
-        separator="\t",
-    ))
+  pl_fingerprint_tall = pl.concat([pl_fingerprint_original, pl_fingerprint_inverted, pl_fingerprint_self],
+                                  how="vertical").sort(by=["Sample1", "Sample2"])
 
-    # to make a complete matrix, combine (1) original paired data (2) inverted data (swap sample_a and sample_b
-    # and (3) self-self pairs with relatedness value set to 1.0.
+  pl_fingerprint_matrix = (pl_fingerprint_tall.pivot(index="Sample1", on="Sample2", values="Relatedness")
+                           .rename({"Sample1": "Somalier Relatedness"}))
 
-    pl_fingerprint_original = (fingerprint_table.to_native()
-                               .select("#sample_a", "sample_b", "relatedness").rename({"#sample_a": "sample_a"}))
-    pl_fingerprint_inverted = (pl_fingerprint_original.rename({"sample_a": "sample_b", "sample_b": "sample_a"})
-        .select("sample_a", "sample_b", "relatedness"))
-    fingerprint_samples_unique = (list(set(fingerprint_table["#sample_a"].to_list())
-                                       .union(set(fingerprint_table["sample_b"].to_list()))))
-    pl_fingerprint_self = pl.DataFrame({
-        "sample_a": fingerprint_samples_unique,
-        "sample_b": fingerprint_samples_unique,
-        "relatedness": 1.0
-    })
+  concordance_matrix = nw.from_native(pl_fingerprint_matrix)
+  debug_df("concordance_matrix", concordance_matrix.to_native(), n=10)
 
-    pl_fingerprint_tall = pl.concat([pl_fingerprint_original, pl_fingerprint_inverted, pl_fingerprint_self], 
-                                    how = "vertical").sort(by=["sample_a", "sample_b"])
-
-    pl_fingerprint_matrix = (pl_fingerprint_tall.pivot(index = "sample_a", on = "sample_b", values = "relatedness")
-                             .rename({"sample_a": "Sarek Relatedness"}))
-
-    concordance_matrix = nw.from_native(pl_fingerprint_matrix)
-    debug_df("concordance_matrix", concordance_matrix.to_native(), n=10)
-
-    return concordance_matrix
+  return concordance_matrix

@@ -11,12 +11,18 @@ import json
 import requests
 
 
-DOMAIN = "https://ccgd-build.dfci.harvard.edu/minilims_nap24/"
+# DOMAIN = "https://ccgd-build.dfci.harvard.edu/minilims_nap24/"
+DOMAIN = "https://ccgd2.dfci.harvard.edu/minilims/"
+
 # getIndicesFromSamples.php is a GET request with sample query params in the url
 # Example: https://ccgd2.dfci.harvard.edu/minilims/api/getIndicesFromSamples.php?samples=["S_035150"]
 INDICES_API_URL = DOMAIN + "api/getIndicesFromSamples.php"
 # This API is used by the lab to generate a Project --> Sample (External ID, Sample Class)-->Library (Yield & Index)
 PROJECT_METADATA_URL = DOMAIN + "api/getProjectMetadata.php"
+# getCapturesFromLibraries takes a library ID (e.g. L_179592) and returns capture name and ID
+#   e.g 260421_SCB1108l_TWHC_Pool3_AB
+# Example: https://ccgd-build.dfci.harvard.edu/minilims_nap24/api/getCapturesFromLibraries.php?libraries=["L_179592"]
+LIBRARY_CAPTURES_URL = DOMAIN + "/api/getCapturesFromLibraries.php"
 
 
 def get_all_projects_metadata(all_projects: list[str]) -> list:
@@ -30,7 +36,7 @@ def get_all_projects_metadata(all_projects: list[str]) -> list:
   response = requests.get(PROJECT_METADATA_URL, params={"projects": projects_query_string})
   all_projects_metadata = response.json()["data"]
   return all_projects_metadata
-  
+
 
 def get_one_project_metadata(one_project: str) -> list:
   """
@@ -50,3 +56,14 @@ def get_indices_of_samples(all_samples: list[str]) -> list:
   response = requests.get(INDICES_API_URL, params={"samples": samples_query_string})
   all_indices_of_samples = response.json()["data"]
   return all_indices_of_samples
+
+
+def get_capture_names(library: list[str]) -> list:
+  """ 
+  :param library list[str]: A list of library IDs in miniLIMS (e.g. L_179592)
+  :return list: A list capture names (e.g HC_TW_250620_SCB1108j_CapPool1)
+  """
+  capture_query_string = json.dumps(library).replace(" ", "")
+  response = requests.get(LIBRARY_CAPTURES_URL, params={"libraries": capture_query_string})
+  all_capture_names = response.json()["data"]
+  return all_capture_names
