@@ -8,12 +8,12 @@ __docformat__ = "reStructuredText"
 __credits__ = ["Neil A. Patel"]
 
 
-from enum import StrEnum
-from pathlib import Path
 import pandas as pd
 import polars as pl
 import narwhals.stable.v2 as nw
 import report_creator as rc
+from enum import StrEnum
+from pathlib import Path
 
 RELATEDNESS_COL = "relatedness"
 EXPECTED_RELATEDNESS_COL = "expected_relatedness"
@@ -31,9 +31,10 @@ class MATCH_STATUS(StrEnum):
   MISMATCH = "Mismatch"
 
 
-def parse_somalier_pairs_tsv(tsv_somalier_pairs: str) -> nw.DataFrame:
-  somalier_data = pl.read_csv(tsv_somalier_pairs, separator="\t", schema_overrides={RELATEDNESS_COL: pl.Float64})
-  somalier_data = somalier_data.select(
+def parse_somalier_pairs_tsv(somalier_pairs) -> nw.DataFrame:
+  somalier_pairs = somalier_pairs.with_columns(pl.col(RELATEDNESS_COL).fill_nan(None))
+
+  somalier_data = somalier_pairs.select(
       pl.concat_list(SAMPLE_A_COL, SAMPLE_B_COL).alias(SAMPLE_PAIR_COL),
       pl.when((pl.col(RELATEDNESS_COL) > pl.lit(0.9)) & (pl.col(EXPECTED_RELATEDNESS_COL) == pl.lit(-1)))
         .then(pl.lit(MATCH_STATUS.INAPPROPRIATE_MATCH))
@@ -41,11 +42,12 @@ def parse_somalier_pairs_tsv(tsv_somalier_pairs: str) -> nw.DataFrame:
       pl.col(SAMPLE_A_COL, SAMPLE_B_COL, RELATEDNESS_COL, IBS0_COL, IBS2_COL, EXPECTED_RELATEDNESS_COL)
   )
   somalier_data = somalier_data.with_columns(
-    pl.when((pl.col(RELATEDNESS_COL) < pl.lit(0.9)) & (pl.col(EXPECTED_RELATEDNESS_COL) == pl.lit(1)))
+      pl.when((pl.col(RELATEDNESS_COL) < pl.lit(0.9)) & (pl.col(EXPECTED_RELATEDNESS_COL) == pl.lit(1)))
       .then(pl.lit(MATCH_STATUS.MISMATCH))
       .otherwise(pl.col(MATCH_STATUS_COL)).alias(MATCH_STATUS_COL)
   )
   return nw.from_native(somalier_data)
+
 
 def get_legend():
   script_dir = Path(__file__).resolve().parent
@@ -54,7 +56,8 @@ def get_legend():
 
 
 def get_fingerprinting_block(tsv_somalier_pairs: str):
-  somalier_data = parse_somalier_pairs_tsv(tsv_somalier_pairs)
+  somalier_pairs_raw = pl.read_csv(tsv_somalier_pairs, separator="\t", schema_overrides={RELATEDNESS_COL: pl.Float64})
+  somalier_data = parse_somalier_pairs_tsv(somalier_pairs_raw)
   pd_somalier_data = somalier_data.to_pandas()
   somalier_html_block = rc.Block(
       rc.Text(
@@ -124,7 +127,7 @@ def create_html_report(summary_table: pd.DataFrame, tsv_somalier_pairs: str, pro
             index=False,
         ),
         rc.Separator(),
-        somalier_html_block,  
+        somalier_html_block,
         rc.Separator(),
         rc.DataTable(
             legend,
