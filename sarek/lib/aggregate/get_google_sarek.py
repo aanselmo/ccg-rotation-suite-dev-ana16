@@ -14,6 +14,7 @@ import polars as pl
 from os.path import basename
 from ..setup.google import *
 from .create_html_report import parse_somalier_pairs_tsv
+from .somalier_processing import rename_somalier_samples
 from ..common import debug_df
 
 RELATEDNESS_COL = "relatedness"
@@ -37,7 +38,7 @@ def get_google_picard(storage_client, picard_uri: list[str]):
         "PF_READS",
         "PCT_PF_READS",
         "PCT_SELECTED_BASES",
-        pl.col("MEAN_TARGET_COVERAGE").alias("Mean_full_targets_Coverage"),
+        pl.col("MEAN_TARGET_COVERAGE"),
         "FOLD_ENRICHMENT",
         pl.col("PCT_EXC_DUPE").alias("PERCENT_DUPLICATION"),
         pl.col("HS_LIBRARY_SIZE").alias("ESTIMATED_LIBRARY_SIZE"),
@@ -60,7 +61,7 @@ def get_google_picard(storage_client, picard_uri: list[str]):
   return (picard_metrics)
 
 
-def get_google_somalier(storage_client, somalier_pairs_uri):
+def get_google_somalier_pairs(storage_client, somalier_pairs_uri, data_lims):
   """
   Download somalier pairs data from google cloud and organize for reporting
   """
@@ -75,6 +76,9 @@ def get_google_somalier(storage_client, somalier_pairs_uri):
       .select('#sample_a', 'sample_b', 'Match Status', 'relatedness', 'ibs0', 'ibs2', 'expected_relatedness')
       .rename({"#sample_a": "Sample1", "sample_b": "Sample2", "Match Status": "Type",
                "relatedness": "Relatedness", "expected_relatedness": "Expected Relatedness"}))
+
+  pl_somalier_pairs = rename_somalier_samples(nw.from_native(pl_somalier_pairs), data_lims).to_polars()
+
   somalier_pairs = nw.from_native(pl_somalier_pairs)
   debug_df("somalier_pairs", somalier_pairs.to_native(), n=10)
   pl_somalier_mismatch = pl_somalier_pairs.filter(pl.col("Type") != "OK")
@@ -83,11 +87,28 @@ def get_google_somalier(storage_client, somalier_pairs_uri):
   return (somalier_pairs, somalier_mismatch)
 
 
+def get_google_somalier_samples(storage_client, somalier_samples_uri, data_lims):
+  """
+  Download somalier samples data from google cloud and organize for reporting
+  """
+  
+  somalier_samples_blob = get_blob_from_gs_uri(storage_client, somalier_samples_uri)
+  somalier_samples_raw = pl.read_csv(somalier_samples_blob.download_as_string(), separator="\t")
+
+  pl_somalier_samples = (
+    somalier_samples_raw
+      .select('sample_id', 'gt_depth_mean', 'n_hom_ref', 'n_het', 'n_hom_alt', 'n_unknown')
+      .with_columns(n_sites = pl.col('n_hom_ref') + pl.col('n_het') + pl.col('n_hom_alt'))
+      .with_columns(n_possible_sites = pl.col('n_sites') + pl.col('n_unknown'))
+  )
+  pl_somalier_samples = rename_somalier_samples(nw.from_native(pl_somalier_samples), data_lims).to_polars()
+  return(nw.from_native(pl_somalier_samples))
+
+
 def get_google_duplicates(storage_client, duplicate_marking_uri: list[str]) -> nw.DataFrame:
   """
   Download markduplicates md.cram.metrics data from google cloud and organize for reporting
   """
-  storage_client = get_storage_client()
 
   all_pct_duplication = nw.from_native(pl.DataFrame({}))
 
@@ -105,3 +126,15 @@ def get_google_duplicates(storage_client, duplicate_marking_uri: list[str]) -> n
     all_pct_duplication = nw.concat([all_pct_duplication, nw.from_dict(one_row, backend="polars")], how="vertical")
   debug_df("all_pct_duplication", all_pct_duplication)
   return all_pct_duplication
+
+
+def get_google_lanes(storage_client, samplesheet_uri):
+  """
+  Download sample sheet and count number of lanes per sample
+  """
+  samplesheet_blob = get_blob_from_gs_uri(storage_client, samplesheet_uri)
+  pl_samplesheet = pl.read_csv(samplesheet_blob.download_as_string())
+  pl_lanes_per_sample = pl_samplesheet.group_by("sample").len().rename({"len": "aggregate_count"})
+  debug_df("lanes_per_sample", pl_lanes_per_sample)
+  lanes_per_sample = nw.from_native(pl_lanes_per_sample)
+  return(lanes_per_sample)

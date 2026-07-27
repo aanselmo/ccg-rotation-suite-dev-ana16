@@ -5,6 +5,8 @@ Write the aggregate report data to an excel file.
 __docformat__ = "reStructuredText"
 __author__ = "Brandon Sie, Neil A. Patel"
 
+import pandas as pd
+import numpy as np
 import polars as pl
 import narwhals as nw
 import xlsxwriter
@@ -18,6 +20,7 @@ def write_xlsx(
     aggregate: nw.DataFrame,
     concordance: nw.DataFrame,
     mismatch: nw.DataFrame,
+    num_somalier_sites
 ):
   """
   Export the aggregate report as a multi-tab xlsx.  
@@ -26,17 +29,18 @@ def write_xlsx(
   # Narwhals does not have a excel engine so this has to be done in polars
   pl_metrics = metrics.to_polars()
   pl_aggregate = aggregate.to_polars()
-  pl_concordance = concordance.to_polars()
+  pd_concordance = concordance.to_pandas() # need pandas for this data frame to fill null values with text
   pl_mismatch = mismatch.to_polars()
   pl_legend = get_legend().to_polars()
+
 
   metrics_pct_columns = [col for col in pl_metrics.columns if
                          ("pct" in col.lower()) or ("percent" in col.lower()) or ("%" in col.lower())]
   summary_pct_columns = [col for col in pl_aggregate.columns if
                          ("pct" in col.lower()) or ("percent" in col.lower()) or ("%" in col.lower())]
-
-  with xlsxwriter.Workbook(file_name) as workbook:
-
+  
+  with pd.ExcelWriter(file_name, engine="xlsxwriter") as writer:
+    workbook  = writer.book
     pl_metrics.write_excel(
         workbook=workbook,
         worksheet="metrics",
@@ -45,7 +49,6 @@ def write_xlsx(
         dtype_formats={pl.Int64: "0;[RED]-0"},
         column_formats={col: "0.00%" for col in metrics_pct_columns},
     )
-
     pl_aggregate.write_excel(
         workbook=workbook,
         worksheet="aggregate_summary",
@@ -57,24 +60,29 @@ def write_xlsx(
 
     fingerprint_issues_sheet = workbook.add_worksheet("fingerprint_issues")
     fingerprint_issues_sheet.write("A1", "Important sample match information:")
-    fingerprint_issues_sheet.write("A2", "Relatedness threshold is 0.9")
+    fingerprint_issues_sheet.write("A2", "Somalier relatedness threshold is 0.9")
+    fingerprint_issues_sheet.write("A3", "Informative site calls made with requirement of minimum 20x sequencing depth")
+    
     pl_mismatch.write_excel(
         workbook=workbook,
         worksheet=fingerprint_issues_sheet,
         column_widths=get_column_widths(pl_mismatch, font_multiplier=8.0, first_row_multiplier=10.0),
         header_format=HEADER_STYLE,
         dtype_formats={pl.Int64: "0;[RED]-0"},
-        position="A4",
+        position="A5",
     )
 
-    pl_concordance.write_excel(
-        workbook=workbook,
-        worksheet="FP_relatedness_matrix",
-        dtype_formats={
-            pl.Int64: "0;[RED]-0",
-            pl.Float64: "[Red][<0.9]0.000;0.000",
-        },
+    styler_concordance = (
+        pd_concordance.style
+        .format("{:.3f}")
+        .map(pd_color_rule)
+        .apply_index(align_left)
     )
+
+    relatedness_matrix_sheet = workbook.add_worksheet("FP_relatedness_matrix")
+    matrix_sheet_name = "FP_relatedness_matrix"
+    styler_concordance.to_excel(writer, sheet_name=matrix_sheet_name, startrow=2, startcol=0, index=False, na_rep="#NA")  # A3    
+    relatedness_matrix_sheet.write("A1", f"Up to {num_somalier_sites} sites used for Somalier fingerprinting")
 
     pl_legend.write_excel(
         workbook=workbook,
@@ -82,3 +90,22 @@ def write_xlsx(
         column_widths=get_column_widths(pl_legend, font_multiplier=8.0, first_row_multiplier=10.0),
         header_format=HEADER_STYLE,
     )
+  
+  print(f"Output written to: {file_name}")
+
+
+def pd_color_rule(v):
+    """
+    Color formatting helper for concordance matrix
+    """
+    if pd.isna(v):
+        return "color: black"
+    try:
+        v = float(v)
+    except Exception:
+        return "color: black"
+    return "color: red" if v < 0.9 else "color: black"
+
+
+def align_left(x):
+    return ['text-align: left' for x in x]

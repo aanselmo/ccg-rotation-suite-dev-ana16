@@ -65,13 +65,13 @@ Basically, comma seperated groups by line:
 normal1,tumor1a,tumor1b
 normal2,tumor2a
 ```
-3. Run Somalier relate:
+3. Run Somalier relate. The default coverage depth is 7. We are trying `-d 20` as our standard for high-coverage runs. It's possible that some project will benefit from adjusting this threshold.:
 ```bash
 docker run \
     -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE} \
     -w /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/reports/somalier \
     -it quay.io/biocontainers/somalier:0.2.19--h0c29559_0 bash
-somalier relate --groups ../../csv/somalier_groups.csv $(find . -name "*.somalier")
+somalier relate -d 20 --groups ../../csv/somalier_groups.csv $(find . -name "*.somalier")
 ```
 
 ## Run Picard HsMetrics
