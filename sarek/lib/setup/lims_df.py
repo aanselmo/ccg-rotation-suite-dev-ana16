@@ -9,7 +9,7 @@ __credits__ = ["Neil A. Patel"]
 
 import polars as pl
 import re
-from .lims import get_one_project_metadata, get_indices_of_samples, get_capture_names
+from .lims import get_one_project_metadata, get_indices_of_samples, get_capture_names, get_run_names, get_illumina_names
 from ..common import debug_df
 
 LIMS_SAMPLE_NAMES_COL = "lims_sample_names"
@@ -23,9 +23,11 @@ SECOND_BARCODE_REVCOMP_COL = "second_barcode_revcomp"
 CAPTURE_NAME_COL = "capture_name"
 LIMS_SUBJECT_COL = "subject_id"
 PATIENT_COL = "patient"
+ORIGINAL_PATIENT_COL = "patient_original"
 STATUS_COL = "status"
 REVCOMP_TABLE = str.maketrans("ACGT", "TGCA")
 
+FIRST_ELEMENT = 0
 
 def get_reverse_complement(barcode: str) -> str:
   """
@@ -42,9 +44,9 @@ def get_all_lims_data(project_code: str) -> pl.DataFrame:
   collaborator_sample_names = []
   lims_subject_ids = []
   collaborator_subject_ids = []
+  original_collaborator_subject_ids = []
   sample_classes = []
 
-  FIRST_ELEMENT = 0
   project_metadata = get_one_project_metadata(project_code)
   all_samples = project_metadata["samples"]
   for one_sample in all_samples:
@@ -56,6 +58,7 @@ def get_all_lims_data(project_code: str) -> pl.DataFrame:
       collaborator_sample_names.append(one_external_id)
     lims_subject_ids.append(one_sample["subjectId"])
     one_external_subject_id = one_sample["externalSubjectId"]
+    original_collaborator_subject_ids.append(f"{one_external_subject_id}")
     if type(one_external_subject_id) is not str:
       collaborator_subject_ids.append(f"P{one_external_subject_id}")
     else:
@@ -109,6 +112,7 @@ def get_all_lims_data(project_code: str) -> pl.DataFrame:
       CAPTURE_NAME_COL: capture_names,
       LIMS_SUBJECT_COL: lims_subject_ids,
       PATIENT_COL: collaborator_subject_ids,
+      ORIGINAL_PATIENT_COL: original_collaborator_subject_ids,
       STATUS_COL: sample_classes,
   }, schema={
       LIMS_SAMPLE_NAMES_COL: pl.String,
@@ -122,7 +126,20 @@ def get_all_lims_data(project_code: str) -> pl.DataFrame:
       CAPTURE_NAME_COL: pl.String,
       LIMS_SUBJECT_COL: pl.String,
       PATIENT_COL: pl.String,
+      ORIGINAL_PATIENT_COL: pl.String,
       STATUS_COL: pl.Int8,
   })
   debug_df("lims_indices", lims_indices)
   return lims_indices
+
+def get_illumina_run(project: str):
+  project_run_name = get_run_names([project])
+  if 'name' in project_run_name[FIRST_ELEMENT]:
+    run_name = project_run_name[FIRST_ELEMENT]['illuminaRuns'][FIRST_ELEMENT]
+    return get_illumina_names([run_name])
+  else:
+    print(project_run_name)
+    print(f"Project ${project} not found in miniLIMS")
+    return ""
+  
+
