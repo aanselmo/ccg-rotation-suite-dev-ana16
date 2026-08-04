@@ -77,7 +77,8 @@ def get_google_somalier_pairs(storage_client, somalier_pairs_uri, data_lims):
       .rename({"#sample_a": "Sample1", "sample_b": "Sample2", "Match Status": "Type",
                "relatedness": "Relatedness", "expected_relatedness": "Expected Relatedness"}))
 
-  pl_somalier_pairs = rename_somalier_samples(nw.from_native(pl_somalier_pairs), data_lims).to_polars()
+  if data_lims:
+    pl_somalier_pairs = rename_somalier_samples(nw.from_native(pl_somalier_pairs), data_lims).to_polars()
 
   somalier_pairs = nw.from_native(pl_somalier_pairs)
   debug_df("somalier_pairs", somalier_pairs.to_native(), n=10)
@@ -101,7 +102,8 @@ def get_google_somalier_samples(storage_client, somalier_samples_uri, data_lims)
       .with_columns(n_sites = pl.col('n_hom_ref') + pl.col('n_het') + pl.col('n_hom_alt'))
       .with_columns(n_possible_sites = pl.col('n_sites') + pl.col('n_unknown'))
   )
-  pl_somalier_samples = rename_somalier_samples(nw.from_native(pl_somalier_samples), data_lims).to_polars()
+  if data_lims:
+    pl_somalier_samples = rename_somalier_samples(nw.from_native(pl_somalier_samples), data_lims).to_polars()
   return(nw.from_native(pl_somalier_samples))
 
 
