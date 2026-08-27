@@ -47,29 +47,29 @@ def setup_arguments():
 
 
 def add_review_required(all_sample_variants: nw.DataFrame) -> nw.DataFrame:
-    sample_variants: pl.DataFrame = all_sample_variants.to_native()
+  sample_variants: pl.DataFrame = all_sample_variants.to_native()
 
-    # gnomADe_AF may be read as String due to "." being used for missing values in VCF
-    sample_variants = sample_variants.with_columns(
-        pl.col("gnomADe_AF")
-        .replace([".",""], None)
-        .cast(pl.Float64)
-        .alias("gnomADe_AF")
-    )
+  # gnomADe_AF may be read as String due to "." being used for missing values in VCF
+  sample_variants = sample_variants.with_columns(
+      pl.col("gnomADe_AF")
+      .replace([".", ""], None)
+      .cast(pl.Float64)
+      .alias("gnomADe_AF")
+  )
 
-    sample_variants = sample_variants.with_columns(
-        pl.when(
-            (pl.col("BIOTYPE") == "protein_coding") & (
-                (pl.col("gnomADe_AF") <= 0.01) |
-                ((pl.col("gnomADe_AF") <= 0.10) & (pl.col(EXISTING_VARIATION_COL).str.contains("COSV"))) |
-                (pl.col("gnomADe_AF").is_null())
-            )
-        )
-        .then(True)
-        .otherwise(False)
-        .alias("Review_Required")
-    )
-    return nw.from_native(sample_variants)
+  sample_variants = sample_variants.with_columns(
+      pl.when(
+          (pl.col("BIOTYPE") == "protein_coding") & (
+              (pl.col("gnomADe_AF") <= 0.01) |
+              ((pl.col("gnomADe_AF") <= 0.10) & (pl.col(EXISTING_VARIATION_COL).str.contains("COSV"))) |
+              (pl.col("gnomADe_AF").is_null())
+          )
+      )
+      .then(True)
+      .otherwise(False)
+      .alias("Review_Required")
+  )
+  return nw.from_native(sample_variants)
 
 
 def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame) -> nw.DataFrame:
@@ -79,7 +79,7 @@ def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame) -> nw.
                  .str.split("&")
                  .list.set_intersection(pl.lit(RECOMMENDED_CONSEQUENCE_FILTER))
                  .list.len() > 0
-               ) & (pl.col(MUTECT2_FILTER_COL) == "PASS") & (pl.col("Review_Required") == True) )
+               ) & (pl.col(MUTECT2_FILTER_COL) == "PASS") & (pl.col("Review_Required") == True))
       .then(True)
       .otherwise(False)
       .alias(RECOMMENDED_FILTER_COL)
