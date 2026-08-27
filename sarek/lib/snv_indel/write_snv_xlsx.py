@@ -22,8 +22,11 @@ def write_xlsx(
     all_variants: nw.DataFrame,
     variant_summary_table: nw.DataFrame,
     legend: nw.DataFrame,
-    lego_plot: io.BytesIO | None = None,
+    lego_plot: io.BytesIO,
 ):
+  """
+  :param lego_plot io.BytesIO: lego_plot.getbuffer().nbytes == 0 when there is no plot.
+  """
   # Narwhals does not have a excel engine so this has to be done in polars
   pl_variants = all_variants.to_native()
   pl_summary = variant_summary_table.to_native()
@@ -55,11 +58,10 @@ def write_xlsx(
         dtype_formats={pl.Int64: "0;[RED]-0"},
     )
     lego_plot_sheet = workbook.add_worksheet("Mutation Lego Plot")
-    #lego_plot_sheet.insert_image("B2", "lego_plot_graph.png", {"image_data": lego_plot})
-    if lego_plot is not None:
-        lego_plot_sheet.insert_image("B2", "lego_plot_graph.png", {"image_data": lego_plot})
+    if lego_plot.getbuffer().nbytes > 0:
+      lego_plot_sheet.insert_image("B2", "lego_plot_graph.png", {"image_data": lego_plot})
     else:
-        lego_plot_sheet.write("B2", "No lego plot provided.")
+      lego_plot_sheet.write("B2", "No lego plot provided.")
 
     pl_legend.write_excel(
         workbook=workbook,

@@ -102,10 +102,8 @@ def main():
   all_variants = get_variants(annotated_vcf_files, number_processes)
   variant_summary_table = get_variant_summary(all_variants)
   legend = get_legend(args.reference_genome)
-  #lego_plot = graph_task.result()
-  #write_xlsx(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
-  #write_xlsx(output_file_name, all_variants, variant_summary_table, legend)
-  write_snv_csv_report(output_file_name, all_variants, variant_summary_table, legend)
+  lego_plot = graph_task.result()
+  write_snv_csv_report(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
 
 
 if __name__ == "__main__":
