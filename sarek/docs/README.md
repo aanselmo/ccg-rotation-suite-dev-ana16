@@ -9,6 +9,15 @@ Steps of running sarek are:
 4. [Run Picard hsmetrics](./run_sarek_pipeline.md#run-picard-hsmetrics)
 5. [Run reporting scripts](./run_reporting.md)
 
+## Install CCG Rotation Suite
+```bash
+pip install -r requirements.txt
+python << EOF
+from SigProfilerMatrixGenerator import install as genInstall
+genInstall.install('GRCh37', rsync=True, bash=True)
+EOF
+```
+
 ## Edge Cases
 ### Demultiplex
 Please see [Demultiplexing Docs](./demultiplex.md). MBCF usually does the demultiplexing for us so you don't have to.
