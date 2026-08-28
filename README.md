@@ -18,11 +18,10 @@ sudo -H /usr/local/miniconda3/bin/pip install -r requirements.txt
 ```
 4. Install GRCh37 for SigProfilerMatrixGenerator:
 ```python
-sudo -H /usr/local/miniforge3/bin/python
-Python 3.12.12 | packaged by conda-forge | (main, Oct 22 2025, 23:25:55) [GCC 14.3.0] on linux
-Type "help", "copyright", "credits" or "license" for more information.
->>> from SigProfilerMatrixGenerator import install as genInstall
->>> genInstall.install('GRCh37', rsync=False, bash=True)
+sudo -H /usr/local/miniforge3/bin/python << EOF
+from SigProfilerMatrixGenerator import install as genInstall
+genInstall.install('GRCh37', rsync=True, bash=True)
+EOF
 ```
 4. Install [docker](https://docs.docker.com/engine/install/debian/):
     * Install docker apt repo:
