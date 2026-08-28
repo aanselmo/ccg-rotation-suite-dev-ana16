@@ -23,21 +23,29 @@ from lib.common import AVAILABLE_CHROMOSOMES
 INFO_COL = "INFO"
 CSQ_COL = "CSQ"
 FORMAT_COL = "FORMAT"
-VARIANT_CLASS_COL = "VARIANT_CLASS"
-CONSEQUENCE_COL = "Consequence"
-AMINO_ACIDS_COL = "Amino_acids"
+BEST_EFFECT_PREFIX = "BestEffect_"
+CANONICAL_PREFIX = "Canonical_"
+CSQ_VARIANT_CLASS_COL = "VARIANT_CLASS"
+BEST_EFFECT_VARIANT_CLASS_COL = BEST_EFFECT_PREFIX + CSQ_VARIANT_CLASS_COL
+CSQ_CONSEQUENCE_COL = "Consequence"
 EXISTING_VARIATION_COL = "Existing_variation"
-MAX_AF_POPS_COL = "MAX_AF_POPS"
+CSQ_BIOTYPE_COL = "BIOTYPE"
+BEST_EFFECT_BIOTYPE_COL = BEST_EFFECT_PREFIX + CSQ_BIOTYPE_COL
+BEST_EFFECT_CONSEQUENCE_COL = BEST_EFFECT_PREFIX + CSQ_CONSEQUENCE_COL
+CSQ_AMINO_ACIDS = "Amino_acids"
+BEST_EFFECT_AMINO_ACIDS_COL = BEST_EFFECT_PREFIX + CSQ_AMINO_ACIDS
 BEST_EFFECT_COLS_TO_USE = [
-    CONSEQUENCE_COL, VARIANT_CLASS_COL, "SYMBOL", "SYMBOL_SOURCE", "HGNC_ID", "Gene",
-    "Feature_type", "Feature", "BIOTYPE", "EXON", "INTRON", "cDNA_position", "CDS_position",
-    "Protein_position", AMINO_ACIDS_COL
+    CSQ_CONSEQUENCE_COL, CSQ_VARIANT_CLASS_COL, "SYMBOL", "SYMBOL_SOURCE", "HGNC_ID", "Gene",
+    "Feature_type", "Feature", CSQ_BIOTYPE_COL, "EXON", "INTRON", "cDNA_position", "CDS_position",
+    "Protein_position", CSQ_AMINO_ACIDS
 ]
 CANONICAL_COLS_TO_USE = BEST_EFFECT_COLS_TO_USE
 GNOMAD_1000_GENOMES_AF_COL = "gnomAD_AF"
+MAX_AF_POPS_COL = "MAX_AF_POPS"
 GNOMAD_COLS = [GNOMAD_1000_GENOMES_AF_COL, "gnomADe_AF", "gnomADg_AF", "MAX_AF", MAX_AF_POPS_COL]
+COSMIC_v104_COL = "COSMIC_v104"
 COSMIC_COLS = [
-    "COSMIC_v104", "COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT", "COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT",
+    COSMIC_v104_COL, "COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT", "COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT",
     "COSMIC_v80", "COSMIC_v80_CNT"
 ]
 CSQ_COLS_TO_USE = [EXISTING_VARIATION_COL] + COSMIC_COLS + GNOMAD_COLS
@@ -98,8 +106,8 @@ def split_csq_column(csq_header: list[str], csq_column: pl.DataFrame):
       .list.filter(~pl.element().str.contains("COSV"))
       .list.join("&").alias(EXISTING_VARIATION_COL)
   )
-  best_effect = best_effect.select(pl.col(BEST_EFFECT_COLS_TO_USE).name.prefix("BestEffect_"))
-  canonical = canonical.select(pl.col(CANONICAL_COLS_TO_USE).name.prefix("Canonical_"))
+  best_effect = best_effect.select(pl.col(BEST_EFFECT_COLS_TO_USE).name.prefix(BEST_EFFECT_PREFIX))
+  canonical = canonical.select(pl.col(CANONICAL_COLS_TO_USE).name.prefix(CANONICAL_PREFIX))
   csq = pl.concat([canonical, best_effect, csq], how="horizontal")
   return csq
 
