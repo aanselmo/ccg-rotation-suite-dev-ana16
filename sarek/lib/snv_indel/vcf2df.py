@@ -23,6 +23,24 @@ from lib.common import AVAILABLE_CHROMOSOMES
 INFO_COL = "INFO"
 CSQ_COL = "CSQ"
 FORMAT_COL = "FORMAT"
+VARIANT_CLASS_COL = "VARIANT_CLASS"
+CONSEQUENCE_COL = "Consequence"
+AMINO_ACIDS_COL = "Amino_acids"
+EXISTING_VARIATION_COL = "Existing_variation"
+MAX_AF_POPS_COL = "MAX_AF_POPS"
+BEST_EFFECT_COLS_TO_USE = [
+    CONSEQUENCE_COL, VARIANT_CLASS_COL, "SYMBOL", "SYMBOL_SOURCE", "HGNC_ID", "Gene",
+    "Feature_type", "Feature", "BIOTYPE", "EXON", "INTRON", "cDNA_position", "CDS_position",
+    "Protein_position", AMINO_ACIDS_COL
+]
+CANONICAL_COLS_TO_USE = BEST_EFFECT_COLS_TO_USE
+GNOMAD_1000_GENOMES_AF_COL = "gnomAD_AF"
+GNOMAD_COLS = [GNOMAD_1000_GENOMES_AF_COL, "gnomADe_AF", "gnomADg_AF", "MAX_AF", MAX_AF_POPS_COL]
+COSMIC_COLS = [
+    "COSMIC_v104", "COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT", "COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT",
+    "COSMIC_v80", "COSMIC_v80_CNT"
+]
+CSQ_COLS_TO_USE = [EXISTING_VARIATION_COL] + COSMIC_COLS + GNOMAD_COLS
 
 
 def setup_arguments():
@@ -58,8 +76,36 @@ def get_csq_header(vcf_path: str) -> list[str]:
         header[-1] = header[-1].rstrip('">')
   if header:
     af_index = header.index("AF")
-    header[af_index] = "gnomAD_AF"
+    header[af_index] = GNOMAD_1000_GENOMES_AF_COL
   return header
+
+
+def get_csq_columns(csq_header: list[str], df: pl.DataFrame):
+  csq = df.select(pl.col(CSQ_COL).str.split(",").list.eval(
+      pl.element().str.split("|").list.to_struct(fields=csq_header)
+  ))
+  # best_effect = csq.select(pl.col(CSQ_COL).list.get(0).struct.unnest())
+  best_effect = csq.select(
+      pl.col(CSQ_COL).list.filter(pl.element().struct.field("PICK") == "1")
+      .list.first()
+      .struct.unnest()
+  )
+  canonical = csq.select(
+      pl.col(CSQ_COL).list.filter(pl.element().struct.field("CANONICAL") == "YES")
+      .list.first()
+      .struct.unnest()
+  )
+  breakpoint()
+  csq = best_effect.select(CSQ_COLS_TO_USE)
+  csq = csq.with_columns(
+      pl.col(EXISTING_VARIATION_COL).str.split("&")
+      .list.filter(~pl.element().str.contains("COSV"))
+      .list.join("&").alias(EXISTING_VARIATION_COL)
+  )
+  best_effect = best_effect.select(pl.col(BEST_EFFECT_COLS_TO_USE).name.prefix("BestEffect_"))
+  canonical = canonical.select(pl.col(CANONICAL_COLS_TO_USE).name.prefix("Canonical_"))
+  csq = pl.concat([canonical, best_effect, csq], how="horizontal")
+  return csq
 
 
 def get_format_data_column_name(df: pl.DataFrame):
@@ -155,10 +201,9 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
   df = df.drop(INFO_COL)
   df = parse_info_section_headers(df)
   if csq_header:
-    df = df.with_columns(pl.col(CSQ_COL).str.split("|").list.to_struct(fields=csq_header).struct.unnest())
-    df = df.drop(CSQ_COL)
+    csq_df = get_csq_columns(csq_header, df)
   df = df.drop([FORMAT_COL, data_col_of_format_header])
-  df = pl.concat([df, format_data], how="horizontal")
+  df = pl.concat([df, format_data, csq_df], how="horizontal")
   return nw.from_native(df)
 
 

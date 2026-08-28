@@ -11,7 +11,10 @@ import argparse
 from os.path import basename
 import polars as pl
 import narwhals.stable.v2 as nw
-from .vcf2df import convert_vcf_to_data_frame
+from .vcf2df import (
+    convert_vcf_to_data_frame, CONSEQUENCE_COL, AMINO_ACIDS_COL, EXISTING_VARIATION_COL, MAX_AF_POPS_COL,
+    VARIANT_CLASS_COL
+)
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
 
@@ -23,11 +26,6 @@ ALT_COL = "ALT"
 RECOMMENDED_FILTER_COL = "ccg_recommended_filter"
 REVIEW_REQUIRED_COL = "Review_Required"
 MUTECT2_FILTER_COL = "FILTER"
-CONSEQUENCE_COL = "Consequence"
-AMINO_ACIDS_COL = "Amino_acids"
-EXISTING_VARIATION_COL = "Existing_variation"
-VARIANT_CLASS_COL = "VARIANT_CLASS"
-MAX_AF_POPS_COL = "MAX_AF_POPS"
 RECOMMENDED_CONSEQUENCE_FILTER = [
     "missense_variant", "frameshift_variant", "inframe_deletion", "inframe_insertion",
     "splice_acceptor_variant", "splice_donor_variant", "protein_altering_variant",
