@@ -14,6 +14,7 @@ BreaKmer_Reports/*
 # Other generated output
 low-coverage/*
 *.png
+*.svg
 *.pickle
 *.log
 

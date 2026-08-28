@@ -52,39 +52,36 @@ def setup_arguments():
   return parser.parse_args()
 
 
-def find_header_line(vcf_path: str) -> int:
+def parse_vcf_header(vcf_path: str) -> list[str]:
+  info_col_names = []
+  csq_col_names = []
   header_line = 0
   with gzip.open(vcf_path, "rt") as vcf_file:
     for line_number, line in enumerate(vcf_file):
-      if line.startswith("#CHROM"):
+      if line.startswith("##INFO=<ID="):
+        split_line = line.split(",")
+        one_column = split_line[0].replace("##INFO=<ID=", "")
+        info_col_names.append(one_column)
+        if line.startswith("##INFO=<ID=CSQ"):
+          csq_col_names = line.strip().split("|")
+          last_whitespace = csq_col_names[0].rfind(" ")
+          csq_col_names[0] = csq_col_names[0][last_whitespace + 1:]
+          csq_col_names[-1] = csq_col_names[-1].rstrip('">')
+      elif line.startswith("#CHROM"):
         header_line = line_number
         break
-  return header_line
+  if csq_col_names:
+    af_index = csq_col_names.index("AF")
+    csq_col_names[af_index] = GNOMAD_1000_GENOMES_AF_COL
+    # Apparently, CSQ columns are noted in the header the same way as INFO columns sometimes.
+    info_col_names = list(set(info_col_names) - set(csq_col_names))
+  return (header_line, info_col_names, csq_col_names)
 
 
-def get_csq_header(vcf_path: str) -> list[str]:
-  """
-  :return list: Will return empty list if no CSQ header is found.
-  """
-  header = []
-  with gzip.open(vcf_path, "rt") as vcf_file:
-    for line in vcf_file:
-      if line.startswith("##INFO=<ID=CSQ"):
-        header = line.strip().split("|")
-        last_whitespace = header[0].rfind(" ")
-        header[0] = header[0][last_whitespace + 1:]
-        header[-1] = header[-1].rstrip('">')
-  if header:
-    af_index = header.index("AF")
-    header[af_index] = GNOMAD_1000_GENOMES_AF_COL
-  return header
-
-
-def get_csq_columns(csq_header: list[str], df: pl.DataFrame):
-  csq = df.select(pl.col(CSQ_COL).str.split(",").list.eval(
+def split_csq_column(csq_header: list[str], csq_column: pl.DataFrame):
+  csq = csq_column.select(pl.col(CSQ_COL).str.split(",").list.eval(
       pl.element().str.split("|").list.to_struct(fields=csq_header)
   ))
-  # best_effect = csq.select(pl.col(CSQ_COL).list.get(0).struct.unnest())
   best_effect = csq.select(
       pl.col(CSQ_COL).list.filter(pl.element().struct.field("PICK") == "1")
       .list.first()
@@ -95,7 +92,6 @@ def get_csq_columns(csq_header: list[str], df: pl.DataFrame):
       .list.first()
       .struct.unnest()
   )
-  breakpoint()
   csq = best_effect.select(CSQ_COLS_TO_USE)
   csq = csq.with_columns(
       pl.col(EXISTING_VARIATION_COL).str.split("&")
@@ -127,41 +123,16 @@ def drop_null_columns(df: pl.DataFrame) -> pl.DataFrame:
   return df
 
 
-def parse_info_section_headers(all_variants: pl.DataFrame) -> pl.DataFrame:
-  """
-  The previous str.split.list.to_struct operation leaves columns like:
-  |field_0              | field_1                    |
-  ====================================================
-  |AS_FilterStatus=SITE | AS_SB_TABLE=264,236|99,106 |
-
-  This parses out the AS_FilterStatus and assigns it to the column name properly.
-  :param df pl.DataFrame: DataFrame to be parsed.
-  :return pl.DataFrame: DataFrame formatted properly.
-  """
-  columns_to_format = [column for column in all_variants.columns if column.startswith("field")]
-  # Get unique column names
-  info_sec_as_fields = all_variants.select(columns_to_format).cast(pl.Utf8)
-  info_sec_as_fields = info_sec_as_fields.select(pl.all().str.split("="))
-  info_sec_headers = info_sec_as_fields.select(pl.all().list.get(0))
-  info_sec_data = pl.DataFrame({})
-  for column in info_sec_as_fields.columns:
-    one_column = info_sec_as_fields.get_column(column).map_elements(
-        lambda cell_list: cell_list[1] if (len(cell_list) > 1) else cell_list[0],
-        return_dtype=pl.String
-    )
-    info_sec_data = pl.concat([info_sec_data, one_column.to_frame()], how="horizontal")
-  corrected_info_section = []
-  for row_index in range(info_sec_as_fields.shape[0]):
-    headers = info_sec_headers.row(row_index)
-    values = info_sec_data.row(row_index)
-    head_to_val_map = dict(zip(headers, values))
-    head_to_val_map = {k: v for k, v in head_to_val_map.items() if k is not None}
-    corrected_info_section.append(head_to_val_map)
-  all_variants = all_variants.drop(columns_to_format)
-  df_corrected_info_section = pl.DataFrame(corrected_info_section)
-  all_variants = pl.concat([all_variants, df_corrected_info_section], how="horizontal")
-  all_variants = all_variants.rename({"DP": "INFO_DP"})
-  return all_variants
+def split_info_column(info_column: pl.DataFrame, column_names: list[str]):
+  info_df = info_column.with_columns([
+      pl.col("INFO")
+      .str.extract(fr"{one_col}=([^;]*)", 1)
+      .alias(one_col)
+      for one_col in column_names
+  ])
+  info_df = info_df.drop(INFO_COL)
+  info_df = info_df.rename({"DP": "INFO_DP"})
+  return info_df
 
 
 def split_format_column(format_and_data_cols: pl.DataFrame) -> pl.DataFrame:
@@ -184,8 +155,7 @@ def split_format_column(format_and_data_cols: pl.DataFrame) -> pl.DataFrame:
 
 def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
   print(vcf_path)
-  header_line = find_header_line(vcf_path)
-  csq_header = get_csq_header(vcf_path)
+  (header_line, info_col_names, csq_col_names) = parse_vcf_header(vcf_path)
   df = pl.read_csv(
       vcf_path,
       skip_lines=header_line,
@@ -195,15 +165,12 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
   # Data Col of Fromat Header Starts off as the same name so its not constant.
   data_col_of_format_header = get_format_data_column_name(df)
   format_data = split_format_column(df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
-  df = df.with_columns(pl.col(INFO_COL).str.split(";").list.to_struct(upper_bound=20).struct.unnest())
-  # The to_struct() expression creates null columns.
-  df = drop_null_columns(df)
-  df = df.drop(INFO_COL)
-  df = parse_info_section_headers(df)
-  if csq_header:
-    csq_df = get_csq_columns(csq_header, df)
-  df = df.drop([FORMAT_COL, data_col_of_format_header])
-  df = pl.concat([df, format_data, csq_df], how="horizontal")
+  info_df = split_info_column(df.select(INFO_COL), info_col_names)
+  if csq_col_names:
+    csq_df = split_csq_column(csq_col_names, info_df.select(CSQ_COL))
+  info_df = info_df.drop(CSQ_COL)
+  df = df.drop([FORMAT_COL, data_col_of_format_header, INFO_COL])
+  df = pl.concat([df, format_data, info_df, csq_df], how="horizontal")
   return nw.from_native(df)
 
 
