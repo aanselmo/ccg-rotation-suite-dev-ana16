@@ -64,7 +64,6 @@ def write_xlsx(
   not_sample_name_cols = list(not_sample_name_cols)
   for one_col in not_sample_name_cols:
     pl_summary_widths[one_col] = 100.0
-  breakpoint()
   with xlsxwriter.Workbook(file_name) as workbook:
     samples_per_sheet = get_samples_per_sheet(pl_variants)
     if len(samples_per_sheet) == 1:

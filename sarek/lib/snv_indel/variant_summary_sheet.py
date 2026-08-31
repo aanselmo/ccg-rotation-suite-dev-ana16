@@ -13,7 +13,7 @@ from .vcf2df import (
     BEST_EFFECT_CONSEQUENCE_COL,
     EXISTING_VARIATION_COL,
     COSMIC_v104_COL,
-    BEST_EFFECT_VARIANT_CLASS_COL
+    CSQ_VARIANT_CLASS_COL
 )
 from .snv_indel_sheet import (
     MUTECT2_FILTER_COL,
@@ -83,9 +83,9 @@ def group_by_existing_variation(filtered_variants: nw.DataFrame) -> nw.DataFrame
 
 def group_by_class(filtered_variants: nw.DataFrame) -> nw.DataFrame:
   CLASS_COUNT_COL = "CLASS_COUNT"
-  filtered_variants = filtered_variants.select([SAMPLE_COL, BEST_EFFECT_VARIANT_CLASS_COL])
-  grouped_variants = filtered_variants.group_by([SAMPLE_COL, BEST_EFFECT_VARIANT_CLASS_COL]).agg(
-      nw.col(BEST_EFFECT_VARIANT_CLASS_COL).count().alias(CLASS_COUNT_COL)
+  filtered_variants = filtered_variants.select([SAMPLE_COL, CSQ_VARIANT_CLASS_COL])
+  grouped_variants = filtered_variants.group_by([SAMPLE_COL, CSQ_VARIANT_CLASS_COL]).agg(
+      nw.col(CSQ_VARIANT_CLASS_COL).count().alias(CLASS_COUNT_COL)
   )
   all_samples = grouped_variants.get_column(SAMPLE_COL).unique().to_list()
   grouped_partially_transposed = nw.from_native(pl.DataFrame({}))
@@ -93,7 +93,7 @@ def group_by_class(filtered_variants: nw.DataFrame) -> nw.DataFrame:
     one_group = grouped_variants.filter(nw.col(SAMPLE_COL) == one_sample).drop(SAMPLE_COL)
     one_group = nw.from_native(
         one_group.to_native()
-        .transpose(column_names=BEST_EFFECT_VARIANT_CLASS_COL)
+        .transpose(column_names=CSQ_VARIANT_CLASS_COL)
         .with_columns(pl.lit(one_sample).alias(SAMPLE_COL))
     )
     grouped_partially_transposed = nw.concat([grouped_partially_transposed, one_group], how="diagonal")
