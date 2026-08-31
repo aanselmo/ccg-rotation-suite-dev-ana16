@@ -10,13 +10,32 @@ import polars as pl
 import narwhals as nw
 import xlsxwriter
 from .vcf2df import (
-  BEST_EFFECT_AMINO_ACIDS_COL, BEST_EFFECT_CONSEQUENCE_COL, EXISTING_VARIATION_COL, MAX_AF_POPS_COL
+    BEST_EFFECT_AMINO_ACIDS_COL, BEST_EFFECT_CONSEQUENCE_COL, EXISTING_VARIATION_COL, MAX_AF_POPS_COL
 )
 from .snv_indel_sheet import (
     SAMPLE_COL, REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL
 )
 from .variant_summary_sheet import REPEAT_COL_SUFFIX
 from ..excel_style import get_column_widths, HEADER_STYLE
+
+
+MAX_ROWS_EXCEL = 1048576
+
+
+def get_samples_per_sheet(pl_variants: pl.DataFrame):
+  rows_per_sample = pl_variants.group_by(pl.col(SAMPLE_COL)).len()
+  samples_per_sheet = [[]]
+  rows_in_sheet = 1  # start with 1 for header
+  sheet_number = 0
+  for row in rows_per_sample.iter_rows(named=True):
+    rows_in_sheet = rows_in_sheet + row["len"]
+    if rows_in_sheet <= MAX_ROWS_EXCEL:
+      samples_per_sheet[sheet_number] = row[SAMPLE_COL]
+    else:
+      sheet_number = sheet_number + 1
+      rows_in_sheet = row["len"] + 1
+      samples_per_sheet[sheet_number] = row[SAMPLE_COL]
+  return samples_per_sheet
 
 
 def write_xlsx(
@@ -27,6 +46,7 @@ def write_xlsx(
     lego_plot: io.BytesIO,
 ):
   """
+  :param nw.DataFrame all_variants: Asumes that all_variants are ordered by sample and chromosome position.
   :param lego_plot io.BytesIO: lego_plot.getbuffer().nbytes == 0 when there is no plot.
   """
   # Narwhals does not have a excel engine so this has to be done in polars
@@ -44,14 +64,27 @@ def write_xlsx(
   not_sample_name_cols = list(not_sample_name_cols)
   for one_col in not_sample_name_cols:
     pl_summary_widths[one_col] = 100.0
+  breakpoint()
   with xlsxwriter.Workbook(file_name) as workbook:
-    pl_variants.write_excel(
-        workbook=workbook,
-        worksheet="SNVs and Indels",
-        column_widths=pl_variants_widths,
-        header_format=HEADER_STYLE,
-        dtype_formats={pl.Int64: "0;[RED]-0"},
-    )
+    samples_per_sheet = get_samples_per_sheet(pl_variants)
+    if len(samples_per_sheet) == 1:
+      pl_variants.write_excel(
+          workbook=workbook,
+          worksheet="SNVs and Indels",
+          column_widths=pl_variants_widths,
+          header_format=HEADER_STYLE,
+          dtype_formats={pl.Int64: "0;[RED]-0"},
+      )
+    else:
+      for group_number, sample_group in enumerate(samples_per_sheet):
+        pl_one_group = pl_variants.filter(pl.col(SAMPLE_COL).is_in(sample_group))
+        pl_one_group.write_excel(
+            workbook=workbook,
+            worksheet=f"SNVs and Indels {group_number}",
+            column_widths=pl_variants_widths,
+            header_format=HEADER_STYLE,
+            dtype_formats={pl.Int64: "0;[RED]-0"},
+        )
     pl_summary.write_excel(
         workbook=workbook,
         worksheet="Variant Summary Table",

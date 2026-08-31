@@ -10,7 +10,7 @@ import os
 import narwhals as nw
 
 
-def write_snv_csv_report(
+def write_csv(
     file_name: str,
     all_variants: nw.DataFrame,
     variant_summary_table: nw.DataFrame,

@@ -18,7 +18,8 @@ sarek_script_top_dir = dirname(dirname(script_dir))
 sys.path.append(sarek_script_top_dir)
 from lib.snv_indel.vcf2df import (
     convert_vcf_to_data_frame,  BEST_EFFECT_CONSEQUENCE_COL, BEST_EFFECT_BIOTYPE_COL, BEST_EFFECT_COLS_TO_USE,
-    BEST_EFFECT_PREFIX, CANONICAL_PREFIX, CANONICAL_COLS_TO_USE, CSQ_COLS_TO_USE, COSMIC_v104_COL
+    BEST_EFFECT_PREFIX, CANONICAL_PREFIX, CANONICAL_COLS_TO_USE, CSQ_COLS_TO_USE, COSMIC_v104_COL,
+    CHROM_COL, POSITION_COL
 )
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
@@ -107,8 +108,8 @@ def process_one_file(one_vcf_file_path: str) -> nw.DataFrame:
   best_effect_cols = [BEST_EFFECT_PREFIX + col for col in BEST_EFFECT_COLS_TO_USE]
   canonical_cols = [CANONICAL_PREFIX + col for col in CANONICAL_COLS_TO_USE]
   one_sample_variants = one_sample_variants.select(
-      [SAMPLE_COL, "#CHROM", "POS", REF_COL, ALT_COL, REVIEW_REQUIRED_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL]
-      + best_effect_cols + canonical_cols + ["AF", "DP"] + CSQ_COLS_TO_USE
+      [SAMPLE_COL, CHROM_COL, POSITION_COL, REF_COL, ALT_COL, REVIEW_REQUIRED_COL, RECOMMENDED_FILTER_COL,
+       MUTECT2_FILTER_COL] + best_effect_cols + canonical_cols + ["AF", "DP"] + CSQ_COLS_TO_USE
   )
   return one_sample_variants
 
@@ -118,6 +119,7 @@ def get_variants(vcf_files: list[str], number_processes=1) -> nw.DataFrame:
   with ProcessPoolExecutor(max_workers=number_processes, mp_context=get_context("spawn")) as executor:
     list_of_variant_dfs = list(executor.map(process_one_file, vcf_files))
   all_sample_variants = nw.concat(list_of_variant_dfs, how="diagonal")
+  all_sample_variants.sort(by=[SAMPLE_COL, CHROM_COL, POSITION_COL])
   return all_sample_variants
 
 

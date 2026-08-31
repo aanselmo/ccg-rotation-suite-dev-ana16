@@ -20,6 +20,8 @@ sarek_script_top_dir = dirname(dirname(script_dir))
 sys.path.append(sarek_script_top_dir)
 from lib.common import AVAILABLE_CHROMOSOMES
 
+CHROM_COL = "#CHROM"
+POSITION_COL = "POS"
 INFO_COL = "INFO"
 CSQ_COL = "CSQ"
 FORMAT_COL = "FORMAT"
@@ -75,7 +77,7 @@ def parse_vcf_header(vcf_path: str) -> list[str]:
           last_whitespace = csq_col_names[0].rfind(" ")
           csq_col_names[0] = csq_col_names[0][last_whitespace + 1:]
           csq_col_names[-1] = csq_col_names[-1].rstrip('">')
-      elif line.startswith("#CHROM"):
+      elif line.startswith(CHROM_COL):
         header_line = line_number
         break
   if csq_col_names:
@@ -168,7 +170,7 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
       vcf_path,
       skip_lines=header_line,
       separator="\t",
-      schema_overrides={"#CHROM": AVAILABLE_CHROMOSOMES},
+      schema_overrides={CHROM_COL: AVAILABLE_CHROMOSOMES},
   )
   # Data Col of Fromat Header Starts off as the same name so its not constant.
   data_col_of_format_header = get_format_data_column_name(df)
