@@ -9,11 +9,16 @@ ssh rc-stor12.dfci.harvard.edu
 cd /data/backups/mnt/storage/centers/ccgd/Illumina/Basecalls/
 nohup rsync -r 200127_SN218_1093_BHCCKWBCX3 /mnt/storage/centers/ccgd/Illumina/Basecalls/ &> ~/log/rsync_restore_200127_SN218_1093_BHCCKWBCX3.txt &
 ```
-2. Add the following line at the top of the bcl2fastq_samplesheet.csv:
-```
+2. On your desktop run the following:
+```bash
+PROJECT_CODE=[YOUR PROJECT CODE]
+touch ${PROJECT_CODE}_bcl2fastq_samplesheet.csv
+libreoffice --calc ${PROJECT_CODE}_bcl2fastq_samplesheet.csv
+# Right click -> Paste -> Paste Special -> Use Text Import Dialog to paste header:
 [Data],,,
+Lane,Sample_ID,index,index2
 ```
-3. Run this query:
+3. Run this query and paste it below the header:
 ```sql
 SELECT SUBSTRING_INDEX(pl.platform_location_description, "_", -1) AS Lane,
 rec.sample_collaborator_name AS Sample_ID,
@@ -40,29 +45,7 @@ ORDER BY pl.platform_location_description, rec.sample_collaborator_name ;
 4. If the `second_index_direction` comes out as REVCOMP, please use https://arep.med.harvard.edu/labgc/adnan/projects/Utilities/revcomp.html
    to find the reverse complement of index2. You can just copy and paste the column out of DBeaver. Rows should be
    seperated by new lines. The site will figure out what you mean.
-5. Make the output directory, and upload the samplesheet file to argos:
-```bash
-ssh argos-ccgd.dfci.harvard.edu
-cd /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/
-PROJECT_CODE=[YOUR PROJECT CODE]
-mkdir -p ${PROJECT_CODE}/csv ${PROJECT_CODE}/demultiplex
-```
-6. On your desktop run the following:
-```bash
-PROJECT_CODE=[YOUR PROJECT CODE]
-touch ${PROJECT_CODE}_bcl2fastq_samplesheet.csv
-libreoffice --calc ${PROJECT_CODE}_bcl2fastq_samplesheet.csv
-# Right click -> Paste -> Paste Special -> Use Text Import Dialog to paste header:
-[Data],,,
-Lane,Sample_ID,index,index2
-# Paste query data
-# Save as -> Check mark Edit Filter Settings -> OK
-ssh argos-ccgd.dfci.harvard.edu
-PROJECT_CODE=[your project code]
-mkdir -p /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/
-# On your desktop
-scp ${PROJECT_CODE}_bcl2fastq_samplesheet.csv argos-ccgd:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/
-```
+5. In Libreoffice: Save as -> Check mark Edit Filter Settings -> OK
 Example:
 ```
 [Data],,,
@@ -71,6 +54,13 @@ Lane,Sample_ID,index,index2
 1,PON_Blood6-C3,TGCAGGTA,CATCGTGA
 1,CEPH1408-H1,CGATAGAG,ATGGCGAA
 1,PON_Blood1-G2,GTAGAGCA,CGGTCATA
+```
+5. Make the output directory, and upload the samplesheet file to argos:
+```bash
+PROJECT_CODE=[YOUR PROJECT CODE]
+# {csv,demultiplex} is an example of brace expansion. It makes 2 dirs.
+ssh argos-ccgd.dfci.harvard.edu mkdir -p /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/{csv,demultiplex}
+scp ${PROJECT_CODE}_bcl2fastq_samplesheet.csv argos-ccgd:/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}/csv/
 ```
 7. Run bcl2fastq on argos. Example commands:
 ```bash
@@ -134,7 +124,8 @@ gcloud storage cp -r [your run] gs://ccg-bioinformatics/mnt/storage/centers/ccgd
 ```bash
 # n2d-custom-48-97280 is 48 cores, 95 * 1024 MB RAM
 gcloud compute instances create \
-  --zone=us-central1-a \
+  --zone=us-central1-f \
+  --project=ccgd-174313 \
   --source-snapshot=https://compute.googleapis.com/compute/v1/projects/ccgd-174313/global/snapshots/nextflow4-20260125 \
   --machine-type n2d-custom-48-97280 \
   --local-ssd=device-name=nvme1,interface=NVME \
@@ -146,7 +137,7 @@ gcloud compute instances create \
   --local-ssd=device-name=nvme7,interface=NVME \
   --local-ssd=device-name=nvme8,interface=NVME \
   bclconvert3
-gcloud compute ssh --zone "us-central1-a" --project "ccgd-174313" "bclconvert3"
+gcloud compute ssh --zone "us-central1-f" --project "ccgd-174313" "bclconvert3"
 # Remount the fstab entry because it often doesn't load correctly
 sudo umount -l /mnt/storage
 sudo mount /mnt/storage
@@ -190,6 +181,6 @@ gcloud storage rsync -r --exclude=".*Undetermined.*" /mnt/localssd/${PROJECT_COD
 ```
 7. Delete the old image:
 ```bash
-gcloud compute instances stop --zone "us-central1-a" --project "ccgd-174313" --discard-local-ssd=true bclconvert3
-gcloud compute instances delete --zone=us-central1-a --delete-disks=all bclconvert3
+gcloud compute instances stop --zone "us-central1-f" --project "ccgd-174313" --discard-local-ssd=true bclconvert3
+gcloud compute instances delete --zone=us-central1-f --delete-disks=all bclconvert3
 ```
