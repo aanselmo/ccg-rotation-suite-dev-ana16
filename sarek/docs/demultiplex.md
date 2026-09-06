@@ -12,11 +12,11 @@ nohup rsync -r 200127_SN218_1093_BHCCKWBCX3 /mnt/storage/centers/ccgd/Illumina/B
 2. On your desktop run the following:
 ```bash
 PROJECT_CODE=[YOUR PROJECT CODE]
-touch ${PROJECT_CODE}_bcl2fastq_samplesheet.csv
-libreoffice --calc ${PROJECT_CODE}_bcl2fastq_samplesheet.csv
-# Right click -> Paste -> Paste Special -> Use Text Import Dialog to paste header:
+cat > ${PROJECT_CODE}_bcl2fastq_samplesheet.csv << EOF
 [Data],,,
 Lane,Sample_ID,index,index2
+EOF
+libreoffice --calc ${PROJECT_CODE}_bcl2fastq_samplesheet.csv
 ```
 3. Run this query and paste it below the header:
 ```sql
