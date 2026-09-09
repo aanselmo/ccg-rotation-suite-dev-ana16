@@ -23,9 +23,9 @@ from .snv_indel_sheet import (
     SAMPLE_COL
 )
 
-DB_SNP_COL = "DBSNP"
-COSMIC_COL = "COSMIC_v104"
-BOTH_COL = "BOTH"
+DB_SNP_COL = "DBSNP Only"
+COSMIC_COL = "COSMIC_v104 Only"
+BOTH_COL = "BOTH (COSMIC_v104 & DBSNP)"
 NOVEL_COL = "NOVEL"
 SNV_COL = "SNV"
 INDEL_COL = "Indel"
