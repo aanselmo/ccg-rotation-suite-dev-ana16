@@ -202,7 +202,7 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
       separator="\t",
       schema_overrides={CHROM_COL: AVAILABLE_CHROMOSOMES},
   )
-  # Data Col of Fromat Header Starts off as the same name so its not constant.
+  # Data Col of Fromat Header Starts off as the sample name so its not constant.
   data_col_of_format_header = get_format_data_column_name(df)
   format_data = split_format_column(df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
   info_df = split_info_column(df.select(INFO_COL), info_col_names)
