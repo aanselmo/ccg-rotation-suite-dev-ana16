@@ -7,9 +7,7 @@ __author__ = "Neil A. Patel"
 
 
 import pytest
-import sys
 from os.path import dirname, abspath, join
-from os import makedirs
 import polars as pl
 import narwhals.stable.v2 as nw
 import sarek.lib.snv_indel.vcf2df as vcf2df

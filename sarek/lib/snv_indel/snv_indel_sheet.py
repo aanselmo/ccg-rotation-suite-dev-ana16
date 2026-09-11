@@ -76,7 +76,7 @@ def add_review_required(all_sample_variants: nw.DataFrame) -> nw.DataFrame:
       )
       .then(True)
       .otherwise(False)
-      .alias("Review_Required")
+      .alias(REVIEW_REQUIRED_COL)
   )
   return nw.from_native(sample_variants)
 
@@ -88,7 +88,7 @@ def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame) -> nw.
                  .str.split("&")
                  .list.set_intersection(pl.lit(RECOMMENDED_CONSEQUENCE_FILTER))
                  .list.len() > 0
-               ) & (pl.col(MUTECT2_FILTER_COL) == "PASS") & (pl.col("Review_Required") == True))
+               ) & (pl.col(MUTECT2_FILTER_COL) == "PASS") & (pl.col(REVIEW_REQUIRED_COL) == True))
       .then(True)
       .otherwise(False)
       .alias(RECOMMENDED_FILTER_COL)

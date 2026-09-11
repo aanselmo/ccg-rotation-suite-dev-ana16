@@ -27,7 +27,7 @@ def graph_lego_plot(vcf_files: list[str], project_code: str, genome="GRCh37", be
     raise ValueError("No VCF file was passed.")
   with TemporaryDirectory() as tempdir:
     for one_vcf in vcf_files:
-      if not (one_vcf.endswith(".vcf.gz") or one_vcf.endswith(".vcf.gz")):
+      if not (one_vcf.endswith(".vcf") or one_vcf.endswith(".vcf.gz")):
         raise ValueError("The files given do not end in .vcf or .vcf.gz")
     try:
       vcf_merge(
