@@ -33,7 +33,7 @@ BestEffect_Protein_position,"Relative position of the amino acid from the start 
 BestEffect_Amino_acids,"The amino acids that were changed by the genetic change based on the most severely affected transcript."
 AF,"Allele Fraction from Mutect2. Mutect2 filters out normal tissue contamination reads."
 DP,"Depth from Mutect2. Mutect2 filters out normal tissue contamination reads."
-Existing_variation,"The IDs in databases that catalogue known variations: dbSNP (start with rs) Databases."
+Existing_variation,"The IDs in the following databases that catalogue known variants: dbSNP (start with rs), HGMD (start with CM)."
 COSMIC_v104,"The ID from COSMIC (catalogue of somatic mutations in cancer) version 104. COSV IDs are mapped to one and only one chromosome, position, and variant."
 COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT,"How many times this COSMIC_v104 ID was found in whole genome screens."
 COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT,"How many times this COSMIC_v104 ID was found in targeted panels."
