@@ -2,6 +2,8 @@
 
 """
 Creates the 'SNV/Indel Variants' Sheet.
+
+Most of the filtering and removal of columns happens here and not in vcf2df.py.
 """
 
 __docformat__ = "reStructuredText"
@@ -42,7 +44,10 @@ RECOMMENDED_CONSEQUENCE_FILTER = [
 
 
 def setup_arguments():
-  parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
+  parser = argparse.ArgumentParser(description=(
+      "This snv_indel_sheet.py script was designed to parse 1 file. Otherwise, because the snv_indel_report"
+      " is parallelized/multi-process, the stack trace of the error can be obfuscated."
+  ))
   parser.add_argument("-o", "--output-file", type=str, default="output.csv",
                       dest="output_file_name", help="The name of the output csv file.")
   parser.add_argument("-v", "--vcf", dest="vcf", type=str, required=True,
@@ -125,6 +130,10 @@ def get_variants(vcf_files: list[str], number_processes=1) -> nw.DataFrame:
 
 
 def main():
+  """
+  Main function here was written as a way to quickly test parsing of 1 file. Otherwise, because the snv_indel_report
+  is parallelized / multi - process, the stack trace of the error can be obfuscated.
+  """
   args = setup_arguments()
   df = process_one_file(args.vcf)
   df.write_csv(args.output_file_name)

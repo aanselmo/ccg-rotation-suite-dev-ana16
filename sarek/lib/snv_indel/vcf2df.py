@@ -102,7 +102,7 @@ def parse_vcf_header(vcf_path: str) -> tuple[int, list[str], list[str]]:
 
 def split_csq_column(csq_header: list[str], csq_column: pl.DataFrame):
   """
-  Take the CSQ column and split it into many unique, smaller, data-normalized columns.
+  Take the CSQ column and split it into many unique, smaller columns.
   :param csq_header list[str]: the column names that the CSQ section will be split into.
   :param csq_column pl.DataFrame: The original CSQ column to be split into smaller columns.
   :return csq pl.DataFrame: Many columns after split.
