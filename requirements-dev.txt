@@ -1,4 +1,8 @@
+# For autoformatting code
+autopep8==2.3.2
 
+# For unit tests
 pytest==8.3.5
 coverage==7.16.0
-autopep8==2.3.2
+# For excel unit tests, to verify that it was written out correctly.
+fastexcel==0.21.0
