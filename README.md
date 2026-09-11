@@ -18,4 +18,4 @@ cd [git repo dir]
     && /usr/local/miniforge3/bin/coverage report --show-missing
 wc -l $(find . -name "*.py" -not -path "./scratch/*" -not -path "*tests*")
 ```
-Current coverage is 4.38%.
+Current coverage is 9.31%.

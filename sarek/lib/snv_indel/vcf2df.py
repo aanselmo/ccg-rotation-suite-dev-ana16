@@ -7,6 +7,7 @@ Used to convert a .vcf.gz file to a narwhals dataframe.
 There is are some columns filtered/excluded in this module, but for the most part I try to preserve everything for
 later filtration. I intented this module to just convert the formats. The columns that are excluded are the following:
     * Any CSQ (AKA Consequences or AKA Transcripts) columns besides Best Effect and Canonical.
+    * Old COSMIC v98 annotations from the VEP cache in Existing_Variation column.
 """
 
 __docformat__ = "reStructuredText"

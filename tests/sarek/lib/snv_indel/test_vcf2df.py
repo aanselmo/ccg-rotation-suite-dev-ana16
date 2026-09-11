@@ -48,3 +48,17 @@ def test_split_format_column():
   ).get_column("index")[0]
   format_data = format_data.with_columns(pl.row_index())
   assert format_data.filter(pl.col("index") == row).get_column("DP")[0] == "355"
+
+
+def test_split_csq_column():
+  (header_line, info_col_names, csq_col_names) = vcf2df.parse_vcf_header(EXAMPLE_VCF_PATH)
+  sample_a008_df = pl.read_csv(
+      EXAMPLE_VCF_PATH,
+      skip_lines=header_line,
+      separator="\t",
+      schema_overrides={vcf2df.CHROM_COL: AVAILABLE_CHROMOSOMES},
+  )
+  info_df = vcf2df.split_info_column(sample_a008_df.select(vcf2df.INFO_COL), info_col_names)
+  csq = vcf2df.split_csq_column(csq_col_names, info_df.select(vcf2df.CSQ_COL))
+  # No COSMIC v98 rows should exist
+  assert csq.filter(pl.col(vcf2df.EXISTING_VARIATION_COL).str.contains("COSV")).is_empty()
