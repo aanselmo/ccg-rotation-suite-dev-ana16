@@ -40,7 +40,7 @@ def write_df_to_excel(df: pl.DataFrame, worksheet: xlsxwriter.worksheet, column_
   worksheet.write_row(0, 0, df.columns, cell_format=header_format)
   with Progress() as progress:
     write_progress_bar = progress.add_task(f"Writing worksheet {worksheet.get_name()}...", total=df.shape[0])
-    rows_for_1_percent = math.floor(df.shape[0] / 100)
+    rows_for_1_percent = math.ceil(df.shape[0] / 100)
     for row_number, row in enumerate(df.iter_rows(), start=1):
       worksheet.write_row(row_number, 0, row)
       if (row_number % rows_for_1_percent) == 0:

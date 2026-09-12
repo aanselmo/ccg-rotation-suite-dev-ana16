@@ -47,7 +47,7 @@ def test_write_snv_xlsx():
     ).get_column("ALT")[0] == "G"
 
 
-class TestOver1MembiRowsExcel:
+class TestOver1MebiRowsExcel:
   def test_many_samples(self):
     """
     Test when samples together have more than 1048576 rows.
