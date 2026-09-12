@@ -19,6 +19,7 @@ import sarek.lib.snv_indel.variant_summary_sheet as variant_summary_sheet
 import sarek.lib.snv_indel.lego_plot_sheet as lego_plot_sheet
 import sarek.lib.snv_indel.analysis_legend_sheet as analysis_legend_sheet
 import sarek.lib.snv_indel.write_snv_xlsx as write_snv_xlsx
+from sarek.lib.excel_style import HEADER_STYLE
 from sarek.lib.common import AVAILABLE_CHROMOSOMES
 
 
@@ -62,7 +63,14 @@ def test_over_1mebirows_xlsx():
     breakpoint()
     print(tempfile.name)
     with xlsxwriter.Workbook(tempfile.name, options={"constant_memory": True, "use_zip64": True}) as workbook:
+      header_format = workbook.add_format(HEADER_STYLE)
       write_snv_xlsx.write_all_snv_indel_sheets(
-          workbook, duplicated_variants, write_snv_xlsx.SNV_INDEL_SHEET
+          workbook, duplicated_variants, write_snv_xlsx.SNV_INDEL_SHEET, header_format
       )
-      breakpoint()
+    verify_variants = pl.read_excel(tempfile.name, sheet_name=f"{write_snv_xlsx.SNV_INDEL_SHEET} 1")
+    # Assert 1 variant has the correct alternate allele
+    assert verify_variants.filter(
+        pl.col(vcf2df.POSITION_COL) == 41266124
+        & pl.col(snv_indel_sheet.SAMPLE_COL) == "S1"
+    ).get_column("ALT")[0] == "G"
+    breakpoint()

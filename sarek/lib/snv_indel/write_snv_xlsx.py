@@ -28,6 +28,21 @@ VARIANT_SUMMARY_SHEET = "Variant Summary Table"
 LEGEND_SHEET = "Legend"
 
 
+def write_df_to_excel(df: pl.DataFrame, worksheet: xlsxwriter.worksheet, column_widths: dict, header_format, user_autofilter=True):
+  """
+  Because I'm using {"constant_memory": True} as an option in xlsxwriter, I cannot use polars.write_excel.
+  I have to do it via loop. I'm doing this to support over 1M rows in excel.
+  https://xlsxwriter.readthedocs.io/working_with_memory.html
+  """
+  for column_number, one_width in enumerate(column_widths.values()):
+    worksheet.set_column_pixels(column_number, column_number, one_width)
+  worksheet.write_row(0, 0, df.columns, cell_format=header_format)
+  for row_number, row in enumerate(df.iter_rows(), start=1):
+    worksheet.write_row(row_number, 0, row)
+  if user_autofilter:
+    worksheet.autofilter(0, 0, df.shape[0] - 1, df.shape[1] - 1)
+
+
 def get_samples_per_sheet(pl_variants: pl.DataFrame) -> tuple[list[list[str]], bool]:
   samples_to_split = []
   samples_per_sheet = [[]]
@@ -35,6 +50,7 @@ def get_samples_per_sheet(pl_variants: pl.DataFrame) -> tuple[list[list[str]], b
   sheet_number = 0
   COUNT_COL = "count"
   rows_per_sample = pl_variants.group_by(pl.col(SAMPLE_COL)).agg(pl.count(POSITION_COL).alias(COUNT_COL))
+  rows_per_sample = rows_per_sample.sort(by=SAMPLE_COL)
   samples_to_split = rows_per_sample.filter(pl.col(COUNT_COL) >= MAX_ROWS_EXCEL).get_column(SAMPLE_COL).to_list()
   for row in rows_per_sample.iter_rows(named=True):
     rows_in_sheet = rows_in_sheet + row[COUNT_COL]
@@ -50,7 +66,7 @@ def get_samples_per_sheet(pl_variants: pl.DataFrame) -> tuple[list[list[str]], b
   return (samples_per_sheet, samples_to_split)
 
 
-def write_all_snv_indel_sheets(workbook: xlsxwriter.Workbook, pl_variants: pl.DataFrame, sheet_basename: str):
+def write_all_snv_indel_sheets(workbook: xlsxwriter.Workbook, pl_variants: pl.DataFrame, sheet_basename: str, header_format):
   pl_variants = pl_variants.sort(by=[SAMPLE_COL, CHROM_COL, POSITION_COL])
   pl_variants_widths = get_column_widths(pl_variants, first_row_multiplier=13.0)
   for one_col in [
@@ -71,38 +87,20 @@ def write_all_snv_indel_sheets(workbook: xlsxwriter.Workbook, pl_variants: pl.Da
         # append a, b, c, ..., z
         one_sheet_name = one_sheet_name + f"_{string.ascii_lowercase[one_group_sheet]}"
         pl_group_slice = pl_one_group.slice((one_group_sheet - 1) * MAX_ROWS_EXCEL, one_group_sheet * MAX_ROWS_EXCEL)
-        breakpoint()
-        pl_group_slice.write_excel(
-            workbook=workbook,
-            worksheet=one_sheet_name,
-            column_widths=pl_variants_widths,
-            header_format=HEADER_STYLE,
-            dtype_formats={pl.Int64: "0;[RED]-0"},
-        )
+        pl_group_slice = pl_group_slice.sort([SAMPLE_COL, CHROM_COL, POSITION_COL])
+        write_df_to_excel(pl_group_slice, workbook.add_worksheet(one_sheet_name), pl_variants_widths, header_format)
     else:
-      breakpoint()
-      pl_one_group.write_excel(
-          workbook=workbook,
-          worksheet=one_sheet_name,
-          column_widths=pl_variants_widths,
-          header_format=HEADER_STYLE,
-          dtype_formats={pl.Int64: "0;[RED]-0"},
-      )
+      pl_one_group = pl_one_group.sort([SAMPLE_COL, CHROM_COL, POSITION_COL])
+      write_df_to_excel(pl_one_group, workbook.add_worksheet(one_sheet_name), pl_variants_widths, header_format)
 
 
-def write_summary_sheet(workbook: xlsxwriter.Workbook, pl_summary: pl.DataFrame, sheet_name: str):
+def write_summary_sheet(workbook: xlsxwriter.Workbook, pl_summary: pl.DataFrame, sheet_name: str, header_format):
   pl_summary_widths = get_column_widths(pl_summary)
   not_sample_name_cols = pl_summary_widths.keys() - set([SAMPLE_COL, f"{SAMPLE_COL}{REPEAT_COL_SUFFIX}"])
   not_sample_name_cols = list(not_sample_name_cols)
   for one_col in not_sample_name_cols:
     pl_summary_widths[one_col] = 100.0
-  pl_summary.write_excel(
-      workbook=workbook,
-      worksheet=sheet_name,
-      column_widths=pl_summary_widths,
-      header_format=HEADER_STYLE,
-      dtype_formats={pl.Int64: "0;[RED]-0"},
-  )
+  write_df_to_excel(pl_summary, workbook.add_worksheet(sheet_name), pl_summary_widths, header_format)
 
 
 def write_lego_plot_sheet(workbook: xlsxwriter.Workbook, lego_plot: io.BytesIO, sheet_name: str):
@@ -113,14 +111,10 @@ def write_lego_plot_sheet(workbook: xlsxwriter.Workbook, lego_plot: io.BytesIO, 
     lego_plot_sheet.write("B2", "No lego plot provided.")
 
 
-def write_legend_sheet(workbook: xlsxwriter.Workbook, pl_legend: pl.DataFrame, sheet_name: str):
-  pl_legend.write_excel(
-      workbook=workbook,
-      worksheet=sheet_name,
-      column_widths=get_column_widths(pl_legend),
-      header_format=HEADER_STYLE,
-      dtype_formats={pl.Int64: "0;[RED]-0"},
-  )
+def write_legend_sheet(workbook: xlsxwriter.Workbook, pl_legend: pl.DataFrame, sheet_name: str, header_format):
+  pl_legend_widths = get_column_widths(pl_legend)
+  write_df_to_excel(pl_legend, workbook.add_worksheet(sheet_name),
+                    pl_legend_widths, header_format, user_autofilter=False)
 
 
 def write_xlsx(
@@ -139,7 +133,8 @@ def write_xlsx(
   pl_summary = variant_summary_table.to_native()
   pl_legend = legend.to_native()
   with xlsxwriter.Workbook(file_name, options={"constant_memory": True, "use_zip64": True}) as workbook:
-    write_all_snv_indel_sheets(workbook, pl_variants, SNV_INDEL_SHEET)
-    write_summary_sheet(workbook, pl_summary, VARIANT_SUMMARY_SHEET)
+    header_format = workbook.add_format(HEADER_STYLE)
+    write_all_snv_indel_sheets(workbook, pl_variants, SNV_INDEL_SHEET, header_format)
+    write_summary_sheet(workbook, pl_summary, VARIANT_SUMMARY_SHEET, header_format)
     write_lego_plot_sheet(workbook, lego_plot, "Mutation Lego Plot")
-    write_legend_sheet(workbook, pl_legend, LEGEND_SHEET)
+    write_legend_sheet(workbook, pl_legend, LEGEND_SHEET, header_format)
