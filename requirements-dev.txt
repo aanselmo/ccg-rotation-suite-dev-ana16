@@ -3,6 +3,10 @@ autopep8==2.3.2
 
 # For unit tests
 pytest==8.3.5
+# Plugin for parallel unit tests
+pytest-xdist==3.8.0
+# To get coverage info
 coverage==7.16.0
+pytest-cov==7.1.0
 # For excel unit tests, to verify that it was written out correctly.
 fastexcel==0.21.0

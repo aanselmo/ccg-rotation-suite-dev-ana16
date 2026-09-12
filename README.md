@@ -13,9 +13,7 @@ Before releasing this, it should be tested.
 1. The following commands can be used to run unit tests and measure unit test coverage.
 ```bash
 cd [git repo dir]
-/usr/local/miniforge3/bin/coverage run \
-    -m pytest tests \
-    && /usr/local/miniforge3/bin/coverage report --show-missing
-wc -l $(find . -name "*.py" -not -path "./scratch/*" -not -path "*tests*")
+python -m pytest -n auto --cov="." --cov-context=test --cov-report=term-missing tests
+wc -l $(find . -name "*.py" -not -path "./scratch/*")
 ```
-Current coverage is 9.31%.
+Current coverage is 12.57%.
