@@ -52,15 +52,17 @@ def test_over_1mebirows_xlsx():
   """
   all_variants = vcf2df.convert_vcf_to_data_frame(EXAMPLE_VCF_PATH)
   duplication_multiplier = math.ceil(write_snv_xlsx.MAX_ROWS_EXCEL / all_variants.shape[0] * 1.1)
-  breakpoint()
   pl_all_variants = all_variants.to_native()
-  duplicated_variants = pl.DataFrame()
-  for mocked_sample_num in range(duplication_multiplier):
-    one_sample_mocked_variants = pl_all_variants.with_columns(
-        pl.lit(f"S{mocked_sample_num}").alias(snv_indel_sheet.SAMPLE_COL)
-    )
-    duplicated_variants = pl.concat([duplicated_variants, one_sample_mocked_variants], how="diagonal")
+  mocked_sample_names = pl.select(pl.concat_str([
+      pl.lit("S"),
+      pl.int_range(0, duplication_multiplier).cast(pl.String),
+  ]).alias(snv_indel_sheet.SAMPLE_COL))
+  duplicated_variants = mocked_sample_names.join(pl_all_variants, how="cross")
   with NamedTemporaryFile() as tempfile:
-    with xlsxwriter.Workbook(tempfile) as workbook:
-      write_snv_xlsx.write_all_snv_indel_sheets(workbook, pl_all_variants, write_snv_xlsx.SNV_INDEL_SHEET)
+    breakpoint()
+    print(tempfile.name)
+    with xlsxwriter.Workbook(tempfile.name, options={"constant_memory": True, "use_zip64": True}) as workbook:
+      write_snv_xlsx.write_all_snv_indel_sheets(
+          workbook, duplicated_variants, write_snv_xlsx.SNV_INDEL_SHEET
+      )
       breakpoint()

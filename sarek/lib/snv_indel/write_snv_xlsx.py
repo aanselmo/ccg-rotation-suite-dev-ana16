@@ -6,6 +6,8 @@ __docformat__ = "reStructuredText"
 __author__ = "Neil A. Patel"
 
 import io
+import math
+import string
 import polars as pl
 import narwhals as nw
 import xlsxwriter
@@ -27,29 +29,28 @@ LEGEND_SHEET = "Legend"
 
 
 def get_samples_per_sheet(pl_variants: pl.DataFrame) -> tuple[list[list[str]], bool]:
-  split_sample = False
+  samples_to_split = []
   samples_per_sheet = [[]]
   rows_in_sheet = 1  # start with 1 for header
   sheet_number = 0
-  rows_per_sample = pl_variants.group_by(pl.col(SAMPLE_COL)).agg(pl.count(POSITION_COL))
-  if not rows_per_sample.filter(pl.col("count") >= MAX_ROWS_EXCEL).is_empty():
-    # means one sample has more rows than excel can handle so you have to split the sample
-    split_sample = True
+  COUNT_COL = "count"
+  rows_per_sample = pl_variants.group_by(pl.col(SAMPLE_COL)).agg(pl.count(POSITION_COL).alias(COUNT_COL))
+  samples_to_split = rows_per_sample.filter(pl.col(COUNT_COL) >= MAX_ROWS_EXCEL).get_column(SAMPLE_COL).to_list()
   for row in rows_per_sample.iter_rows(named=True):
-    rows_in_sheet = rows_in_sheet + row["count"]
+    rows_in_sheet = rows_in_sheet + row[COUNT_COL]
     if rows_in_sheet <= MAX_ROWS_EXCEL:
       samples_per_sheet[sheet_number].append(row[SAMPLE_COL])
     else:
       sheet_number = sheet_number + 1
-      rows_in_sheet = row["count"] + 1
+      rows_in_sheet = row[COUNT_COL] + 1
       if (len(samples_per_sheet) - 1) == sheet_number:
         samples_per_sheet[sheet_number].append(row[SAMPLE_COL])
       else:
         samples_per_sheet.append([row[SAMPLE_COL]])
-  return (samples_per_sheet, split_sample)
+  return (samples_per_sheet, samples_to_split)
 
 
-def write_all_snv_indel_sheets(workbook: xlsxwriter.Workbook, pl_variants: pl.DataFrame, sheet_name: str):
+def write_all_snv_indel_sheets(workbook: xlsxwriter.Workbook, pl_variants: pl.DataFrame, sheet_basename: str):
   pl_variants = pl_variants.sort(by=[SAMPLE_COL, CHROM_COL, POSITION_COL])
   pl_variants_widths = get_column_widths(pl_variants, first_row_multiplier=13.0)
   for one_col in [
@@ -57,22 +58,32 @@ def write_all_snv_indel_sheets(workbook: xlsxwriter.Workbook, pl_variants: pl.Da
       BEST_EFFECT_AMINO_ACIDS_COL, EXISTING_VARIATION_COL, MAX_AF_POPS_COL
   ]:
     pl_variants_widths[one_col] = 100.0
-  samples_per_sheet = get_samples_per_sheet(pl_variants)
-  breakpoint()
-  if len(samples_per_sheet) == 1:
-    pl_variants.write_excel(
-        workbook=workbook,
-        worksheet=sheet_name,
-        column_widths=pl_variants_widths,
-        header_format=HEADER_STYLE,
-        dtype_formats={pl.Int64: "0;[RED]-0"},
-    )
-  else:
-    for group_number, sample_group in enumerate(samples_per_sheet):
-      pl_one_group = pl_variants.filter(pl.col(SAMPLE_COL).is_in(sample_group))
+  (samples_per_sheet, samples_to_split) = get_samples_per_sheet(pl_variants)
+  for group_number, sample_group in enumerate(samples_per_sheet):
+    pl_one_group = pl_variants.filter(pl.col(SAMPLE_COL).is_in(sample_group))
+    if len(samples_per_sheet) == 1:
+      one_sheet_name = sheet_basename
+    else:
+      one_sheet_name = f"{sheet_basename} {group_number}"
+    if len(sample_group) == 1 and sample_group[0] in samples_to_split:
+      max_one_group_sheets = math.ceil(pl_one_group.shape[0] / MAX_ROWS_EXCEL)
+      for one_group_sheet in range(max_one_group_sheets):
+        # append a, b, c, ..., z
+        one_sheet_name = one_sheet_name + f"_{string.ascii_lowercase[one_group_sheet]}"
+        pl_group_slice = pl_one_group.slice((one_group_sheet - 1) * MAX_ROWS_EXCEL, one_group_sheet * MAX_ROWS_EXCEL)
+        breakpoint()
+        pl_group_slice.write_excel(
+            workbook=workbook,
+            worksheet=one_sheet_name,
+            column_widths=pl_variants_widths,
+            header_format=HEADER_STYLE,
+            dtype_formats={pl.Int64: "0;[RED]-0"},
+        )
+    else:
+      breakpoint()
       pl_one_group.write_excel(
           workbook=workbook,
-          worksheet=f"{sheet_name} {group_number}",
+          worksheet=one_sheet_name,
           column_widths=pl_variants_widths,
           header_format=HEADER_STYLE,
           dtype_formats={pl.Int64: "0;[RED]-0"},
@@ -127,7 +138,7 @@ def write_xlsx(
   pl_variants = all_variants.to_native()
   pl_summary = variant_summary_table.to_native()
   pl_legend = legend.to_native()
-  with xlsxwriter.Workbook(file_name) as workbook:
+  with xlsxwriter.Workbook(file_name, options={"constant_memory": True, "use_zip64": True}) as workbook:
     write_all_snv_indel_sheets(workbook, pl_variants, SNV_INDEL_SHEET)
     write_summary_sheet(workbook, pl_summary, VARIANT_SUMMARY_SHEET)
     write_lego_plot_sheet(workbook, lego_plot, "Mutation Lego Plot")
