@@ -8,6 +8,7 @@ __author__ = "Neil A. Patel"
 import io
 import math
 import string
+from pip._vendor.rich.progress import Progress
 import polars as pl
 import narwhals as nw
 import xlsxwriter
@@ -37,8 +38,13 @@ def write_df_to_excel(df: pl.DataFrame, worksheet: xlsxwriter.worksheet, column_
   for column_number, one_width in enumerate(column_widths.values()):
     worksheet.set_column_pixels(column_number, column_number, one_width)
   worksheet.write_row(0, 0, df.columns, cell_format=header_format)
-  for row_number, row in enumerate(df.iter_rows(), start=1):
-    worksheet.write_row(row_number, 0, row)
+  with Progress() as progress:
+    write_progress_bar = progress.add_task(f"Writing worksheet {worksheet.get_name()}...", total=df.shape[0])
+    rows_for_1_percent = math.floor(df.shape[0] / 100)
+    for row_number, row in enumerate(df.iter_rows(), start=1):
+      worksheet.write_row(row_number, 0, row)
+      if (row_number % rows_for_1_percent) == 0:
+        progress.update(write_progress_bar, completed=row_number)
   if user_autofilter:
     worksheet.autofilter(0, 0, df.shape[0] - 1, df.shape[1] - 1)
 
@@ -57,7 +63,8 @@ def get_samples_per_sheet(pl_variants: pl.DataFrame) -> tuple[list[list[str]], b
     if rows_in_sheet <= MAX_ROWS_EXCEL:
       samples_per_sheet[sheet_number].append(row[SAMPLE_COL])
     else:
-      sheet_number = sheet_number + 1
+      if len(samples_per_sheet[sheet_number]) > 0:
+        sheet_number = sheet_number + 1
       rows_in_sheet = row[COUNT_COL] + 1
       if (len(samples_per_sheet) - 1) == sheet_number:
         samples_per_sheet[sheet_number].append(row[SAMPLE_COL])
@@ -85,10 +92,10 @@ def write_all_snv_indel_sheets(workbook: xlsxwriter.Workbook, pl_variants: pl.Da
       max_one_group_sheets = math.ceil(pl_one_group.shape[0] / MAX_ROWS_EXCEL)
       for one_group_sheet in range(max_one_group_sheets):
         # append a, b, c, ..., z
-        one_sheet_name = one_sheet_name + f"_{string.ascii_lowercase[one_group_sheet]}"
-        pl_group_slice = pl_one_group.slice((one_group_sheet - 1) * MAX_ROWS_EXCEL, one_group_sheet * MAX_ROWS_EXCEL)
+        subsheet_name = one_sheet_name + f"_{string.ascii_lowercase[one_group_sheet]}"
+        pl_group_slice = pl_one_group.slice(one_group_sheet * MAX_ROWS_EXCEL, (one_group_sheet + 1) * MAX_ROWS_EXCEL)
         pl_group_slice = pl_group_slice.sort([SAMPLE_COL, CHROM_COL, POSITION_COL])
-        write_df_to_excel(pl_group_slice, workbook.add_worksheet(one_sheet_name), pl_variants_widths, header_format)
+        write_df_to_excel(pl_group_slice, workbook.add_worksheet(subsheet_name), pl_variants_widths, header_format)
     else:
       pl_one_group = pl_one_group.sort([SAMPLE_COL, CHROM_COL, POSITION_COL])
       write_df_to_excel(pl_one_group, workbook.add_worksheet(one_sheet_name), pl_variants_widths, header_format)
