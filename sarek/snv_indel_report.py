@@ -41,7 +41,7 @@ def setup_arguments():
                       help=f"A list of paths to {UNFILTERED_VCF_FILE_ENDING} files with the unfiltered calls in them.")
   parser.add_argument("-e", "--bed-file", dest="bed_file", type=str, required=True,
                       help="The targeted bed file for the bait set. If it's Whole genome sequencing, pass 'WGS'.")
-  parser.add_argument("-c", "--csv-output", dest="csv_output", type=bool,
+  parser.add_argument("-c", "--csv-output", dest="csv_output", action="store_true",
                       help="Output a .csv instead of an excel file.")
   validate_arguments(parser.parse_args(), parser)
   return parser.parse_args()
