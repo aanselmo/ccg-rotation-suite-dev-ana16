@@ -67,10 +67,9 @@ def test_over_1mebirows_xlsx():
       write_snv_xlsx.write_all_snv_indel_sheets(
           workbook, duplicated_variants, write_snv_xlsx.SNV_INDEL_SHEET, header_format
       )
-    verify_variants = pl.read_excel(tempfile.name, sheet_name=f"{write_snv_xlsx.SNV_INDEL_SHEET} 1")
+    verify_variants = pl.read_excel(tempfile.name, sheet_name=f"{write_snv_xlsx.SNV_INDEL_SHEET} 0")
     # Assert 1 variant has the correct alternate allele
     assert verify_variants.filter(
-        pl.col(vcf2df.POSITION_COL) == 41266124
-        & pl.col(snv_indel_sheet.SAMPLE_COL) == "S1"
+        pl.col(vcf2df.POSITION_COL).eq(41266124)
+        & pl.col(snv_indel_sheet.SAMPLE_COL).eq("S1")
     ).get_column("ALT")[0] == "G"
-    breakpoint()
