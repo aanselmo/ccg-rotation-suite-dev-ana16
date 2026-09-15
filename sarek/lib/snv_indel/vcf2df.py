@@ -6,8 +6,9 @@ Used to convert a .vcf.gz file to a narwhals dataframe.
 
 There is are some columns filtered/excluded in this module, but for the most part I try to preserve everything for
 later filtration. I intented this module to just convert the formats. The columns that are excluded are the following:
-    * Any CSQ (AKA Consequences or AKA Transcripts) columns besides Best Effect and Canonical.
-    * Old COSMIC v98 annotations from the VEP cache in Existing_Variation column.
+    1. Any CSQ (AKA Consequences or AKA Transcripts) columns besides Best Effect and Canonical.
+    2. Old COSMIC v98 annotations from the VEP cache in Existing_Variation column.
+    3. Only use the variants that PASS the Mutect2 FILTER column.
 """
 
 __docformat__ = "reStructuredText"
@@ -30,6 +31,7 @@ POSITION_COL = "POS"
 INFO_COL = "INFO"
 CSQ_COL = "CSQ"
 FORMAT_COL = "FORMAT"
+MUTECT2_FILTER_COL = "FILTER"
 BEST_EFFECT_PREFIX = "BestEffect_"
 CANONICAL_PREFIX = "Canonical_"
 CSQ_VARIANT_CLASS_COL = "VARIANT_CLASS"
@@ -203,15 +205,18 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
       separator="\t",
       schema_overrides={CHROM_COL: AVAILABLE_CHROMOSOMES},
   )
-  # Data Col of Fromat Header Starts off as the sample name so its not constant.
-  data_col_of_format_header = get_format_data_column_name(df)
-  format_data = split_format_column(df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
-  info_df = split_info_column(df.select(INFO_COL), info_col_names)
-  if csq_col_names:
-    csq_df = split_csq_column(csq_col_names, info_df.select(CSQ_COL))
-  info_df = info_df.drop(CSQ_COL)
-  df = df.drop([FORMAT_COL, data_col_of_format_header, INFO_COL])
-  df = pl.concat([df, format_data, info_df, csq_df], how="horizontal")
+  # KEEP ONLY PASSING MUTECT2 VARIANTS
+  df = df.filter(pl.col(MUTECT2_FILTER_COL) == "PASS")
+  if not df.is_empty():
+    # Data Col of Fromat Header Starts off as the sample name so its not constant.
+    data_col_of_format_header = get_format_data_column_name(df)
+    format_data = split_format_column(df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
+    info_df = split_info_column(df.select(INFO_COL), info_col_names)
+    if csq_col_names:
+      csq_df = split_csq_column(csq_col_names, info_df.select(CSQ_COL))
+    info_df = info_df.drop(CSQ_COL)
+    df = df.drop([FORMAT_COL, data_col_of_format_header, INFO_COL])
+    df = pl.concat([df, format_data, info_df, csq_df], how="horizontal")
   return nw.from_native(df)
 
 

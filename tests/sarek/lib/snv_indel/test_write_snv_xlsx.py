@@ -20,7 +20,6 @@ import sarek.lib.snv_indel.lego_plot_sheet as lego_plot_sheet
 import sarek.lib.snv_indel.analysis_legend_sheet as analysis_legend_sheet
 import sarek.lib.snv_indel.write_snv_xlsx as write_snv_xlsx
 from sarek.lib.excel_style import HEADER_STYLE
-from sarek.lib.common import AVAILABLE_CHROMOSOMES
 
 
 GIT_REPO_DIR = abspath(dirname(dirname(dirname(dirname(dirname(__file__))))))

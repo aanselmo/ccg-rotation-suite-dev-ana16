@@ -21,7 +21,7 @@ sys.path.append(sarek_script_top_dir)
 from lib.snv_indel.vcf2df import (
     convert_vcf_to_data_frame, BEST_EFFECT_CONSEQUENCE_COL, CSQ_BIOTYPE_COL, BEST_EFFECT_COLS_TO_USE,
     BEST_EFFECT_PREFIX, CANONICAL_PREFIX, CANONICAL_COLS_TO_USE, CSQ_VARIANT_TYPE_COLS, CSQ_POPULATION_COLS,
-    COSMIC_v104_COL, CHROM_COL, POSITION_COL
+    COSMIC_v104_COL, CHROM_COL, POSITION_COL, MUTECT2_FILTER_COL
 )
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
@@ -33,7 +33,6 @@ REF_COL = "REF"
 ALT_COL = "ALT"
 RECOMMENDED_FILTER_COL = "ccg_recommended_filter"
 REVIEW_REQUIRED_COL = "Review_Required"
-MUTECT2_FILTER_COL = "FILTER"
 RECOMMENDED_CONSEQUENCE_FILTER = [
     "missense_variant", "frameshift_variant", "inframe_deletion", "inframe_insertion",
     "splice_acceptor_variant", "splice_donor_variant", "protein_altering_variant",
@@ -98,25 +97,21 @@ def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame) -> nw.
 
 def process_one_file(one_vcf_file_path: str) -> nw.DataFrame:
   one_sample_variants = convert_vcf_to_data_frame(one_vcf_file_path)
-  sample_name = basename(one_vcf_file_path).replace(VEP_FILE_ENDING, "")
-  one_sample_variants = one_sample_variants.with_columns(nw.lit(sample_name).alias(SAMPLE_COL))
-  one_sample_variants = add_review_required(one_sample_variants)
-  one_sample_variants = add_recommended_consequence_filter(one_sample_variants)
+  if not one_sample_variants.is_empty():
+    sample_name = basename(one_vcf_file_path).replace(VEP_FILE_ENDING, "")
+    one_sample_variants = one_sample_variants.with_columns(nw.lit(sample_name).alias(SAMPLE_COL))
+    one_sample_variants = add_review_required(one_sample_variants)
+    one_sample_variants = add_recommended_consequence_filter(one_sample_variants)
 
-  # KEEP ONLY PASSING MUTECT2 VARIANTS
-  one_sample_variants = one_sample_variants.filter(
-      nw.col(MUTECT2_FILTER_COL) == "PASS"
-  )
-
-  # Select only these columns for now. There are a lot more columns. I made an arbitrary call to get it as similar to
-  # the riker report as possible. Also, there a lot of gnomAD columns so I tried to summarize them.
-  best_effect_cols = [BEST_EFFECT_PREFIX + col for col in BEST_EFFECT_COLS_TO_USE]
-  canonical_cols = [CANONICAL_PREFIX + col for col in CANONICAL_COLS_TO_USE]
-  one_sample_variants = one_sample_variants.select(
-      [SAMPLE_COL, CHROM_COL, POSITION_COL, REF_COL, ALT_COL, MUTECT2_FILTER_COL, REVIEW_REQUIRED_COL,
-       RECOMMENDED_FILTER_COL] + CSQ_VARIANT_TYPE_COLS + canonical_cols + best_effect_cols + ["AF", "DP"]
-      + CSQ_POPULATION_COLS
-  )
+    # Select only these columns for now. There are a lot more columns. I made an arbitrary call to get it as similar to
+    # the riker report as possible. Also, there a lot of gnomAD columns so I tried to summarize them.
+    best_effect_cols = [BEST_EFFECT_PREFIX + col for col in BEST_EFFECT_COLS_TO_USE]
+    canonical_cols = [CANONICAL_PREFIX + col for col in CANONICAL_COLS_TO_USE]
+    one_sample_variants = one_sample_variants.select(
+        [SAMPLE_COL, CHROM_COL, POSITION_COL, REF_COL, ALT_COL, MUTECT2_FILTER_COL, REVIEW_REQUIRED_COL,
+         RECOMMENDED_FILTER_COL] + CSQ_VARIANT_TYPE_COLS + canonical_cols + best_effect_cols + ["AF", "DP"]
+        + CSQ_POPULATION_COLS
+    )
   return one_sample_variants
 
 
