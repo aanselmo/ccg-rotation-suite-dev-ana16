@@ -27,7 +27,7 @@ BestEffect_HGVSc,"The standardized HGVS Nomenclature describing the variant rela
 BestEffect_HGVSp,"The standardized HGVS Nomenclature describing the ascertained protein consequence from the most severely affected transcript."
 AF,"Allele Fraction from Mutect2. Mutect2 filters out normal tissue contamination reads."
 DP,"Depth from Mutect2. Mutect2 filters out normal tissue contamination reads."
-Existing_variation,"The IDs in the following databases that catalogue known variants: dbSNP (start with rs), HGMD (start with CM (Missense/Nonsense), CD (Deletion), or CI (Insertion)). There are other databases that VEP caches too (Cancer Gene Census, ClinVar, dbGaP, dbPEX, dbVar, DGVA, G2P, GEFOS, GenCC, GIANT, Infevers, KAT6BDB, MAGIC, NHGRI-EBI, OIVID, OMIM, Orphanet, PAHdb, PharmGKB, PhenCode, Teslovich, and UniProt). Further information is here: https://jun2026.archive.ensembl.org/info/genome/variation/species/sources_documentation.html."
+Existing_variation,"The IDs in the following databases that catalogue known variants: dbSNP (start with rs), HGMD (start with CM (Missense/Nonsense), CD (Deletion), or CI (Insertion)). Further information on databases in the VEP cache is here: https://jun2026.archive.ensembl.org/info/genome/variation/species/sources_documentation.html."
 COSMIC_v104,"The ID from COSMIC (catalogue of somatic mutations in cancer) version 104. COSV IDs are mapped to one and only one chromosome, position, and variant."
 COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT,"How many times this COSMIC_v104 ID was found in whole genome screens."
 COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT,"How many times this COSMIC_v104 ID was found in targeted panels."
