@@ -22,6 +22,10 @@ EOF
 ```bash
 sudo apt install poppler-utils
 ```
+6. Set the TimeZone
+```bash
+sudo timedatectl set-timezone America/New_York
+```
 
 ## Dev ccg-rotation-suite Install Directions
 3. Install Python requirements/dependencies:
