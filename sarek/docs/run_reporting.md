@@ -22,7 +22,7 @@ BASE_DIR="/data/sarek/aggregate/"
 PROJECT_CODE=[YOUR PROJECT CODE]
 mkdir ${BASE_DIR}/${PROJECT_CODE}
 cd ${BASE_DIR}/${PROJECT_CODE}
-/data/ccg-rotation-suite/sarek/aggregate_report.py -p ${PROJECT_CODE} --bucket .
+/data/opt/ccg-rotation-suite/sarek/aggregate_report.py -p ${PROJECT_CODE} --bucket .
 ```
 
 ## 3. Copy Number Variation (CNV) report

@@ -5,7 +5,7 @@ Directions on how to rename fastqs and then create Sarek Samplesheet.
 1. If your project is in MiniLIMS, this is straightforward. It takes about 2 minutes to run. Run the following command:
 ```bash
 ssh ccg3.dfci.harvard.edu
-/data/ccg-rotation-suite/sarek/setup_for_sarek.py -p [project code] -m gs://mbcgs/260424_AB14103_fastq
+/data/opt/ccg-rotation-suite/sarek/setup_for_sarek.py -p [project code] -m gs://mbcgs/260424_AB14103_fastq
 ```
 
 ## Edge Cases
@@ -19,7 +19,7 @@ patient,status,sample,first_barcode,second_barcode
 ```
 scp [lims_override.csv] ccg3.dfci.harvard.edu:~/.
 ssh ccg3.dfci.harvard.edu
-/data/ccg-rotation-suite/sarek/setup_for_sarek.py -p [project code] -m gs://mbcgs/260424_AB14103_fastq \
+/data/opt/ccg-rotation-suite/sarek/setup_for_sarek.py -p [project code] -m gs://mbcgs/260424_AB14103_fastq \
     -l ~/[lims_override.csv]
 ```
 
