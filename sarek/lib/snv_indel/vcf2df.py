@@ -5,10 +5,18 @@
 Used to convert a .vcf.gz file to a narwhals dataframe.
 
 There is are some columns filtered/excluded in this module, but for the most part I try to preserve everything for
-later filtration. I intented this module to just convert the formats. The columns that are excluded are the following:
+later filtration. I intended this module to just convert the formats. The data that are excluded are the following:
     1. Any CSQ (AKA Consequences or AKA Transcripts) columns besides Best Effect and Canonical.
     2. Old COSMIC v98 annotations from the VEP cache in Existing_Variation column.
     3. Only use the variants that PASS the Mutect2 FILTER column.
+    4. Allele fractions that are <2%
+
+Things this module does do:
+    1. splitting columns into simpler, unique columns.
+
+Things this module does NOT do (to keep things organized - put these in snv_indel_sheet.py):
+    1. Add extra filter columns.
+    2. Combining columns.
 """
 
 __docformat__ = "reStructuredText"
@@ -31,6 +39,7 @@ POSITION_COL = "POS"
 INFO_COL = "INFO"
 CSQ_COL = "CSQ"
 FORMAT_COL = "FORMAT"
+AF_COL = "AF"
 MUTECT2_FILTER_COL = "FILTER"
 BEST_EFFECT_PREFIX = "BestEffect_"
 CANONICAL_PREFIX = "Canonical_"
@@ -211,12 +220,15 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
     # Data Col of Fromat Header Starts off as the sample name so its not constant.
     data_col_of_format_header = get_format_data_column_name(df)
     format_data = split_format_column(df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
+    df = df.drop([FORMAT_COL])
+    df = pl.concat([df, format_data], how="horizontal")
+    df = df.filter(pl.col(AF_COL) > 2.0)
     info_df = split_info_column(df.select(INFO_COL), info_col_names)
     if csq_col_names:
       csq_df = split_csq_column(csq_col_names, info_df.select(CSQ_COL))
     info_df = info_df.drop(CSQ_COL)
-    df = df.drop([FORMAT_COL, data_col_of_format_header, INFO_COL])
-    df = pl.concat([df, format_data, info_df, csq_df], how="horizontal")
+    df = df.drop([data_col_of_format_header, INFO_COL])
+    df = pl.concat([df, info_df, csq_df], how="horizontal")
   return nw.from_native(df)
 
 
