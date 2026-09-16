@@ -13,8 +13,9 @@ import polars as pl
 import narwhals as nw
 import xlsxwriter
 from .vcf2df import (
-    BEST_EFFECT_AMINO_ACIDS_COL, BEST_EFFECT_CONSEQUENCE_COL, EXISTING_VARIATION_COL, MAX_AF_POPS_COL,
-    CHROM_COL, POSITION_COL
+    EXISTING_VARIATION_COL, MAX_AF_POPS_COL, CHROM_COL, POSITION_COL, COSMIC_COLS,
+    BEST_EFFECT_CONSEQUENCE_COL, BEST_EFFECT_HGVS_C_COL, BEST_EFFECT_HGVS_P_COL,
+    CANONICAL_CONSEQUENCE_COL, CANONICAL_HGVS_C_COL, CANONICAL_HGVS_P_COL
 )
 from .snv_indel_sheet import (
     SAMPLE_COL, REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL
@@ -76,11 +77,16 @@ def get_samples_per_sheet(pl_variants: pl.DataFrame) -> tuple[list[list[str]], b
 def write_all_snv_indel_sheets(workbook: xlsxwriter.Workbook, pl_variants: pl.DataFrame, sheet_basename: str, header_format):
   pl_variants = pl_variants.sort(by=[SAMPLE_COL, CHROM_COL, POSITION_COL])
   pl_variants_widths = get_column_widths(pl_variants, first_row_multiplier=13.0)
+  for one_col in (COSMIC_COLS + [
+      REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL,
+      EXISTING_VARIATION_COL, MAX_AF_POPS_COL
+  ]):
+    pl_variants_widths[one_col] = 130.0
   for one_col in [
-      REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL, BEST_EFFECT_CONSEQUENCE_COL,
-      BEST_EFFECT_AMINO_ACIDS_COL, EXISTING_VARIATION_COL, MAX_AF_POPS_COL
+      BEST_EFFECT_CONSEQUENCE_COL, BEST_EFFECT_HGVS_C_COL, BEST_EFFECT_HGVS_P_COL,
+      CANONICAL_CONSEQUENCE_COL, CANONICAL_HGVS_C_COL, CANONICAL_HGVS_P_COL,
   ]:
-    pl_variants_widths[one_col] = 100.0
+    pl_variants_widths[one_col] = 250.0
   (samples_per_sheet, samples_to_split) = get_samples_per_sheet(pl_variants)
   for group_number, sample_group in enumerate(samples_per_sheet):
     pl_one_group = pl_variants.filter(pl.col(SAMPLE_COL).is_in(sample_group))

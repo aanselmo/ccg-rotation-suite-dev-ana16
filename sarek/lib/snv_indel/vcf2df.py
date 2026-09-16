@@ -40,6 +40,7 @@ INFO_COL = "INFO"
 CSQ_COL = "CSQ"
 FORMAT_COL = "FORMAT"
 AF_COL = "AF"
+DP_COL = "DP"
 MUTECT2_FILTER_COL = "FILTER"
 BEST_EFFECT_PREFIX = "BestEffect_"
 CANONICAL_PREFIX = "Canonical_"
@@ -48,19 +49,25 @@ CSQ_CONSEQUENCE_COL = "Consequence"
 EXISTING_VARIATION_COL = "Existing_variation"
 CSQ_BIOTYPE_COL = "BIOTYPE"
 BEST_EFFECT_CONSEQUENCE_COL = BEST_EFFECT_PREFIX + CSQ_CONSEQUENCE_COL
-CSQ_AMINO_ACIDS = "Amino_acids"
-BEST_EFFECT_AMINO_ACIDS_COL = BEST_EFFECT_PREFIX + CSQ_AMINO_ACIDS
+CSQ_HGVS_C = "HGVSc"
+CSQ_HGVS_P = "HGVSp"
+BEST_EFFECT_HGVS_C_COL = BEST_EFFECT_PREFIX + CSQ_HGVS_C
+BEST_EFFECT_HGVS_P_COL = BEST_EFFECT_PREFIX + CSQ_HGVS_P
 BEST_EFFECT_COLS_TO_USE = [
-    CSQ_CONSEQUENCE_COL, "Feature_type", "Feature", "EXON", "INTRON", "cDNA_position", "CDS_position",
-    "Protein_position", CSQ_AMINO_ACIDS
+    CSQ_CONSEQUENCE_COL, "EXON", "INTRON", "cDNA_position", CSQ_HGVS_C, CSQ_HGVS_P
 ]
 CANONICAL_COLS_TO_USE = BEST_EFFECT_COLS_TO_USE
+CANONICAL_CONSEQUENCE_COL = CANONICAL_PREFIX + CSQ_CONSEQUENCE_COL
+CANONICAL_HGVS_C_COL = CANONICAL_PREFIX + CSQ_HGVS_C
+CANONICAL_HGVS_P_COL = CANONICAL_PREFIX + CSQ_HGVS_P
 GNOMAD_1000_GENOMES_AF_COL = "gnomAD_AF"
 MAX_AF_POPS_COL = "MAX_AF_POPS"
 GNOMAD_COLS = [GNOMAD_1000_GENOMES_AF_COL, "gnomADe_AF", "gnomADg_AF", "MAX_AF", MAX_AF_POPS_COL]
 COSMIC_v104_COL = "COSMIC_v104"
+COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT_COL = "COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT"
+COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT_COL = "COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT"
 COSMIC_COLS = [
-    COSMIC_v104_COL, "COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT", "COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT",
+    COSMIC_v104_COL, COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT_COL, COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT_COL,
     "COSMIC_v80", "COSMIC_v80_CNT"
 ]
 CSQ_VARIANT_TYPE_COLS = [CSQ_VARIANT_CLASS_COL, "SYMBOL", "SYMBOL_SOURCE", "HGNC_ID", "Gene", CSQ_BIOTYPE_COL]
@@ -140,6 +147,22 @@ def split_csq_column(csq_header: list[str], csq_column: pl.DataFrame):
       .list.filter(~pl.element().str.contains("COSV"))
       .list.join("&").alias(EXISTING_VARIATION_COL)
   )
+  csq = csq.with_columns(
+      pl.when(pl.col(COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT_COL).str.len_chars() == 0)
+      .then(pl.lit(None))
+      .otherwise(pl.col(COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT_COL))
+      .alias(COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT_COL)
+  )
+  csq = csq.with_columns(
+      pl.when(pl.col(COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT_COL).str.len_chars() == 0)
+      .then(pl.lit(None))
+      .otherwise(pl.col(COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT_COL))
+      .alias(COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT_COL)
+  )
+  csq = csq.with_columns(
+      pl.col(COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT_COL).str.to_integer(),
+      pl.col(COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT_COL).str.to_integer()
+  )
   best_effect = best_effect.select(pl.col(BEST_EFFECT_COLS_TO_USE).name.prefix(BEST_EFFECT_PREFIX))
   canonical = canonical.select(pl.col(CANONICAL_COLS_TO_USE).name.prefix(CANONICAL_PREFIX))
   csq = pl.concat([canonical, best_effect, csq], how="horizontal")
@@ -196,7 +219,7 @@ def split_format_column(format_and_data_cols: pl.DataFrame) -> pl.DataFrame:
       pl.nth(SECOND_DATA_COL).str.split(":")
   )
   split_column = [dict(zip(row[FIRST_FORMAT_COL], row[SECOND_DATA_COL])) for row in split_column.iter_rows()]
-  split_column = pl.DataFrame(split_column)
+  split_column = pl.DataFrame(split_column, schema_overrides={AF_COL: pl.Float32, DP_COL: pl.Int16})
   return split_column
 
 
@@ -222,7 +245,7 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
     format_data = split_format_column(df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
     df = df.drop([FORMAT_COL])
     df = pl.concat([df, format_data], how="horizontal")
-    df = df.filter(pl.col(AF_COL) > 2.0)
+    df = df.filter(pl.col(AF_COL) >= 0.02)
     info_df = split_info_column(df.select(INFO_COL), info_col_names)
     if csq_col_names:
       csq_df = split_csq_column(csq_col_names, info_df.select(CSQ_COL))
