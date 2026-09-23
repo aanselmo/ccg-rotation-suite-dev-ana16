@@ -6,7 +6,8 @@
   "files.eol": "\n",
   "[python]": {
     "editor.defaultFormatter": "ms-python.autopep8",
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "editor.detectIndentation": false
   },
   "autopep8.args": [
     "--indent-size",
