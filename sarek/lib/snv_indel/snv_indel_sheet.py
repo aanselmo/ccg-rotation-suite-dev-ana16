@@ -28,7 +28,7 @@ from multiprocessing import get_context
 
 
 VEP_FILE_ENDING = ".mutect2.filtered_VEP.ann.vcf.gz"
-SAMPLE_COL = "tumor_sample_name"
+SAMPLE_COL = "sample"
 REF_COL = "REF"
 ALT_COL = "ALT"
 RECOMMENDED_FILTER_COL = "ccg_recommended_filter"
