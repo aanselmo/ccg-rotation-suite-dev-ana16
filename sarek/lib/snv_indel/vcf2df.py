@@ -223,7 +223,7 @@ def split_format_column(format_and_data_cols: pl.DataFrame) -> pl.DataFrame:
   return split_column
 
 
-def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
+def convert_vcf_to_data_frame(vcf_path: str, should_filter_mutect2_failed=True) -> nw.DataFrame:
   """
   Convert a .vcf file into a nw.DataFrame. Does not do any filtering for the most part. That's not part of this module.
   :param vcf_path str: the path to the file of .vcf that needs to be parsed.
@@ -237,8 +237,9 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
       separator="\t",
       schema_overrides={CHROM_COL: AVAILABLE_CHROMOSOMES},
   )
-  # KEEP ONLY PASSING MUTECT2 VARIANTS
-  df = df.filter(pl.col(MUTECT2_FILTER_COL) == "PASS")
+  if should_filter_mutect2_failed:
+    # KEEP ONLY PASSING MUTECT2 VARIANTS
+    df = df.filter(pl.col(MUTECT2_FILTER_COL) == "PASS")
   if not df.is_empty():
     # Data Col of Fromat Header Starts off as the sample name so its not constant.
     data_col_of_format_header = get_format_data_column_name(df)

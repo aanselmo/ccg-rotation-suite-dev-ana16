@@ -107,7 +107,7 @@ def process_one_mouse_file(one_vcf_file_path: str) -> nw.DataFrame:
   """
   Run vcf2df for one Human Aligned Mouse Alleles (HAMAs) unfiltered vcf file.
   """
-  one_sample_variants = convert_vcf_to_data_frame(one_vcf_file_path)
+  one_sample_variants = convert_vcf_to_data_frame(one_vcf_file_path, should_filter_mutect2_failed=False)
   if not one_sample_variants.is_empty():
     sample_name = basename(one_vcf_file_path).replace(UNFILTERED_VCF_FILE_ENDING, "")
     one_sample_variants = one_sample_variants.with_columns(nw.lit(sample_name).alias(SAMPLE_COL))
