@@ -21,7 +21,9 @@ from lib.snv_indel.lego_plot_sheet import graph_lego_plot, UNFILTERED_VCF_FILE_E
 from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
 from lib.snv_indel.variant_summary_sheet import get_variant_summary
 from lib.snv_indel.analysis_legend_sheet import get_legend
-from lib.snv_indel.mouse_contamination import get_contamination_metrics
+from lib.snv_indel.mouse_contamination import (
+    get_contamination_metrics, get_human_aligned_mouse_alleles, remove_human_aligned_mouse_alleles
+)
 from lib.snv_indel.write_snv_xlsx import write_xlsx
 from lib.snv_indel.write_snv_csv import write_csv
 
@@ -125,11 +127,15 @@ def main():
   executor = ProcessPoolExecutor(max_workers=1, mp_context=get_context("spawn"))
   graph_task = executor.submit(graph_lego_plot, unfiltered_vcf_files, project_code, args.reference_genome, bed_file)
   all_variants = get_variants(annotated_vcf_files, number_processes)
+  if mouse_positive_vcfs or mouse_bbsplit_file:
+    mouse_contamination_table = get_contamination_metrics(mouse_bbsplit_file)
+    all_hamas = get_human_aligned_mouse_alleles(
+        mouse_positive_vcfs, unfiltered_vcf_files, mouse_contamination_table
+    )
+    all_variants = remove_human_aligned_mouse_alleles(all_variants, all_hamas)
   variant_summary_table = get_variant_summary(all_variants)
   legend = get_legend(args.reference_genome)
   lego_plot = graph_task.result()
-  if mouse_positive_vcfs or mouse_bbsplit_file:
-    mouse_contamination_table = get_contamination_metrics(mouse_bbsplit_file)
   if args.csv_output:
     write_csv(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
   else:
