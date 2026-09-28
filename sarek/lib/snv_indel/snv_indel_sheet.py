@@ -21,7 +21,7 @@ sys.path.append(sarek_script_top_dir)
 from lib.snv_indel.vcf2df import (
     convert_vcf_to_data_frame, BEST_EFFECT_CONSEQUENCE_COL, CSQ_BIOTYPE_COL, BEST_EFFECT_COLS_TO_USE,
     BEST_EFFECT_PREFIX, CANONICAL_PREFIX, CANONICAL_COLS_TO_USE, CSQ_VARIANT_TYPE_COLS, CSQ_POPULATION_COLS,
-    COSMIC_v104_COL, CHROM_COL, POSITION_COL, MUTECT2_FILTER_COL
+    COSMIC_v104_COL, CHROM_COL, POSITION_COL, MUTECT2_FILTER_COL, REF_COL, ALT_COL
 )
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
@@ -29,8 +29,6 @@ from multiprocessing import get_context
 
 VEP_FILE_ENDING = ".mutect2.filtered_VEP.ann.vcf.gz"
 SAMPLE_COL = "sample"
-REF_COL = "REF"
-ALT_COL = "ALT"
 RECOMMENDED_FILTER_COL = "ccg_recommended_filter"
 REVIEW_REQUIRED_COL = "Review_Required"
 RECOMMENDED_CONSEQUENCE_FILTER = [
@@ -56,15 +54,6 @@ def setup_arguments():
 
 def add_review_required(all_sample_variants: nw.DataFrame) -> nw.DataFrame:
   sample_variants: pl.DataFrame = all_sample_variants.to_native()
-
-  # gnomADe_AF may be read as String due to "." being used for missing values in VCF
-  sample_variants = sample_variants.with_columns(
-      pl.col("gnomADe_AF")
-      .replace([".", ""], None)
-      .cast(pl.Float64)
-      .alias("gnomADe_AF")
-  )
-
   sample_variants = sample_variants.with_columns(
       pl.when(
           (pl.col(CSQ_BIOTYPE_COL) == "protein_coding") & (

@@ -28,7 +28,7 @@ PRIMARY_READS_COL = "primary reads"
 NCBIM37_READS_COL = "NCBIM37 reads"
 TOTAL_READS_COL = "total reads"
 CONTAMINATION_PCT_COL = "% mouse reads"
-MOUSE_POSITIVE_CONTROL_THRESHOLD = 99.5
+MOUSE_POSITIVE_CONTROL_THRESHOLD = .995
 
 SEEN_IN_MOUSE_COL = "Seen_In_Mouse"
 
@@ -41,27 +41,33 @@ def get_contamination_metrics(mouse_bbsplit_file: str) -> nw.DataFrame:
   # Typically, there are 12 chunks that a fastq is split into.
   CHUNK_NUM_COL = "chunk_num"
   LANE_COL = "lane"
-  contamination = pl.read_csv(mouse_bbsplit_file)
+  contamination = pl.read_csv(mouse_bbsplit_file, separator="\t")
   contamination = contamination.rename({
       "Sample": SAMPLE_COL,
       "primary": PRIMARY_READS_COL,
       "NCBIM37": NCBIM37_READS_COL
   })
+  contamination = contamination.cast({
+    PRIMARY_READS_COL: pl.Int64,
+    NCBIM37_READS_COL: pl.Int64
+  })
   # Example original "Sample" col = "0001.CHGFR0004-PDX-B1-L001"
   # 0001 is the chunk and L001 is the lane entered in the sarek samplesheet.
   contamination = contamination.with_columns(
-      pl.col(SAMPLE_COL).str.split_exact(".", 1).struct.rename_fields(CHUNK_NUM_COL, SAMPLE_COL)
+      pl.col(SAMPLE_COL).str.split_exact(".", 1)
+      .struct.rename_fields([CHUNK_NUM_COL, SAMPLE_COL])
+      .struct.unnest()
   )
   contamination = contamination.with_columns(
       pl.col(SAMPLE_COL).str.split("-")
   )
   contamination = contamination.with_columns(
       # only the last item (-1)
-      pl.col(SAMPLE_COL).list.item(-1).alias(LANE_COL),
+      pl.col(SAMPLE_COL).list.get(-1).alias(LANE_COL),
       # everything but the last item (-1)
-      pl.col(SAMPLE_COL).list.slice(0, -1).list.join("-").alias(SAMPLE_COL)
+      pl.col(SAMPLE_COL).list.head(pl.col(SAMPLE_COL).list.len()-1).list.join("-").alias(SAMPLE_COL)
   )
-  contamination.group_by(by=SAMPLE_COL).agg(
+  contamination = contamination.group_by(SAMPLE_COL).agg(
       pl.col(LANE_COL),
       pl.col(CHUNK_NUM_COL),
       pl.col(PRIMARY_READS_COL).sum(),
@@ -71,7 +77,8 @@ def get_contamination_metrics(mouse_bbsplit_file: str) -> nw.DataFrame:
       pl.col(PRIMARY_READS_COL).add(pl.col(NCBIM37_READS_COL)).alias(TOTAL_READS_COL)
   )
   contamination = contamination.with_columns(
-      pl.col(NCBIM37_READS_COL).truediv(pl.col(TOTAL_READS_COL)).alias(CONTAMINATION_PCT_COL)
+      pl.col(NCBIM37_READS_COL).truediv(pl.col(TOTAL_READS_COL))
+      .cast(pl.Float64).alias(CONTAMINATION_PCT_COL)
   )
   contamination = contamination.drop([CHUNK_NUM_COL, LANE_COL])
   return nw.from_native(contamination)
@@ -87,7 +94,7 @@ def get_mouse_pos_control_vcfs(
   mouse_pos_controls = []
   if not mouse_positive_vcfs:
     mouse_pos_controls = contamination_table.filter(
-        pl.col(CONTAMINATION_PCT_COL) > MOUSE_POSITIVE_CONTROL_THRESHOLD
+        nw.col(CONTAMINATION_PCT_COL) > MOUSE_POSITIVE_CONTROL_THRESHOLD
     ).get_column(SAMPLE_COL).to_list()
     for vcf_path in unfiltered_vcf_files:
       for sample_name in mouse_pos_controls:
@@ -111,6 +118,7 @@ def process_one_mouse_file(one_vcf_file_path: str) -> nw.DataFrame:
   if not one_sample_variants.is_empty():
     sample_name = basename(one_vcf_file_path).replace(UNFILTERED_VCF_FILE_ENDING, "")
     one_sample_variants = one_sample_variants.with_columns(nw.lit(sample_name).alias(SAMPLE_COL))
+  return one_sample_variants
 
 
 def get_human_aligned_mouse_alleles(
@@ -131,7 +139,7 @@ def get_human_aligned_mouse_alleles(
 
 
 def remove_human_aligned_mouse_alleles(
-    all_variants: nw.DataFrame, all_hamas: nw.DataFrame
+    all_variants: nw.DataFrame, all_hamas: nw.DataFrame, mouse_pos_controls: list[str]
 ) -> nw.DataFrame:
   """
   Remove blacklisted Human Aligned Mouse Alleles (HAMAs) from all_variants and update the summary table.
@@ -139,8 +147,12 @@ def remove_human_aligned_mouse_alleles(
   VARIANT_ID_COLUMNS = [CHROM_COL, POSITION_COL, REF_COL, ALT_COL]
   all_hamas = all_hamas.select(VARIANT_ID_COLUMNS)
   all_hamas = all_hamas.with_columns(nw.lit(True).alias(SEEN_IN_MOUSE_COL))
-  all_variants.join(all_hamas, on=VARIANT_ID_COLUMNS, how="left")
+  all_variants = all_variants.filter(~nw.col(SAMPLE_COL).is_in(mouse_pos_controls))
+  all_variants = all_variants.join(all_hamas, on=VARIANT_ID_COLUMNS, how="left")
   all_variants = all_variants.with_columns(
-      nw.when(pl.col(SEEN_IN_MOUSE_COL).is_null()).then(False).otherwise(pl.col(SEEN_IN_MOUSE_COL))
+      nw.when(nw.col(SEEN_IN_MOUSE_COL).is_null())
+      .then(False)
+      .otherwise(nw.col(SEEN_IN_MOUSE_COL))
+      .alias(SEEN_IN_MOUSE_COL)
   )
   return all_variants
