@@ -118,6 +118,7 @@ def main():
   (annotated_vcf_files, unfiltered_vcf_files, mouse_positive_vcfs, mouse_bbsplit_file) = gather_input_files(args)
   bed_file = None
   lego_plot = io.BytesIO()
+  has_pdx = False
   number_processes = args.number_processes
   print(f"Processes (CPU) Used for lego plot and vcf parsing: {number_processes}")
   if args.number_processes > 2:
@@ -133,8 +134,9 @@ def main():
         mouse_positive_vcfs, unfiltered_vcf_files, mouse_contamination_table
     )
     all_variants = remove_human_aligned_mouse_alleles(all_variants, all_hamas)
+    has_pdx = True
   variant_summary_table = get_variant_summary(all_variants)
-  legend = get_legend(args.reference_genome)
+  legend = get_legend(args.reference_genome, has_pdx)
   lego_plot = graph_task.result()
   if args.csv_output:
     write_csv(output_file_name, all_variants, variant_summary_table, legend, lego_plot)

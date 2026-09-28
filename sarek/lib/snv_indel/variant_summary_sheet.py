@@ -22,6 +22,7 @@ from .snv_indel_sheet import (
     RECOMMENDED_FILTER_COL,
     SAMPLE_COL
 )
+from .mouse_contamination import SEEN_IN_MOUSE_COL
 
 DB_SNP_COL = "DBSNP Only"
 COSMIC_COL = "COSMIC_v104 Only"
@@ -101,7 +102,11 @@ def group_by_class(filtered_variants: nw.DataFrame) -> nw.DataFrame:
 
 
 def get_variant_summary(all_variants: nw.DataFrame) -> nw.DataFrame:
+  MOUSE_FILTER_LITERAL = ""
   filtered_variants = all_variants.filter(nw.col(RECOMMENDED_FILTER_COL) == True)
+  if SEEN_IN_MOUSE_COL in filtered_variants.columns:
+    filtered_variants = filtered_variants.filter(nw.col(SEEN_IN_MOUSE_COL) == True)
+    MOUSE_FILTER_LITERAL = f"{SEEN_IN_MOUSE_COL}='TRUE';"
   variants_grouped_by_db = group_by_existing_variation(filtered_variants)
   variants_grouped_by_class = group_by_class(filtered_variants)
   summary_table = variants_grouped_by_db.join(
@@ -115,7 +120,8 @@ def get_variant_summary(all_variants: nw.DataFrame) -> nw.DataFrame:
   summary_table = summary_table.sort(by=SAMPLE_COL)
   summary_table = summary_table.with_columns(
       nw.lit(
-          f"{MUTECT2_FILTER_COL}='PASS';{REVIEW_REQUIRED_COL}='TRUE';{BEST_EFFECT_CONSEQUENCE_COL}={str(RECOMMENDED_CONSEQUENCE_FILTER)}"
+          f"{MOUSE_FILTER_LITERAL}{MUTECT2_FILTER_COL}='PASS';{REVIEW_REQUIRED_COL}='TRUE';"
+          + f"{BEST_EFFECT_CONSEQUENCE_COL}={str(RECOMMENDED_CONSEQUENCE_FILTER)}"
       ).alias("ccg_recommended_filter")
   )
   return summary_table
