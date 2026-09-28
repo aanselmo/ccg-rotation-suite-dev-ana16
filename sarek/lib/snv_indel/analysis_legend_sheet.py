@@ -28,6 +28,7 @@ def get_legend(reference_genome: str, has_pdx=False) -> nw.DataFrame:
   legend_df = nw.from_native(pl.read_csv(join(script_dir, "legend.csv")))
   if not has_pdx:
     legend_df.filter(pl.col(SOURCE_COL) != "bbsplit")
+    legend_df.filter(~pl.col(DEFINITIONS_COL).str.contains("bbsplit"))
   legend_df = legend_df.with_columns(
       nw.col(DEFINITIONS_COL).str.replace("REFERENCE_GENOME", reference_genome).alias(DEFINITIONS_COL)
   )

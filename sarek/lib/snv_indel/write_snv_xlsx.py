@@ -30,7 +30,8 @@ VARIANT_SUMMARY_SHEET = "Variant Summary Table"
 LEGEND_SHEET = "Legend"
 
 
-def write_df_to_excel(df: pl.DataFrame, worksheet: xlsxwriter.worksheet, column_widths: dict, header_format, user_autofilter=True):
+def write_df_to_excel(df: pl.DataFrame, worksheet: xlsxwriter.worksheet, column_widths: dict, header_format,
+                      user_autofilter=True):
   """
   Because I'm using {"constant_memory": True} as an option in xlsxwriter, I cannot use polars.write_excel.
   I have to do it via loop. I'm doing this to support over 1M rows in excel.
@@ -130,10 +131,26 @@ def write_legend_sheet(workbook: xlsxwriter.Workbook, pl_legend: pl.DataFrame, s
                     pl_legend_widths, header_format, user_autofilter=False)
 
 
+def write_mouse_contamination_table(workbook: xlsxwriter.Workbook, pl_mouse_contamination: pl.DataFrame,
+                                    sheet_name: str, header_format):
+  widths = get_column_widths(pl_mouse_contamination)
+  write_df_to_excel(pl_mouse_contamination, workbook.add_worksheet(sheet_name),
+                    widths, header_format, user_autofilter=True)  
+
+
+def write_all_hamas(workbook: xlsxwriter.Workbook, pl_all_hamas: pl.DataFrame, sheet_name: str,
+                    header_format):
+  widths = get_column_widths(pl_all_hamas)
+  write_df_to_excel(pl_all_hamas, workbook.add_worksheet(sheet_name),
+                    widths, header_format, user_autofilter=True)  
+
+
 def write_xlsx(
     file_name: str,
     all_variants: nw.DataFrame,
     variant_summary_table: nw.DataFrame,
+    mouse_contamination_table: nw.DataFrame,
+    all_hamas: nw.DataFrame,
     legend: nw.DataFrame,
     lego_plot: io.BytesIO,
 ):
@@ -145,9 +162,15 @@ def write_xlsx(
   pl_variants = all_variants.to_native()
   pl_summary = variant_summary_table.to_native()
   pl_legend = legend.to_native()
+  pl_mouse_contamination = mouse_contamination_table.to_native()
+  pl_all_hamas = all_hamas.to_native()
   with xlsxwriter.Workbook(file_name, options={"constant_memory": True, "use_zip64": True}) as workbook:
     header_format = workbook.add_format(HEADER_STYLE)
     write_all_snv_indel_sheets(workbook, pl_variants, SNV_INDEL_SHEET, header_format)
     write_summary_sheet(workbook, pl_summary, VARIANT_SUMMARY_SHEET, header_format)
+    if not pl_mouse_contamination.is_empty():
+      write_mouse_contamination_table(workbook, pl_mouse_contamination, "Mouse Contamination", header_format)
+    if not pl_all_hamas.is_empty():
+      write_all_hamas(workbook, pl_all_hamas, "Mouse Alleles (HAMAs)", header_format)
     write_lego_plot_sheet(workbook, lego_plot, "Mutation Lego Plot")
     write_legend_sheet(workbook, pl_legend, LEGEND_SHEET, header_format)

@@ -13,6 +13,7 @@ from glob import glob
 from os.path import exists as path_exists
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
+import narwhals.stable.v2 as nw
 from lib.common import (
     append_common_args, append_bucket_arg, append_reference_arg, append_processes_arg, get_output_file_name,
     DEFAULT_CSV_OUTPUT
@@ -119,6 +120,8 @@ def main():
   bed_file = None
   lego_plot = io.BytesIO()
   has_pdx = False
+  mouse_contamination_table = nw.from_dict({}, backend="polars")
+  all_hamas = nw.from_dict({}, backend="polars")
   number_processes = args.number_processes
   print(f"Processes (CPU) Used for lego plot and vcf parsing: {number_processes}")
   if args.number_processes > 2:
@@ -139,9 +142,11 @@ def main():
   legend = get_legend(args.reference_genome, has_pdx)
   lego_plot = graph_task.result()
   if args.csv_output:
-    write_csv(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
+    write_csv(output_file_name, all_variants, variant_summary_table, mouse_contamination_table, all_hamas, legend,
+              lego_plot)
   else:
-    write_xlsx(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
+    write_xlsx(output_file_name, all_variants, variant_summary_table,  mouse_contamination_table, all_hamas, legend,
+               lego_plot)
 
 
 if __name__ == "__main__":
