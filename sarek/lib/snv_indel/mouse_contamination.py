@@ -19,8 +19,8 @@ import narwhals.stable.v2 as nw
 script_dir = Path(__file__).resolve().parent
 sarek_script_top_dir = dirname(dirname(script_dir))
 sys.path.append(sarek_script_top_dir)
-from lib.snv_indel.snv_indel_sheet import SAMPLE_COL, REF_COL, ALT_COL
-from lib.snv_indel.vcf2df import convert_vcf_to_data_frame, CHROM_COL, POSITION_COL
+from lib.snv_indel.snv_indel_sheet import SAMPLE_COL, BASE_CCG_RECOMMENDED_FILER, RECOMMENDED_FILTER_COL
+from lib.snv_indel.vcf2df import convert_vcf_to_data_frame, CHROM_COL, POSITION_COL, REF_COL, ALT_COL
 from lib.snv_indel.lego_plot_sheet import UNFILTERED_VCF_FILE_ENDING
 
 
@@ -48,8 +48,8 @@ def get_contamination_metrics(mouse_bbsplit_file: str) -> nw.DataFrame:
       "NCBIM37": NCBIM37_READS_COL
   })
   contamination = contamination.cast({
-    PRIMARY_READS_COL: pl.Int64,
-    NCBIM37_READS_COL: pl.Int64
+      PRIMARY_READS_COL: pl.Int64,
+      NCBIM37_READS_COL: pl.Int64
   })
   # Example original "Sample" col = "0001.CHGFR0004-PDX-B1-L001"
   # 0001 is the chunk and L001 is the lane entered in the sarek samplesheet.
@@ -65,7 +65,7 @@ def get_contamination_metrics(mouse_bbsplit_file: str) -> nw.DataFrame:
       # only the last item (-1)
       pl.col(SAMPLE_COL).list.get(-1).alias(LANE_COL),
       # everything but the last item (-1)
-      pl.col(SAMPLE_COL).list.head(pl.col(SAMPLE_COL).list.len()-1).list.join("-").alias(SAMPLE_COL)
+      pl.col(SAMPLE_COL).list.head(pl.col(SAMPLE_COL).list.len() - 1).list.join("-").alias(SAMPLE_COL)
   )
   contamination = contamination.group_by(SAMPLE_COL).agg(
       pl.col(LANE_COL),
@@ -158,4 +158,12 @@ def remove_human_aligned_mouse_alleles(
       .otherwise(nw.col(SEEN_IN_MOUSE_COL))
       .alias(SEEN_IN_MOUSE_COL)
   )
+  all_variants = all_variants.with_columns(
+      ((pl.col(SEEN_IN_MOUSE_COL) == False) & BASE_CCG_RECOMMENDED_FILER).alias(RECOMMENDED_FILTER_COL)
+  )
+  column_order = all_variants.columns
+  column_order.remove(SEEN_IN_MOUSE_COL)
+  filter_col_pos = column_order.index(RECOMMENDED_FILTER_COL)
+  column_order.insert(filter_col_pos, SEEN_IN_MOUSE_COL)
+  all_variants = all_variants.select(column_order)
   return all_variants
