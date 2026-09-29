@@ -87,6 +87,8 @@ def setup_arguments():
                       dest="output_file_name", help="The name of the output csv file.")
   parser.add_argument("-v", "--vcf", dest="vcf", type=str, required=True,
                       help=f"A vcf.gz file with the actual variant calls in them.")
+  parser.add_argument("-f", "--filter-mutect-fail", dest="filter_mutect_fail", action="store_true",
+                      help=f"Keep only the PASS calls for Mutect2 FILTER column.")
   return parser.parse_args()
 
 
@@ -236,7 +238,7 @@ def split_format_column(df: pl.DataFrame) -> pl.DataFrame:
   )
   split_column = [dict(zip(row[FIRST_FORMAT_COL], row[SECOND_DATA_COL])) for row in split_column.iter_rows()]
   split_column = pl.DataFrame(split_column, schema_overrides={AF_COL: pl.Float32, DP_COL: pl.Int16})
-  df = df.drop([FORMAT_COL])
+  df = df.drop([FORMAT_COL, format_data_col])
   df = pl.concat([df, split_column], how="horizontal")
   return df
 
@@ -327,7 +329,7 @@ def main():
   is parallelized/multi-process, the stack trace of the error can be obfuscated.
   """
   args = setup_arguments()
-  df = convert_vcf_to_data_frame(args.vcf, should_filter_mutect2_failed=True)
+  df = convert_vcf_to_data_frame(args.vcf, should_filter_mutect2_failed=args.filter_mutect_fail)
   df.write_csv(args.output_file_name)
 
 

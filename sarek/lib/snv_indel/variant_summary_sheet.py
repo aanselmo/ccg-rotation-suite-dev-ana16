@@ -25,8 +25,8 @@ from .snv_indel_sheet import (
 from .mouse_contamination import SEEN_IN_MOUSE_COL
 
 DB_SNP_COL = "DBSNP Only"
-COSMIC_COL = "COSMIC_v104 Only"
-BOTH_COL = "BOTH (COSMIC_v104 & DBSNP)"
+COSMIC_COL = "COSMIC v104 Only"
+BOTH_COL = "BOTH (COSMIC v104 & DBSNP)"
 NOVEL_COL = "NOVEL"
 SNV_COL = "SNV"
 INDEL_COL = "Indel"

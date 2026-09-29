@@ -171,7 +171,7 @@ def write_mouse_contamination_table(workbook: xlsxwriter.Workbook, pl_mouse_cont
 
 def write_all_hamas(workbook: xlsxwriter.Workbook, pl_all_hamas: pl.DataFrame, sheet_name: str,
                     header_format):
-  widths = get_column_widths(pl_all_hamas)
+  widths = get_column_widths(pl_all_hamas, first_row_multiplier=13.0)
   write_df_to_excel(pl_all_hamas, workbook.add_worksheet(sheet_name),
                     widths, header_format, user_autofilter=True)
 
