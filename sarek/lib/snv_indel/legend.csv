@@ -44,5 +44,5 @@
 "Mouse Contamination","primary reads","bbsplit","Number of reads aligned/assigned to the primary genome (REFERENCE_GENOME). This is the sum of all Illumina lanes for the sample. Alias is the assignedReads column in bbsplit."
 "Mouse Contamination","NCBIM37 reads","bbsplit","Number of reads aligned/assigned to the mouse genome. These are filtered out by bbsplit. This is the sum of all Illumina lanes for the sample. Alias is the assignedReads column in bbsplit."
 "Mouse Contamination","total reads","bbsplit","Total reads to both mouse and human genome. Keep in mind that bbsplit runs after FastQC and FastP but before alignment and deduplication."
-"Mouse Contamination","% mouse reads","bbsplit","(NCBIM37 reads / total reads) * 100"
+"Mouse Contamination","% mouse reads","calculated","Calculated from bbsplit data: (NCBIM37 reads / total reads) * 100"
 "Mouse Alleles (HAMAs)","Note","Mutect2","Human Genome-Aligned Mouse Alleles (HAMAs) found by Mutect2 from the mouse positive controls. These are used as a secondary, blacklist filter in case there are some mouse-strain specific alleles that make it past bbsplit."
