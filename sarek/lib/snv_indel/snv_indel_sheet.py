@@ -21,7 +21,7 @@ sys.path.append(sarek_script_top_dir)
 from lib.snv_indel.vcf2df import (
     convert_vcf_to_data_frame, BEST_EFFECT_CONSEQUENCE_COL, CSQ_BIOTYPE_COL, BEST_EFFECT_COLS_TO_USE,
     BEST_EFFECT_PREFIX, CANONICAL_PREFIX, CANONICAL_COLS_TO_USE, CSQ_VARIANT_TYPE_COLS, CSQ_POPULATION_COLS,
-    COSMIC_v104_COL, CHROM_COL, POSITION_COL, MUTECT2_FILTER_COL, REF_COL, ALT_COL
+    COSMIC_v104_COL, CHROM_COL, POSITION_COL, MUTECT2_FILTER_COL, REF_COL, ALT_COL, AF_COL, DP_COL
 )
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
@@ -38,6 +38,13 @@ RECOMMENDED_CONSEQUENCE_FILTER = [
     # These two don't typically appear in SNV/Indels but I'm keeping it here.
     "transcript_ablation", "transcript_amplification"
 ]
+BASE_CCG_RECOMMENDED_FILER = (
+    (
+        pl.col(BEST_EFFECT_CONSEQUENCE_COL).str.split(
+            "&").list.set_intersection(pl.lit(RECOMMENDED_CONSEQUENCE_FILTER))
+        .list.len() > 0
+    ) & (pl.col(MUTECT2_FILTER_COL) == "PASS") & (pl.col(REVIEW_REQUIRED_COL) == True)
+)
 
 
 def setup_arguments():
@@ -69,18 +76,10 @@ def add_review_required(all_sample_variants: nw.DataFrame) -> nw.DataFrame:
   return nw.from_native(sample_variants)
 
 
-def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame, has_pdx=False) -> nw.DataFrame:
+def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame) -> nw.DataFrame:
   sample_variants: pl.DataFrame = all_sample_variants.to_native()
-  ccg_recommended_filter = (
-      (
-        pl.col(BEST_EFFECT_CONSEQUENCE_COL).str.split("&").list.set_intersection(pl.lit(RECOMMENDED_CONSEQUENCE_FILTER))
-        .list.len() > 0
-      ) & (pl.col(MUTECT2_FILTER_COL) == "PASS") & (pl.col(REVIEW_REQUIRED_COL) == True)
-  )
-  if has_pdx:
-    ccg_recommended_filter = (pl.col(SEEN_IN_MOUSE_COL) == False) & ccg_recommended_filter
   sample_variants = sample_variants.with_columns(
-      ccg_recommended_filter.alias(RECOMMENDED_FILTER_COL)
+      BASE_CCG_RECOMMENDED_FILER.alias(RECOMMENDED_FILTER_COL)
   )
   return nw.from_native(sample_variants)
 
@@ -99,7 +98,7 @@ def process_one_file(one_vcf_file_path: str) -> nw.DataFrame:
     canonical_cols = [CANONICAL_PREFIX + col for col in CANONICAL_COLS_TO_USE]
     one_sample_variants = one_sample_variants.select(
         [SAMPLE_COL, CHROM_COL, POSITION_COL, REF_COL, ALT_COL, MUTECT2_FILTER_COL, REVIEW_REQUIRED_COL,
-         RECOMMENDED_FILTER_COL] + CSQ_VARIANT_TYPE_COLS + canonical_cols + best_effect_cols + ["AF", "DP"]
+         RECOMMENDED_FILTER_COL] + CSQ_VARIANT_TYPE_COLS + canonical_cols + best_effect_cols + [AF_COL, DP_COL]
         + CSQ_POPULATION_COLS
     )
   return one_sample_variants
