@@ -158,12 +158,14 @@ def remove_human_aligned_mouse_alleles(
       .otherwise(nw.col(SEEN_IN_MOUSE_COL))
       .alias(SEEN_IN_MOUSE_COL)
   )
-  all_variants = all_variants.with_columns(
+  pl_all_variants = all_variants.to_polars()
+  pl_all_variants = pl_all_variants.with_columns(
       ((pl.col(SEEN_IN_MOUSE_COL) == False) & BASE_CCG_RECOMMENDED_FILER).alias(RECOMMENDED_FILTER_COL)
   )
-  column_order = all_variants.columns
+  column_order = pl_all_variants.columns
   column_order.remove(SEEN_IN_MOUSE_COL)
   filter_col_pos = column_order.index(RECOMMENDED_FILTER_COL)
   column_order.insert(filter_col_pos, SEEN_IN_MOUSE_COL)
-  all_variants = all_variants.select(column_order)
-  return all_variants
+  pl_all_variants = pl_all_variants.select(column_order)
+  pl_all_variants = pl_all_variants.sort([SAMPLE_COL, CHROM_COL, POSITION_COL])
+  return nw.from_native(pl_all_variants)
