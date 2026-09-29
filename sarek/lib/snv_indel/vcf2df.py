@@ -312,7 +312,7 @@ def convert_vcf_to_data_frame(vcf_path: str, should_filter_mutect2_failed=True) 
     df = df.filter(pl.col(MUTECT2_FILTER_COL) == "PASS")
   if not df.is_empty():
     df = split_format_column(df)
-    df = df.filter(pl.col(AF_COL) >= 0.02)
+    df = df.filter(pl.col(AF_COL) > 0.02)
     info_df = split_info_column(df.select(INFO_COL), info_col_names)
     if csq_col_names:
       csq_df = split_csq_column(csq_col_names, info_df.select(CSQ_COL))

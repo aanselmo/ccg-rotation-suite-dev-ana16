@@ -69,17 +69,18 @@ def add_review_required(all_sample_variants: nw.DataFrame) -> nw.DataFrame:
   return nw.from_native(sample_variants)
 
 
-def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame) -> nw.DataFrame:
+def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame, has_pdx=False) -> nw.DataFrame:
   sample_variants: pl.DataFrame = all_sample_variants.to_native()
+  ccg_recommended_filter = (
+      (
+        pl.col(BEST_EFFECT_CONSEQUENCE_COL).str.split("&").list.set_intersection(pl.lit(RECOMMENDED_CONSEQUENCE_FILTER))
+        .list.len() > 0
+      ) & (pl.col(MUTECT2_FILTER_COL) == "PASS") & (pl.col(REVIEW_REQUIRED_COL) == True)
+  )
+  if has_pdx:
+    ccg_recommended_filter = (pl.col(SEEN_IN_MOUSE_COL) == False) & ccg_recommended_filter
   sample_variants = sample_variants.with_columns(
-      pl.when((pl.col(BEST_EFFECT_CONSEQUENCE_COL)
-                 .str.split("&")
-                 .list.set_intersection(pl.lit(RECOMMENDED_CONSEQUENCE_FILTER))
-                 .list.len() > 0
-               ) & (pl.col(MUTECT2_FILTER_COL) == "PASS") & (pl.col(REVIEW_REQUIRED_COL) == True))
-      .then(True)
-      .otherwise(False)
-      .alias(RECOMMENDED_FILTER_COL)
+      ccg_recommended_filter.alias(RECOMMENDED_FILTER_COL)
   )
   return nw.from_native(sample_variants)
 

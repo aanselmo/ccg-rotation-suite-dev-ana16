@@ -106,7 +106,7 @@ def get_variant_summary(all_variants: nw.DataFrame) -> nw.DataFrame:
   filtered_variants = all_variants.filter(nw.col(RECOMMENDED_FILTER_COL) == True)
   if SEEN_IN_MOUSE_COL in filtered_variants.columns:
     filtered_variants = filtered_variants.filter(nw.col(SEEN_IN_MOUSE_COL) == False)
-    MOUSE_FILTER_LITERAL = f"{SEEN_IN_MOUSE_COL}='TRUE';"
+    MOUSE_FILTER_LITERAL = f"{SEEN_IN_MOUSE_COL}='FALSE';"
   variants_grouped_by_db = group_by_existing_variation(filtered_variants)
   variants_grouped_by_class = group_by_class(filtered_variants)
   summary_table = variants_grouped_by_db.join(

@@ -7,7 +7,7 @@
 "SNVs and Indels","REF","Mutect2","Reference Allele in REFERENCE_GENOME"
 "SNVs and Indels","ALT","Mutect2","Alternate Allele that occurs in place of the reference allele in the tumor sample"
 "SNVs and Indels","FILTER","Mutect2","Typically, only PASS variants are added to the excel report. These are variants that pass Mutect2's probability filters. For more info please see: https://github.com/broadinstitute/gatk/blob/master/docs/mutect/mutect.pdf"
-"SNVs and Indels","Review_Required","calculated","This is a CCG computed column.  TRUE if BIOTYPE = protein_coding AND (gnomAD_e <= 0.01 OR (gnomADe_AF <= 0.10 AND is in the COSMIC_v104 database)"
+"SNVs and Indels","Review_Required","calculated","This is a CCG computed column.  TRUE if BIOTYPE = protein_coding AND (gnomAD_e <= 0.01 OR (gnomADe_AF <= 0.10 AND is in the COSMIC_v104 database) AND AF > 0.02"
 "SNVs and Indels","ccg_recommended_filter","calculated","This is a CCG computed column. Indicates if the variant passes the filtering criteria used in the Variant_Summary_table tab"
 "SNVs and Indels","VARIANT_CLASS","VEP","The type of variant it is: SNV, Indel, etc."
 "SNVs and Indels","SYMBOL","VEP","The gene symbol or name based on the BestEffect (most severely affected) transcript"
