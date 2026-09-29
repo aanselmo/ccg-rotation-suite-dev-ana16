@@ -42,8 +42,8 @@ RECOMMENDED_CONSEQUENCE_FILTER = [
 
 def setup_arguments():
   parser = argparse.ArgumentParser(description=(
-      "This snv_indel_sheet.py script was designed to parse 1 file. Otherwise, because the snv_indel_report"
-      " is parallelized/multi-process, the stack trace of the error can be obfuscated."
+      "This snv_indel_sheet.py script was designed to parse 1 file to help test. Otherwise, because the"
+      " snv_indel_report is parallelized/multi-process, the stack trace of the error can be obfuscated."
   ))
   parser.add_argument("-o", "--output-file", type=str, default="output.csv",
                       dest="output_file_name", help="The name of the output csv file.")

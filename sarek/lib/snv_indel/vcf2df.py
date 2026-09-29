@@ -82,7 +82,7 @@ CSQ_POPULATION_COLS = [EXISTING_VARIATION_COL] + COSMIC_COLS + GNOMAD_COLS
 
 
 def setup_arguments():
-  parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
+  parser = argparse.ArgumentParser(description="Process 1 vcf to turn it into a csv. Useful for testing.")
   parser.add_argument("-o", "--output-file", type=str, default="output.csv",
                       dest="output_file_name", help="The name of the output csv file.")
   parser.add_argument("-v", "--vcf", dest="vcf", type=str, required=True,
