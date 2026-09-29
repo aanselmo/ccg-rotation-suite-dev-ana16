@@ -20,8 +20,9 @@ from .vcf2df import (
 from .snv_indel_sheet import (
     SAMPLE_COL, REF_COL, ALT_COL, RECOMMENDED_FILTER_COL, MUTECT2_FILTER_COL
 )
+from .mouse_contamination import CONTAMINATION_PCT_COL
 from .variant_summary_sheet import REPEAT_COL_SUFFIX
-from ..excel_style import get_column_widths, HEADER_STYLE
+from ..excel_style import get_column_widths, HEADER_STYLE, PERCENT_FORMAT
 
 
 MAX_ROWS_EXCEL = 1048576
@@ -30,8 +31,39 @@ VARIANT_SUMMARY_SHEET = "Variant Summary Table"
 LEGEND_SHEET = "Legend"
 
 
+def write_by_cell(df: pl.DataFrame, worksheet: xlsxwriter.worksheet, column_formats: dict):
+  """
+  This method is about 13% slower than writing by row. However, the advantage of this is that you can add column/cell
+  formats.
+  """
+  with Progress() as progress:
+    write_progress_bar = progress.add_task(f"Writing worksheet {worksheet.get_name()}...", total=df.shape[0])
+    rows_for_1_percent = math.ceil(df.shape[0] / 100)
+    for row_number, row in enumerate(df.iter_rows(named=True), start=1):
+      for column_number, column in enumerate(row.keys(), start=0):
+        if column in column_formats:
+          worksheet.write(row_number, column_number, row[column], column_formats[column])
+        else:
+          worksheet.write(row_number, column_number, row[column])
+      if (row_number % rows_for_1_percent) == 0:
+        progress.update(write_progress_bar, completed=row_number)
+
+
+def write_by_row(df: pl.DataFrame, worksheet: xlsxwriter.worksheet):
+  """
+  This method is 13% faster than writing by cell. However, you cannot use column/cell formats.
+  """
+  with Progress() as progress:
+    write_progress_bar = progress.add_task(f"Writing worksheet {worksheet.get_name()}...", total=df.shape[0])
+    rows_for_1_percent = math.ceil(df.shape[0] / 100)
+    for row_number, row in enumerate(df.iter_rows(), start=1):
+      worksheet.write_row(row_number, 0, row)
+      if (row_number % rows_for_1_percent) == 0:
+        progress.update(write_progress_bar, completed=row_number)
+
+
 def write_df_to_excel(df: pl.DataFrame, worksheet: xlsxwriter.worksheet, column_widths: dict, header_format,
-                      user_autofilter=True):
+                      user_autofilter=True, column_formats={}):
   """
   Because I'm using {"constant_memory": True} as an option in xlsxwriter, I cannot use polars.write_excel.
   I have to do it via loop. I'm doing this to support over 1M rows in excel.
@@ -40,13 +72,10 @@ def write_df_to_excel(df: pl.DataFrame, worksheet: xlsxwriter.worksheet, column_
   for column_number, one_width in enumerate(column_widths.values()):
     worksheet.set_column_pixels(column_number, column_number, one_width)
   worksheet.write_row(0, 0, df.columns, cell_format=header_format)
-  with Progress() as progress:
-    write_progress_bar = progress.add_task(f"Writing worksheet {worksheet.get_name()}...", total=df.shape[0])
-    rows_for_1_percent = math.ceil(df.shape[0] / 100)
-    for row_number, row in enumerate(df.iter_rows(), start=1):
-      worksheet.write_row(row_number, 0, row)
-      if (row_number % rows_for_1_percent) == 0:
-        progress.update(write_progress_bar, completed=row_number)
+  if column_formats:
+    write_by_cell(df, worksheet, column_formats)
+  else:
+    write_by_row(df, worksheet)
   if user_autofilter:
     worksheet.autofilter(0, 0, df.shape[0] - 1, df.shape[1] - 1)
 
@@ -75,7 +104,8 @@ def get_samples_per_sheet(pl_variants: pl.DataFrame) -> tuple[list[list[str]], b
   return (samples_per_sheet, samples_to_split)
 
 
-def write_all_snv_indel_sheets(workbook: xlsxwriter.Workbook, pl_variants: pl.DataFrame, sheet_basename: str, header_format):
+def write_all_snv_indel_sheets(workbook: xlsxwriter.Workbook, pl_variants: pl.DataFrame, sheet_basename: str,
+                               header_format):
   pl_variants = pl_variants.sort(by=[SAMPLE_COL, CHROM_COL, POSITION_COL])
   pl_variants_widths = get_column_widths(pl_variants, first_row_multiplier=13.0)
   for one_col in (COSMIC_COLS + [
@@ -132,17 +162,18 @@ def write_legend_sheet(workbook: xlsxwriter.Workbook, pl_legend: pl.DataFrame, s
 
 
 def write_mouse_contamination_table(workbook: xlsxwriter.Workbook, pl_mouse_contamination: pl.DataFrame,
-                                    sheet_name: str, header_format):
+                                    sheet_name: str, header_format, percent_format):
   widths = get_column_widths(pl_mouse_contamination)
   write_df_to_excel(pl_mouse_contamination, workbook.add_worksheet(sheet_name),
-                    widths, header_format, user_autofilter=True)  
+                    widths, header_format, user_autofilter=True,
+                    column_formats={CONTAMINATION_PCT_COL: percent_format})  
 
 
 def write_all_hamas(workbook: xlsxwriter.Workbook, pl_all_hamas: pl.DataFrame, sheet_name: str,
                     header_format):
   widths = get_column_widths(pl_all_hamas)
   write_df_to_excel(pl_all_hamas, workbook.add_worksheet(sheet_name),
-                    widths, header_format, user_autofilter=True)  
+                    widths, header_format, user_autofilter=True)
 
 
 def write_xlsx(
@@ -166,10 +197,12 @@ def write_xlsx(
   pl_all_hamas = all_hamas.to_native()
   with xlsxwriter.Workbook(file_name, options={"constant_memory": True, "use_zip64": True}) as workbook:
     header_format = workbook.add_format(HEADER_STYLE)
+    percent_format = workbook.add_format(PERCENT_FORMAT)
     write_all_snv_indel_sheets(workbook, pl_variants, SNV_INDEL_SHEET, header_format)
     write_summary_sheet(workbook, pl_summary, VARIANT_SUMMARY_SHEET, header_format)
     if not pl_mouse_contamination.is_empty():
-      write_mouse_contamination_table(workbook, pl_mouse_contamination, "Mouse Contamination", header_format)
+      write_mouse_contamination_table(workbook, pl_mouse_contamination, "Mouse Contamination", header_format,
+                                      percent_format)
     if not pl_all_hamas.is_empty():
       write_all_hamas(workbook, pl_all_hamas, "Mouse Alleles (HAMAs)", header_format)
     write_lego_plot_sheet(workbook, lego_plot, "Mutation Lego Plot")
