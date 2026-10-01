@@ -13,10 +13,14 @@ later filtration. I intended this module to just convert the formats. The data t
 
 Things this module does do:
     1. splitting columns into simpler, unique columns.
+    2. Set data types correctly.
 
 Things this module does NOT do (to keep things organized - put these in snv_indel_sheet.py):
     1. Add extra filter columns.
     2. Combining columns.
+    3. Transform the data to increase legibility
+        * e.g. Adding a % sign (this should probably go in the write_xlsx because it's better to use num_format)
+        * e.g. Removing url escapes for the HGVSp field
 """
 
 __docformat__ = "reStructuredText"
@@ -204,8 +208,8 @@ def split_info_column(info_column: pl.DataFrame, column_names: list[str]):
       .alias(one_col)
       for one_col in column_names
   ])
-  info_df = info_df.drop(INFO_COL)
-  info_df = info_df.rename({"DP": "INFO_DP"})
+  # The DP column is repeated in the FORMAT column.
+  info_df = info_df.drop(INFO_COL, "DP")
   return info_df
 
 
@@ -237,7 +241,11 @@ def split_format_column(df: pl.DataFrame) -> pl.DataFrame:
       pl.col(format_data_col).str.split(":")
   )
   split_column = [dict(zip(row[FIRST_FORMAT_COL], row[SECOND_DATA_COL])) for row in split_column.iter_rows()]
-  split_column = pl.DataFrame(split_column, schema_overrides={AF_COL: pl.Float32, DP_COL: pl.Int16})
+  split_column = pl.DataFrame(split_column, schema_overrides={AF_COL: pl.String, DP_COL: pl.String})
+  try:
+    split_column = split_column.cast({AF_COL: pl.Float64, DP_COL: pl.Int16})
+  except (pl.exceptions.ComputeError, pl.exceptions.InvalidOperationError):
+    pass
   df = df.drop([FORMAT_COL, format_data_col])
   df = pl.concat([df, split_column], how="horizontal")
   return df
@@ -312,12 +320,12 @@ def convert_vcf_to_data_frame(vcf_path: str, should_filter_mutect2_failed=True) 
     df = df.filter(pl.col(MUTECT2_FILTER_COL) == "PASS")
   if not df.is_empty():
     df = split_format_column(df)
-    df = df.filter(pl.col(AF_COL) > 0.02)
+    if df.get_column(AF_COL).dtype == "float64":
+      df = df.filter(pl.col(AF_COL) > 0.02)
     info_df = split_info_column(df.select(INFO_COL), info_col_names)
     if csq_col_names:
       csq_df = split_csq_column(csq_col_names, info_df.select(CSQ_COL))
       info_df = info_df.drop(CSQ_COL)
-    df = df.drop([INFO_COL])
     df = pl.concat([df, info_df, csq_df], how="horizontal")
     df = set_dtypes(df)    
   return nw.from_native(df)

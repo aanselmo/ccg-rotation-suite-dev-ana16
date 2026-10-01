@@ -147,18 +147,19 @@ def remove_human_aligned_mouse_alleles(
   """
   Remove blacklisted Human Aligned Mouse Alleles (HAMAs) from all_variants and update the summary table.
   """
-  VARIANT_ID_COLUMNS = [CHROM_COL, POSITION_COL, REF_COL, ALT_COL]
+  VARIANT_ID_COLUMNS = [SAMPLE_COL, CHROM_COL, POSITION_COL, REF_COL, ALT_COL]
   all_hamas = all_hamas.select(VARIANT_ID_COLUMNS)
   all_hamas = all_hamas.with_columns(nw.lit(True).alias(SEEN_IN_MOUSE_COL))
   all_variants = all_variants.filter(~nw.col(SAMPLE_COL).is_in(mouse_pos_controls))
-  all_variants = all_variants.join(all_hamas, on=VARIANT_ID_COLUMNS, how="left")
-  all_variants = all_variants.with_columns(
-      nw.when(nw.col(SEEN_IN_MOUSE_COL).is_null())
+  pl_all_variants = all_variants.to_polars()
+  pl_all_hamas = all_hamas.to_polars()
+  pl_all_variants = pl_all_variants.join(pl_all_hamas, on=VARIANT_ID_COLUMNS, how="left", validate="1:1")
+  pl_all_variants = pl_all_variants.with_columns(
+      pl.when(pl.col(SEEN_IN_MOUSE_COL).is_null())
       .then(False)
-      .otherwise(nw.col(SEEN_IN_MOUSE_COL))
+      .otherwise(pl.col(SEEN_IN_MOUSE_COL))
       .alias(SEEN_IN_MOUSE_COL)
   )
-  pl_all_variants = all_variants.to_polars()
   pl_all_variants = pl_all_variants.with_columns(
       ((pl.col(SEEN_IN_MOUSE_COL) == False) & BASE_CCG_RECOMMENDED_FILER).alias(RECOMMENDED_FILTER_COL)
   )

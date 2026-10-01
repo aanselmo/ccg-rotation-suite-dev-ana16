@@ -20,12 +20,14 @@ sarek_script_top_dir = dirname(dirname(script_dir))
 sys.path.append(sarek_script_top_dir)
 from lib.snv_indel.vcf2df import (
     convert_vcf_to_data_frame, BEST_EFFECT_CONSEQUENCE_COL, CSQ_BIOTYPE_COL, BEST_EFFECT_COLS_TO_USE,
-    BEST_EFFECT_PREFIX, CANONICAL_PREFIX, CANONICAL_COLS_TO_USE, CSQ_VARIANT_TYPE_COLS, CSQ_POPULATION_COLS,
-    COSMIC_v104_COL, CHROM_COL, POSITION_COL, MUTECT2_FILTER_COL, REF_COL, ALT_COL, AF_COL, DP_COL
+    BEST_EFFECT_PREFIX, CANONICAL_PREFIX, CANONICAL_COLS_TO_USE, 
+    CANONICAL_HGVS_C_COL, CANONICAL_HGVS_P_COL, BEST_EFFECT_HGVS_C_COL, BEST_EFFECT_HGVS_P_COL,
+    CSQ_VARIANT_TYPE_COLS, CSQ_POPULATION_COLS,
+    COSMIC_v104_COL, CHROM_COL, POSITION_COL, MUTECT2_FILTER_COL, REF_COL, ALT_COL, AF_COL, DP_COL,
 )
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
-
+from urllib.parse import unquote as urllib_unquote
 
 VEP_FILE_ENDING = ".mutect2.filtered_VEP.ann.vcf.gz"
 SAMPLE_COL = "sample"
@@ -96,12 +98,17 @@ def process_one_file(one_vcf_file_path: str) -> nw.DataFrame:
     # the riker report as possible. Also, there a lot of gnomAD columns so I tried to summarize them.
     best_effect_cols = [BEST_EFFECT_PREFIX + col for col in BEST_EFFECT_COLS_TO_USE]
     canonical_cols = [CANONICAL_PREFIX + col for col in CANONICAL_COLS_TO_USE]
-    one_sample_variants = one_sample_variants.select(
+    pl_one_sample_variants = one_sample_variants.to_polars()
+    pl_one_sample_variants = pl_one_sample_variants.with_columns(
+      pl.col(CANONICAL_HGVS_C_COL, CANONICAL_HGVS_P_COL, BEST_EFFECT_HGVS_C_COL, BEST_EFFECT_HGVS_P_COL)
+      .map_elements(urllib_unquote, return_dtype=pl.String)
+    )
+    pl_one_sample_variants = pl_one_sample_variants.select(
         [SAMPLE_COL, CHROM_COL, POSITION_COL, REF_COL, ALT_COL, MUTECT2_FILTER_COL, REVIEW_REQUIRED_COL,
          RECOMMENDED_FILTER_COL] + CSQ_VARIANT_TYPE_COLS + canonical_cols + best_effect_cols + [AF_COL, DP_COL]
         + CSQ_POPULATION_COLS
     )
-  return one_sample_variants
+  return nw.from_native(pl_one_sample_variants)
 
 
 def get_variants(vcf_files: list[str], number_processes=1) -> nw.DataFrame:
