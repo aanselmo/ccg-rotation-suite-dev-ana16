@@ -79,6 +79,7 @@ cd [new version number]
 wget [copied link]
 # Example command:
 # wget https://github.com/nextflow-io/nextflow/releases/download/v25.10.2/nextflow-25.10.2-dist
+chmod +x [-dist]
 ```
 5. Install Sarek.
 ```bash
