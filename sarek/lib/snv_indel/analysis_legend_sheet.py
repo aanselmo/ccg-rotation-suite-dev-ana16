@@ -16,6 +16,7 @@ import narwhals.stable.v2 as nw
 
 DEFINITIONS_COL = "Definition"
 SOURCE_COL = "Source"
+METRIC_COL = "Metric"
 
 
 def get_legend(reference_genome: str, has_pdx=False) -> nw.DataFrame:

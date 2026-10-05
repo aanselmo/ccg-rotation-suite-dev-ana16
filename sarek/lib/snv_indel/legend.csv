@@ -1,4 +1,4 @@
-"Tab","Metrics","Source","Definition"
+"Tab","Metric","Source","Definition"
 "GENERAL REFERENCE","Note","VEP","Columns correspond closely with terms listed on page 34 of www.ensembl.org/info/docs/tools/vep/script/VEP_script_documentation.pdf"
 "GENERAL REFERENCE","Note","bbsplit","Unfortunately, I cannot find a clear description of the stats from bbsplit. This is the best I can do: https://bbmap.org/tools/bbsplit"
 "SNVs and Indels","sample","User input","Sample identifier."

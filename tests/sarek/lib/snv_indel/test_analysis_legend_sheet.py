@@ -17,5 +17,5 @@ GIT_REPO_DIR = abspath(dirname(dirname(dirname(dirname(dirname(__file__))))))
 
 def test_get_legend():
   legend_df = analysis_legend_sheet.get_legend("GRCh37")
-  assert legend_df.filter(nw.col("Column") == "REF").get_column(
-      "Column Descriptions")[0] == "Reference Allele in GRCh37"
+  assert legend_df.filter(nw.col(analysis_legend_sheet.METRIC_COL) == "REF").get_column(
+      analysis_legend_sheet.DEFINITIONS_COL)[0] == "Reference Allele in GRCh37"

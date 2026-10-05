@@ -253,39 +253,39 @@ def split_format_column(df: pl.DataFrame) -> pl.DataFrame:
 
 def set_dtypes(df: pl.DataFrame) -> pl.DataFrame:
   dtypes = {
-    POSITION_COL: pl.Int64,
-    REF_COL: pl.String,
-    ALT_COL: pl.String,
-    MUTECT2_FILTER_COL: pl.String,
-    CSQ_VARIANT_CLASS_COL: pl.String,
-    "SYMBOL": pl.String,
-    "SYMBOL_SOURCE": pl.String,
-    "HGNC_ID": pl.String,
-    "Gene": pl.String,
-    CSQ_BIOTYPE_COL: pl.String,
-    CANONICAL_CONSEQUENCE_COL: pl.String,
-    "Canonical_EXON": pl.String,
-    "Canonical_INTRON": pl.String,
-    "Canonical_cDNA_position": pl.String,
-    CANONICAL_HGVS_C_COL: pl.String,
-    CANONICAL_HGVS_P_COL: pl.String,
-    BEST_EFFECT_CONSEQUENCE_COL: pl.String,
-    "BestEffect_EXON": pl.String,
-    "BestEffect_INTRON": pl.String,
-    "BestEffect_cDNA_position": pl.String,
-    BEST_EFFECT_HGVS_C_COL: pl.String,
-    BEST_EFFECT_HGVS_P_COL: pl.String,
-    EXISTING_VARIATION_COL: pl.String,
-    COSMIC_v104_COL: pl.String,
-    COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT_COL: pl.Int64,
-    COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT_COL: pl.Int64,
-    COSMIC_v80_COL: pl.String,
-    COSMIC_v80_CNT_COL: pl.String,
-    GNOMAD_1000_GENOMES_AF_COL: pl.Float64,
-    GNOMAD_EXOMES_AF_COL: pl.Float64,
-    GNOMAD_WHOLE_GENOMES_AF_COL: pl.Float64,
-    MAX_AF_COL: pl.Float64,
-    MAX_AF_POPS_COL: pl.String
+      POSITION_COL: pl.Int64,
+      REF_COL: pl.String,
+      ALT_COL: pl.String,
+      MUTECT2_FILTER_COL: pl.String,
+      CSQ_VARIANT_CLASS_COL: pl.String,
+      "SYMBOL": pl.String,
+      "SYMBOL_SOURCE": pl.String,
+      "HGNC_ID": pl.String,
+      "Gene": pl.String,
+      CSQ_BIOTYPE_COL: pl.String,
+      CANONICAL_CONSEQUENCE_COL: pl.String,
+      "Canonical_EXON": pl.String,
+      "Canonical_INTRON": pl.String,
+      "Canonical_cDNA_position": pl.String,
+      CANONICAL_HGVS_C_COL: pl.String,
+      CANONICAL_HGVS_P_COL: pl.String,
+      BEST_EFFECT_CONSEQUENCE_COL: pl.String,
+      "BestEffect_EXON": pl.String,
+      "BestEffect_INTRON": pl.String,
+      "BestEffect_cDNA_position": pl.String,
+      BEST_EFFECT_HGVS_C_COL: pl.String,
+      BEST_EFFECT_HGVS_P_COL: pl.String,
+      EXISTING_VARIATION_COL: pl.String,
+      COSMIC_v104_COL: pl.String,
+      COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT_COL: pl.Int64,
+      COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT_COL: pl.Int64,
+      COSMIC_v80_COL: pl.String,
+      COSMIC_v80_CNT_COL: pl.String,
+      GNOMAD_1000_GENOMES_AF_COL: pl.Float64,
+      GNOMAD_EXOMES_AF_COL: pl.Float64,
+      GNOMAD_WHOLE_GENOMES_AF_COL: pl.Float64,
+      MAX_AF_COL: pl.Float64,
+      MAX_AF_POPS_COL: pl.String
   }
   if GNOMAD_1000_GENOMES_AF_COL in df.columns:
     df = df.with_columns(
@@ -326,8 +326,9 @@ def convert_vcf_to_data_frame(vcf_path: str, should_filter_mutect2_failed=True) 
     if csq_col_names:
       csq_df = split_csq_column(csq_col_names, info_df.select(CSQ_COL))
       info_df = info_df.drop(CSQ_COL)
+    df = df.drop(INFO_COL)
     df = pl.concat([df, info_df, csq_df], how="horizontal")
-    df = set_dtypes(df)    
+    df = set_dtypes(df)
   return nw.from_native(df)
 
 

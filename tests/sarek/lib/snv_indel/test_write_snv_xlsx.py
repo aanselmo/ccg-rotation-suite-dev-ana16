@@ -34,7 +34,15 @@ def test_write_snv_xlsx():
   plot_memory_location = lego_plot_sheet.graph_lego_plot([VCF_A016_PATH], "SCB1118c", "GRCh37", bed_file=EXAMPLE_BED)
   legend_df = analysis_legend_sheet.get_legend("GRCh37")
   with NamedTemporaryFile() as tempfile:
-    write_snv_xlsx.write_xlsx(tempfile.name, all_variants, variant_summary_table, legend_df, plot_memory_location)
+    write_snv_xlsx.write_xlsx(
+        tempfile.name,
+        all_variants,
+        variant_summary_table,
+        nw.from_native(pl.DataFrame({})),
+        nw.from_native(pl.DataFrame({})),
+        legend_df,
+        plot_memory_location
+    )
     verify_summary_table = pl.read_excel(tempfile.name, sheet_name=write_snv_xlsx.VARIANT_SUMMARY_SHEET)
     verify_all_variants = pl.read_excel(tempfile.name, sheet_name=write_snv_xlsx.SNV_INDEL_SHEET)
     assert verify_summary_table.filter(
@@ -43,7 +51,7 @@ def test_write_snv_xlsx():
     # Assert 1 variant has the correct alternate allele
     assert verify_all_variants.filter(
         pl.col(vcf2df.POSITION_COL) == 41266124
-    ).get_column("ALT")[0] == "G"
+    ).get_column(vcf2df.ALT_COL)[0] == "G"
 
 
 class TestOver1MebiRowsExcel:
