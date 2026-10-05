@@ -16,7 +16,8 @@ from sarek.lib.common import AVAILABLE_CHROMOSOMES
 
 
 GIT_REPO_DIR = abspath(dirname(dirname(dirname(dirname(dirname(__file__))))))
-EXAMPLE_VCF_PATH = join(GIT_REPO_DIR, "tests", "data", "A008_X108_58797-1-C1.mutect2.filtered_VEP.ann.vcf.gz")
+SNV_INDEL_DATA_PATH = join(GIT_REPO_DIR, "tests", "data", "sarek", "lib", "snv_indel")
+EXAMPLE_VCF_PATH = join(SNV_INDEL_DATA_PATH, "A008_X108_58797-1-C1.mutect2.filtered_VEP.ann.vcf.gz")
 
 
 def test_get_variants():
