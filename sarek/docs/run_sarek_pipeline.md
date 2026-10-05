@@ -111,7 +111,7 @@ done
 ```
 
 ## Edge Cases
-### PDX (Patient Derived Xenografts) Project
+### Run PDX (Patient Derived Xenografts) Project
 1. Run the project with a `-profile pdx`. For example:
 ```bash
 /opt/nextflow/25.10.2/nextflow-25.10.2-dist run  /opt/sarek-dev-nap24/main.nf \
@@ -119,6 +119,39 @@ done
     --input gs://ccg-out/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SO31074a_no_xengstor/csv/20260905_so31074a_sarek_samplesheet.csv \
     --outdir gs://ccg-out/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SO31074a_bbsplit2 \
     -w gs://ccg-scratch/mnt/scratch/ccgd/global/nextflow_execution/SO31074a_bbsplit
+```
+
+### Create bbsplit index
+You probably will not have to run this. However, let's say you're developing for removing some other
+type of contamination, or you need to update this for a new reference genome.
+1. Start up a large memory VM, you can refer to step 4 in the [demultiplex](./demultiplex.md#demultiplex-newer-project)
+   directions.
+2. Run the following docker command to start docker:
+```bash
+docker run -v /mnt/storage/centers/ccgd/reference_files:/mnt/storage/centers/ccgd/reference_files \
+    -v /mnt/new_storage/centers/ccgd/reference_files:/mnt/new_storage/centers/ccgd/reference_files \
+    -v /data:/data \
+    -it us-central1-docker.pkg.dev/ccgd-174313/sarek/library/bbmap_pigz:07416fe99b090fa9 bash
+```
+3. Run the bbsplit command to generate the new index:
+```bash
+bbsplit.sh \
+    ref_primary=/mnt/new_storage/centers/ccgd/reference_files/igenomes/Homo_sapiens/GATK/GRCh37/Sequence/WholeGenomeFasta/human_g1k_v37_decoy.fasta \
+    ref_NCBIM37=/mnt/new_storage/centers/ccgd/reference_files/igenomes/Mus_musculus/Ensembl/NCBIM37/Sequence/WholeGenomeFasta/genome.fa \
+    path=GRCh37_NCBIM37_bbsplit_index
+gcloud storage cp -r GRCh37_NCBIM37_bbsplit_index gs://ccg-out/mnt/storage/centers/ccgd/reference_files/genomes/homo_sapiens_mus_musculus/GRCh37_NCBIM37/
+```
+4. Add the file the the sarek config to point to the new bbsplit index:
+```
+--- a/conf/ccg/grch37/pdx.config
++++ b/conf/ccg/grch37/pdx.config
+@@ -1,5 +1,5 @@
+ params {
+     tools         = params.tools + ",bbsplit"
+-    bbsplit_index = "gs://ccg-out/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SO31074a_bbsplit/csv/20260906_bbsplit_fasta_list.csv"
++    bbsplit_index = "gs://ccg-out/mnt/storage/centers/ccgd/reference_files/genomes/homo_sapiens_mus_musculus/GRCh37_NCBIM37/GRCh37_NCBIM37_bbsplit_index"
+     save_bbsplit_reads = true
+ }
 ```
 
 ## Troubleshooting
