@@ -8,18 +8,14 @@ __author__ = "Neil A. Patel"
 
 import pytest
 from os.path import dirname, abspath, join
-from tempfile import NamedTemporaryFile
-import math
-import xlsxwriter
+from pathlib import Path
 import polars as pl
 import narwhals.stable.v2 as nw
 import sarek.lib.snv_indel.vcf2df as vcf2df
 import sarek.lib.snv_indel.mouse_contamination as mouse_contamination
-from sarek.lib.excel_style import HEADER_STYLE
 
-GIT_REPO_DIR = abspath(dirname(dirname(dirname(dirname(dirname(__file__))))))
-SNV_INDEL_DATA_PATH = join(GIT_REPO_DIR, "tests", "data", "sarek", "lib", "snv_indel")
-EXAMPLE_CONTAMINATION_METRICS_FILE = join(SNV_INDEL_DATA_PATH, "bbmap-bbsplit_plot.txt")
+
+EXAMPLE_CONTAMINATION_METRICS_FILE = join(Path(__file__).parent, "data", "bbmap-bbsplit_plot.txt")
 
 
 def test_get_contamination_metrics():

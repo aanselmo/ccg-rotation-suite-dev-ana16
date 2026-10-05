@@ -7,7 +7,8 @@ __author__ = "Neil A. Patel"
 
 
 import pytest
-from os.path import dirname, abspath, join
+from os.path import join
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 import math
 import xlsxwriter
@@ -22,11 +23,9 @@ import sarek.lib.snv_indel.write_snv_xlsx as write_snv_xlsx
 from sarek.lib.excel_style import HEADER_STYLE
 
 
-GIT_REPO_DIR = abspath(dirname(dirname(dirname(dirname(dirname(__file__))))))
-SNV_INDEL_DATA_PATH = join(GIT_REPO_DIR, "tests", "data", "sarek", "lib", "snv_indel")
-EXAMPLE_VCF_PATH = join(SNV_INDEL_DATA_PATH, "A008_X108_58797-1-C1.mutect2.filtered_VEP.ann.vcf.gz")
-VCF_A016_PATH = join(SNV_INDEL_DATA_PATH, "A016_X116_BS07G52324-G1.mutect2.vcf.gz")
-EXAMPLE_BED = join(SNV_INDEL_DATA_PATH, "POPv3_AllTargetedRegions_20251230.bed")
+EXAMPLE_VCF_PATH = join(Path(__file__).parent, "data", "A008_X108_58797-1-C1.mutect2.filtered_VEP.ann.vcf.gz")
+VCF_A016_PATH = join(Path(__file__).parent, "data", "A016_X116_BS07G52324-G1.mutect2.vcf.gz")
+EXAMPLE_BED = join(Path(__file__).parent, "data", "POPv3_AllTargetedRegions_20251230.bed")
 
 
 def test_write_snv_xlsx():

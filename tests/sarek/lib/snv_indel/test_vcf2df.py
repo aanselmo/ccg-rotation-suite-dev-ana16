@@ -7,16 +7,15 @@ __author__ = "Neil A. Patel"
 
 
 import pytest
-from os.path import dirname, abspath, join
+from os.path import join
+from pathlib import Path
 import polars as pl
 import narwhals.stable.v2 as nw
 import sarek.lib.snv_indel.vcf2df as vcf2df
 from sarek.lib.common import AVAILABLE_CHROMOSOMES
 
 
-GIT_REPO_DIR = abspath(dirname(dirname(dirname(dirname(dirname(__file__))))))
-SNV_INDEL_DATA_PATH = join(GIT_REPO_DIR, "tests", "data", "sarek", "lib", "snv_indel")
-EXAMPLE_VCF_PATH = join(SNV_INDEL_DATA_PATH, "A008_X108_58797-1-C1.mutect2.filtered_VEP.ann.vcf.gz")
+EXAMPLE_VCF_PATH = join(Path(__file__).parent, "data", "A008_X108_58797-1-C1.mutect2.filtered_VEP.ann.vcf.gz")
 
 
 def test_convert_vcf_to_data_frame():
