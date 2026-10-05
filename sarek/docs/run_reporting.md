@@ -69,6 +69,7 @@ docker run -v /mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJECT_CODE}:
     -it community.wave.seqera.io/library/multiqc:1.33--ee7739d47738383b bash
 cd /mnt/outdir
 ls  # make sure you have the right dir
+rm -r multiqc  # delete the old dir
 multiqc .
 ```
 NOTE: the docker image url can be found in `modules/nf-core/multiqc/main.nf` in the sarek repo.
@@ -76,3 +77,9 @@ Move the files to mirror the sarek structure.
 ```
 gcloud storage mv gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJET_CODE}/multiqc_data gs://ccg-bioinformatics/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/${PROJET_CODE}/multiqc/
 ```
+
+### Run PDX (Patient Derived Xenografts)
+The only report that is affected is the SNV & Indel report. You can probably run it without changing any parameters
+and it will figure out which samples are the mouse positive controls automatically.
+ * However, you can force which samples are the mouse positive controls with the `"--mouse-positive-vcfs` flag.
+ * You might have to rerun multiqc if it doesn't automatically find the mouse contamination summary file.

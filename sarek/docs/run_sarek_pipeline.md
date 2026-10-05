@@ -110,6 +110,17 @@ for one_file in "${hsmetrics_files[@]}"; do
 done
 ```
 
+## Edge Cases
+### PDX (Patient Derived Xenografts) Project
+1. Run the project with a `-profile pdx`. For example:
+```bash
+/opt/nextflow/25.10.2/nextflow-25.10.2-dist run  /opt/sarek-dev-nap24/main.nf \
+    -profile docker,google,ccg,POPv3_1_S3050142,pdx \
+    --input gs://ccg-out/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SO31074a_no_xengstor/csv/20260905_so31074a_sarek_samplesheet.csv \
+    --outdir gs://ccg-out/mnt/storage/centers/ccgd/Illumina/pipeline_sarek/SO31074a_bbsplit2 \
+    -w gs://ccg-scratch/mnt/scratch/ccgd/global/nextflow_execution/SO31074a_bbsplit
+```
+
 ## Troubleshooting
 ### Restart from middle of run
 It's pretty common for nextflow to trip over itself, you still have to check on it every few hours while it's running.
