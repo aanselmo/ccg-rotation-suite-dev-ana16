@@ -1,9 +1,21 @@
 {
   "editor.tabSize": 2,
   "editor.rulers": [
-      120
+    120
   ],
   "files.eol": "\n",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.autopep8",
+    "editor.formatOnSave": true
+  },
+  "autopep8.args": [
+    "--indent-size",
+    "2",
+    "--max-line-length",
+    "120",
+    "--ignore",
+    "E402"
+  ],
   "cSpell.words": [
     "bcftools",
     "cnvkit",

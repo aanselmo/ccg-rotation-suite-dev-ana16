@@ -14,6 +14,7 @@ BreaKmer_Reports/*
 # Other generated output
 low-coverage/*
 *.png
+*.svg
 *.pickle
 *.log
 
@@ -22,3 +23,6 @@ scratch/*
 
 # For passwords, keys, and secret files:
 secrets/*
+
+# For unit test coverage reports
+.coverage*

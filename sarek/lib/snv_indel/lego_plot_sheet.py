@@ -9,6 +9,7 @@ __credits__ = ["Neil A. Patel"]
 
 
 import io
+import sys
 from os.path import join
 from tempfile import TemporaryDirectory
 from glob import glob
@@ -26,18 +27,23 @@ def graph_lego_plot(vcf_files: list[str], project_code: str, genome="GRCh37", be
     raise ValueError("No VCF file was passed.")
   with TemporaryDirectory() as tempdir:
     for one_vcf in vcf_files:
-      if not (one_vcf.endswith(".vcf.gz") or one_vcf.endswith(".vcf.gz")):
+      if not (one_vcf.endswith(".vcf") or one_vcf.endswith(".vcf.gz")):
         raise ValueError("The files given do not end in .vcf or .vcf.gz")
-    vcf_merge(
-        "--output", join(tempdir, f"{project_code}_all_mutect2.vcf"),
-        "--output-type", "v",
-        *vcf_files,
-        catch_stdout=False,
-    )
-    SigProfilerMatrixGeneratorFunc(project_code, genome, tempdir, plot=False, bed_file=bed_file)
-    matrix_path = join(tempdir, "output", "SBS", f"{project_code}.SBS384.region")
-    plotSBS(matrix_path, join(tempdir, "plot"), project_code, "384")
-    output_plot_pdf = glob(join(tempdir, "plot", "*"))[0]
-    images = convert_from_path(output_plot_pdf, dpi=50)
-    images[0].save(png_plot_mem_loc, "PNG")
+    try:
+      vcf_merge(
+          "--output", join(tempdir, f"{project_code}_all_mutect2.vcf"),
+          "--output-type", "v", "--force-single",
+          *vcf_files,
+          catch_stdout=False,
+      )
+      SigProfilerMatrixGeneratorFunc(project_code, genome, tempdir, plot=False, bed_file=bed_file)
+      matrix_path = join(tempdir, "output", "SBS", f"{project_code}.SBS384.region")
+      plotSBS(matrix_path, join(tempdir, "plot"), project_code, "384")
+      output_plot_pdf = glob(join(tempdir, "plot", "*"))[0]
+      images = convert_from_path(output_plot_pdf, dpi=50)
+      images[0].save(png_plot_mem_loc, "PNG")
+    except Exception as e:
+      print("WARNING: Graphing the lego plot had an error. Continuing...", file=sys.stderr)
+      print(e, file=sys.stderr)
+      pass
   return png_plot_mem_loc

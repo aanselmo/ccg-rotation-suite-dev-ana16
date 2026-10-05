@@ -21,7 +21,7 @@ from lib.snv_indel.snv_indel_sheet import get_variants, VEP_FILE_ENDING
 from lib.snv_indel.variant_summary_sheet import get_variant_summary
 from lib.snv_indel.analysis_legend_sheet import get_legend
 from lib.snv_indel.write_snv_xlsx import write_xlsx
-from lib.snv_indel.write_snv_csv import write_snv_csv_report
+from lib.snv_indel.write_snv_csv import write_csv
 
 
 DEFAULT_SNV_INDEL_REPORT_FILE_ENDING = "snv_indel_report.xlsx"
@@ -41,6 +41,8 @@ def setup_arguments():
                       help=f"A list of paths to {UNFILTERED_VCF_FILE_ENDING} files with the unfiltered calls in them.")
   parser.add_argument("-e", "--bed-file", dest="bed_file", type=str, required=True,
                       help="The targeted bed file for the bait set. If it's Whole genome sequencing, pass 'WGS'.")
+  parser.add_argument("-c", "--csv-output", dest="csv_output", action="store_true",
+                      help="Output a .csv instead of an excel file.")
   validate_arguments(parser.parse_args(), parser)
   return parser.parse_args()
 
@@ -85,9 +87,14 @@ def main():
   Runs the whole script.
   """
   args = setup_arguments()
-  (project_code, output_file_name) = get_output_file_name(
-      args, CSV_DEFAULT_SNV_INDEL_REPORT_FILE_ENDING, DEFAULT_CSV_OUTPUT
-  )
+  if args.csv_output:
+    (project_code, output_file_name) = get_output_file_name(
+        args, CSV_DEFAULT_SNV_INDEL_REPORT_FILE_ENDING, DEFAULT_CSV_OUTPUT
+    )
+  else:
+    (project_code, output_file_name) = get_output_file_name(
+        args, DEFAULT_SNV_INDEL_REPORT_FILE_ENDING, DEFAULT_CSV_OUTPUT
+    )
   (annotated_vcf_files, unfiltered_vcf_files) = gather_input_files(args)
   bed_file = None
   lego_plot = io.BytesIO()
@@ -102,10 +109,11 @@ def main():
   all_variants = get_variants(annotated_vcf_files, number_processes)
   variant_summary_table = get_variant_summary(all_variants)
   legend = get_legend(args.reference_genome)
-  #lego_plot = graph_task.result()
-  #write_xlsx(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
-  #write_xlsx(output_file_name, all_variants, variant_summary_table, legend)
-  write_snv_csv_report(output_file_name, all_variants, variant_summary_table, legend)
+  lego_plot = graph_task.result()
+  if args.csv_output:
+    write_csv(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
+  else:
+    write_xlsx(output_file_name, all_variants, variant_summary_table, legend, lego_plot)
 
 
 if __name__ == "__main__":
