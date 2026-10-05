@@ -16,4 +16,4 @@ cd [git repo dir]
 python -m pytest -n auto --cov="." --cov-context=test --cov-report=term-missing tests
 wc -l $(find . -name "*.py" -not -path "./scratch/*")
 ```
-Current coverage is 12.57%.
+Current coverage is 17.41%.
