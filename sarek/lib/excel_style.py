@@ -16,6 +16,10 @@ HEADER_STYLE = {
     "align": "left",
 }
 
+PERCENT_FORMAT = {
+  "num_format": "0.00%"
+}
+
 
 def get_column_widths(df: pl.DataFrame, font_multiplier=10.0, first_row_multiplier=0) -> dict:
   """

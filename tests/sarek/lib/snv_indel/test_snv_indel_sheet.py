@@ -7,16 +7,15 @@ __author__ = "Neil A. Patel"
 
 
 import pytest
-from os.path import dirname, abspath, join
-import polars as pl
+from os.path import join
+from pathlib import Path
 import narwhals.stable.v2 as nw
 import sarek.lib.snv_indel.snv_indel_sheet as snv_indel_sheet
 from sarek.lib.snv_indel.vcf2df import POSITION_COL
 from sarek.lib.common import AVAILABLE_CHROMOSOMES
 
 
-GIT_REPO_DIR = abspath(dirname(dirname(dirname(dirname(dirname(__file__))))))
-EXAMPLE_VCF_PATH = join(GIT_REPO_DIR, "tests", "data", "A008_X108_58797-1-C1.mutect2.filtered_VEP.ann.vcf.gz")
+EXAMPLE_VCF_PATH = join(Path(__file__).parent, "data", "A008_X108_58797-1-C1.mutect2.filtered_VEP.ann.vcf.gz")
 
 
 def test_get_variants():

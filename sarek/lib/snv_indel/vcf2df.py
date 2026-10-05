@@ -13,10 +13,14 @@ later filtration. I intended this module to just convert the formats. The data t
 
 Things this module does do:
     1. splitting columns into simpler, unique columns.
+    2. Set data types correctly.
 
 Things this module does NOT do (to keep things organized - put these in snv_indel_sheet.py):
     1. Add extra filter columns.
     2. Combining columns.
+    3. Transform the data to increase legibility
+        * e.g. Adding a % sign (this should probably go in the write_xlsx because it's better to use num_format)
+        * e.g. Removing url escapes for the HGVSp field
 """
 
 __docformat__ = "reStructuredText"
@@ -36,6 +40,8 @@ from lib.common import AVAILABLE_CHROMOSOMES
 
 CHROM_COL = "#CHROM"
 POSITION_COL = "POS"
+REF_COL = "REF"
+ALT_COL = "ALT"
 INFO_COL = "INFO"
 CSQ_COL = "CSQ"
 FORMAT_COL = "FORMAT"
@@ -61,25 +67,32 @@ CANONICAL_CONSEQUENCE_COL = CANONICAL_PREFIX + CSQ_CONSEQUENCE_COL
 CANONICAL_HGVS_C_COL = CANONICAL_PREFIX + CSQ_HGVS_C
 CANONICAL_HGVS_P_COL = CANONICAL_PREFIX + CSQ_HGVS_P
 GNOMAD_1000_GENOMES_AF_COL = "gnomAD_AF"
+GNOMAD_EXOMES_AF_COL = "gnomADe_AF"
+GNOMAD_WHOLE_GENOMES_AF_COL = "gnomADg_AF"
+MAX_AF_COL = "MAX_AF"
 MAX_AF_POPS_COL = "MAX_AF_POPS"
 GNOMAD_COLS = [GNOMAD_1000_GENOMES_AF_COL, "gnomADe_AF", "gnomADg_AF", "MAX_AF", MAX_AF_POPS_COL]
 COSMIC_v104_COL = "COSMIC_v104"
 COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT_COL = "COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT"
 COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT_COL = "COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT"
+COSMIC_v80_COL = "COSMIC_v80"
+COSMIC_v80_CNT_COL = "COSMIC_v80_CNT"
 COSMIC_COLS = [
     COSMIC_v104_COL, COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT_COL, COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT_COL,
-    "COSMIC_v80", "COSMIC_v80_CNT"
+    COSMIC_v80_COL, COSMIC_v80_CNT_COL
 ]
 CSQ_VARIANT_TYPE_COLS = [CSQ_VARIANT_CLASS_COL, "SYMBOL", "SYMBOL_SOURCE", "HGNC_ID", "Gene", CSQ_BIOTYPE_COL]
 CSQ_POPULATION_COLS = [EXISTING_VARIATION_COL] + COSMIC_COLS + GNOMAD_COLS
 
 
 def setup_arguments():
-  parser = argparse.ArgumentParser(description="Process all sarek files to create a summary report.")
+  parser = argparse.ArgumentParser(description="Process 1 vcf to turn it into a csv. Useful for testing.")
   parser.add_argument("-o", "--output-file", type=str, default="output.csv",
                       dest="output_file_name", help="The name of the output csv file.")
   parser.add_argument("-v", "--vcf", dest="vcf", type=str, required=True,
                       help=f"A vcf.gz file with the actual variant calls in them.")
+  parser.add_argument("-f", "--filter-mutect-fail", dest="filter_mutect_fail", action="store_true",
+                      help=f"Keep only the PASS calls for Mutect2 FILTER column.")
   return parser.parse_args()
 
 
@@ -169,11 +182,6 @@ def split_csq_column(csq_header: list[str], csq_column: pl.DataFrame):
   return csq
 
 
-def get_format_data_column_name(df: pl.DataFrame):
-  format_data_col_index = df.get_column_index(FORMAT_COL) + 1
-  return df.columns[format_data_col_index]
-
-
 def drop_null_columns(df: pl.DataFrame) -> pl.DataFrame:
   """
   Drop columns that are completely null.
@@ -200,36 +208,106 @@ def split_info_column(info_column: pl.DataFrame, column_names: list[str]):
       .alias(one_col)
       for one_col in column_names
   ])
-  info_df = info_df.drop(INFO_COL)
-  info_df = info_df.rename({"DP": "INFO_DP"})
+  # The DP column is repeated in the FORMAT column.
+  info_df = info_df.drop(INFO_COL, "DP")
   return info_df
 
 
-def split_format_column(format_and_data_cols: pl.DataFrame) -> pl.DataFrame:
+def split_format_column(df: pl.DataFrame) -> pl.DataFrame:
   """
-  Take a Dataframe with the format column (i.e. header column names) and its data column and split the data into
-  its own column. The format column should be first, followed by the data column.
-  :param df pl.DataFrame: A dataframe with 2 columns only.
-  :return pl.DataFrame: A dataframe with those 2 columns split.
+  Take a Dataframe with the FORMAT column (i.e. header column names) and its data column and split the data into
+  its own column.
+  e.g.
+  1. If it's tumor-only mutect2, then it's right after the FORMAT column.
+     FORMAT  01-16_TR00066-G9
+     GT:AD:AF:DP:F1R2:F2R1:FAD:SB    0/1:0,1040:0.999:1040:0,370:0,362:0,850:0,0,530,510
+  2. If it's matched tumor-normal mutect2, then it's the 2nd one after the FORMAT column.
+     FORMAT  CHGFR0086_CHGFR0086-Germline-A4 CHGFR0086_CHGFR0086-T1-Org-5050-G3
+     GT:AD:AF:DP:F1R2:F2R1:FAD:SB    0/0:795,3:5.085e-03:798:387,1:365,2:768,3:415,380,1,2   0/1:695,4:7.416e-03:699:346,1:295,3:660,4:324,371,1,3
+  :param df pl.DataFrame: The partially converted DataFrame from the original vcf.
+  :return pl.DataFrame: The original DataFrame with the 2 columns split.
   """
   FIRST_FORMAT_COL = 0
   SECOND_DATA_COL = 1
-  split_column = format_and_data_cols.select(
-      pl.nth(FIRST_FORMAT_COL).str.split(":"),
-      pl.nth(SECOND_DATA_COL).str.split(":")
+  index_format_col = df.get_column_index(FORMAT_COL)
+  index_format_data_col = -1   # i.e. last column
+  format_data_col = df.columns[index_format_data_col]
+  index_format_data_col = df.get_column_index(format_data_col)
+  if index_format_data_col != (index_format_col + 1):
+    # then it's matched tumor-normal. Drop the normal data.
+    df = df.drop(df.columns[index_format_col + 1])
+  split_column = df.select(
+      pl.col(FORMAT_COL).str.split(":"),
+      pl.col(format_data_col).str.split(":")
   )
   split_column = [dict(zip(row[FIRST_FORMAT_COL], row[SECOND_DATA_COL])) for row in split_column.iter_rows()]
-  split_column = pl.DataFrame(split_column, schema_overrides={AF_COL: pl.Float32, DP_COL: pl.Int16})
-  return split_column
+  split_column = pl.DataFrame(split_column, schema_overrides={AF_COL: pl.String, DP_COL: pl.String})
+  try:
+    split_column = split_column.cast({AF_COL: pl.Float64, DP_COL: pl.Int16})
+  except (pl.exceptions.ComputeError, pl.exceptions.InvalidOperationError):
+    pass
+  df = df.drop([FORMAT_COL, format_data_col])
+  df = pl.concat([df, split_column], how="horizontal")
+  return df
 
 
-def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
+def set_dtypes(df: pl.DataFrame) -> pl.DataFrame:
+  dtypes = {
+      POSITION_COL: pl.Int64,
+      REF_COL: pl.String,
+      ALT_COL: pl.String,
+      MUTECT2_FILTER_COL: pl.String,
+      CSQ_VARIANT_CLASS_COL: pl.String,
+      "SYMBOL": pl.String,
+      "SYMBOL_SOURCE": pl.String,
+      "HGNC_ID": pl.String,
+      "Gene": pl.String,
+      CSQ_BIOTYPE_COL: pl.String,
+      CANONICAL_CONSEQUENCE_COL: pl.String,
+      "Canonical_EXON": pl.String,
+      "Canonical_INTRON": pl.String,
+      "Canonical_cDNA_position": pl.String,
+      CANONICAL_HGVS_C_COL: pl.String,
+      CANONICAL_HGVS_P_COL: pl.String,
+      BEST_EFFECT_CONSEQUENCE_COL: pl.String,
+      "BestEffect_EXON": pl.String,
+      "BestEffect_INTRON": pl.String,
+      "BestEffect_cDNA_position": pl.String,
+      BEST_EFFECT_HGVS_C_COL: pl.String,
+      BEST_EFFECT_HGVS_P_COL: pl.String,
+      EXISTING_VARIATION_COL: pl.String,
+      COSMIC_v104_COL: pl.String,
+      COSMIC_v104_GENOME_SCREEN_SAMPLE_COUNT_COL: pl.Int64,
+      COSMIC_v104_TARGETED_SCREEN_SAMPLE_COUNT_COL: pl.Int64,
+      COSMIC_v80_COL: pl.String,
+      COSMIC_v80_CNT_COL: pl.String,
+      GNOMAD_1000_GENOMES_AF_COL: pl.Float64,
+      GNOMAD_EXOMES_AF_COL: pl.Float64,
+      GNOMAD_WHOLE_GENOMES_AF_COL: pl.Float64,
+      MAX_AF_COL: pl.Float64,
+      MAX_AF_POPS_COL: pl.String
+  }
+  if GNOMAD_1000_GENOMES_AF_COL in df.columns:
+    df = df.with_columns(
+        pl.col(GNOMAD_1000_GENOMES_AF_COL).replace([".", ""], None),
+        pl.col(GNOMAD_EXOMES_AF_COL).replace([".", ""], None),
+        pl.col(GNOMAD_WHOLE_GENOMES_AF_COL).replace([".", ""], None),
+        pl.col(MAX_AF_COL).replace([".", ""], None)
+    )
+  for column, column_dtype in dtypes.items():
+    if column in df.columns:
+      df = df.cast({column: column_dtype})
+  return df
+
+
+def convert_vcf_to_data_frame(vcf_path: str, should_filter_mutect2_failed=True) -> nw.DataFrame:
   """
   Convert a .vcf file into a nw.DataFrame. Does not do any filtering for the most part. That's not part of this module.
   :param vcf_path str: the path to the file of .vcf that needs to be parsed.
   :return nw.DataFrame: A narwhals DataFrame that the .vcf converts to.
   """
   print(vcf_path)
+  csq_df = pl.DataFrame({})
   (header_line, info_col_names, csq_col_names) = parse_vcf_header(vcf_path)
   df = pl.read_csv(
       vcf_path,
@@ -237,21 +315,20 @@ def convert_vcf_to_data_frame(vcf_path: str) -> nw.DataFrame:
       separator="\t",
       schema_overrides={CHROM_COL: AVAILABLE_CHROMOSOMES},
   )
-  # KEEP ONLY PASSING MUTECT2 VARIANTS
-  df = df.filter(pl.col(MUTECT2_FILTER_COL) == "PASS")
+  if should_filter_mutect2_failed:
+    # KEEP ONLY PASSING MUTECT2 VARIANTS
+    df = df.filter(pl.col(MUTECT2_FILTER_COL) == "PASS")
   if not df.is_empty():
-    # Data Col of Fromat Header Starts off as the sample name so its not constant.
-    data_col_of_format_header = get_format_data_column_name(df)
-    format_data = split_format_column(df.select(pl.col(FORMAT_COL), pl.col(data_col_of_format_header)))
-    df = df.drop([FORMAT_COL])
-    df = pl.concat([df, format_data], how="horizontal")
-    df = df.filter(pl.col(AF_COL) >= 0.02)
+    df = split_format_column(df)
+    if df.get_column(AF_COL).dtype == "float64":
+      df = df.filter(pl.col(AF_COL) > 0.02)
     info_df = split_info_column(df.select(INFO_COL), info_col_names)
     if csq_col_names:
       csq_df = split_csq_column(csq_col_names, info_df.select(CSQ_COL))
-    info_df = info_df.drop(CSQ_COL)
-    df = df.drop([data_col_of_format_header, INFO_COL])
+      info_df = info_df.drop(CSQ_COL)
+    df = df.drop(INFO_COL)
     df = pl.concat([df, info_df, csq_df], how="horizontal")
+    df = set_dtypes(df)
   return nw.from_native(df)
 
 
@@ -261,7 +338,7 @@ def main():
   is parallelized/multi-process, the stack trace of the error can be obfuscated.
   """
   args = setup_arguments()
-  df = convert_vcf_to_data_frame(args.vcf)
+  df = convert_vcf_to_data_frame(args.vcf, should_filter_mutect2_failed=args.filter_mutect_fail)
   df.write_csv(args.output_file_name)
 
 

@@ -7,7 +7,8 @@ __author__ = "Neil A. Patel"
 
 
 import pytest
-from os.path import dirname, abspath, join
+from os.path import join
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 import math
 import xlsxwriter
@@ -22,10 +23,9 @@ import sarek.lib.snv_indel.write_snv_xlsx as write_snv_xlsx
 from sarek.lib.excel_style import HEADER_STYLE
 
 
-GIT_REPO_DIR = abspath(dirname(dirname(dirname(dirname(dirname(__file__))))))
-EXAMPLE_VCF_PATH = join(GIT_REPO_DIR, "tests", "data", "A008_X108_58797-1-C1.mutect2.filtered_VEP.ann.vcf.gz")
-VCF_A016_PATH = join(GIT_REPO_DIR, "tests", "data", "A016_X116_BS07G52324-G1.mutect2.vcf.gz")
-EXAMPLE_BED = join(GIT_REPO_DIR, "tests", "data", "POPv3_AllTargetedRegions_20251230.bed")
+EXAMPLE_VCF_PATH = join(Path(__file__).parent, "data", "A008_X108_58797-1-C1.mutect2.filtered_VEP.ann.vcf.gz")
+VCF_A016_PATH = join(Path(__file__).parent, "data", "A016_X116_BS07G52324-G1.mutect2.vcf.gz")
+EXAMPLE_BED = join(Path(__file__).parent, "data", "POPv3_AllTargetedRegions_20251230.bed")
 
 
 def test_write_snv_xlsx():
@@ -34,7 +34,15 @@ def test_write_snv_xlsx():
   plot_memory_location = lego_plot_sheet.graph_lego_plot([VCF_A016_PATH], "SCB1118c", "GRCh37", bed_file=EXAMPLE_BED)
   legend_df = analysis_legend_sheet.get_legend("GRCh37")
   with NamedTemporaryFile() as tempfile:
-    write_snv_xlsx.write_xlsx(tempfile.name, all_variants, variant_summary_table, legend_df, plot_memory_location)
+    write_snv_xlsx.write_xlsx(
+        tempfile.name,
+        all_variants,
+        variant_summary_table,
+        nw.from_native(pl.DataFrame({})),
+        nw.from_native(pl.DataFrame({})),
+        legend_df,
+        plot_memory_location
+    )
     verify_summary_table = pl.read_excel(tempfile.name, sheet_name=write_snv_xlsx.VARIANT_SUMMARY_SHEET)
     verify_all_variants = pl.read_excel(tempfile.name, sheet_name=write_snv_xlsx.SNV_INDEL_SHEET)
     assert verify_summary_table.filter(
@@ -43,7 +51,7 @@ def test_write_snv_xlsx():
     # Assert 1 variant has the correct alternate allele
     assert verify_all_variants.filter(
         pl.col(vcf2df.POSITION_COL) == 41266124
-    ).get_column("ALT")[0] == "G"
+    ).get_column(vcf2df.ALT_COL)[0] == "G"
 
 
 class TestOver1MebiRowsExcel:
