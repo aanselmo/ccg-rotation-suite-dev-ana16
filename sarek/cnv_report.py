@@ -20,6 +20,7 @@ from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
 from lib.cnv.variant_sheet import get_cnv_variants
 from lib.cnv.gene_sheet import summarize_gene_level
 from lib.cnv.chromosome_sheet import summarize_chromosome_arm_level
+from lib.cnv.armlevel_process import get_armlevel_calls
 from lib.cnv.write_xlsx import write_xlsx
 
 
@@ -36,6 +37,8 @@ def setup_arguments():
                       help="A list of paths to .recal.mosdepth.summary.txt files with mean coverage in them.")
   parser.add_argument("-c", "--cnr-files", dest="cnr_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .cnr files with normalized log2 ratios in them.")
+  parser.add_argument("-c", "--call-cns-files", dest="call_cns_files", default=[], action="extend", nargs="+",
+                      help="A list of paths to .call.cns files with deletion, amplification, or neutral calls in them.")
   parser.add_argument("-s", "--cns-files", dest="cns_files", default=[], action="extend", nargs="+",
                       help=("A list of paths to .cns files with segment calls in them. Use the most unfiltered ones"
                             + " i.e. the .cns files not .call.cns or .tumor_only.call.cns"))
@@ -75,6 +78,7 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
   mos_files = []
   cnr_files = []
   cns_files = []
+  call_cns_files = []
   tumor_cns_files = []
   gene_files = []
   vcf_files = []
@@ -90,6 +94,16 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
     cnr_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.cnr")
   else:
     cnr_files = args.cnr_files
+
+  if not args.call_cns_files:
+    call_cns_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.call.cns")
+    # Remove tumor_only.call.cns.  We want sample.call.cns files only.
+    call_cns_files = list(filter(
+        lambda one_file: "tumor_only" not in basename(one_file),
+        call_cns_files
+    ))
+  else:
+    call_cns_files = args.call_cns_files
 
   if not args.cns_files:
     cns_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.cns")
@@ -118,7 +132,7 @@ def gather_input_files(args: argparse.Namespace) -> tuple[list[str], list[str], 
     vcf_files = glob(f"{args.bucket_folder}/variant_calling/cnvkit/*/*.cnvcall.vcf")
   else:
     vcf_files = args.vcf_files
-  return (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files)
+  return (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files, call_cns_files)
 
 
 async def main():
@@ -127,19 +141,26 @@ async def main():
   """
   args = setup_arguments()
   (project_code, output_file_name) = get_output_file_name(args, DEFAULT_CNV_REPORT_FILE_ENDING, DEFAULT_EXCEL_OUTPUT)
-  (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files) = gather_input_files(args)
+  (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files, call_cns_files) = gather_input_files(args)
   qc_task: asyncio.Task | None = None
   gene_summary_task: asyncio.Task | None = None
   arm_summary_task: asyncio.Task | None = None
+  armlevel_table_task: asyncio.Task | None = None
   qc_metrics = nw.from_native(pl.DataFrame({}))
   cnv_variants = nw.from_native(pl.DataFrame({}))
   gene_summary = nw.from_native(pl.DataFrame({}))
   arm_summary = nw.from_native(pl.DataFrame({}))
+  armlevel_table = nw.from_native(pl.DataFrame({}))
   # Start Tasks with asyncio
   if mos_files and cnr_files and cns_files:
     qc_task = asyncio.create_task(
         get_qc_metrics(mos_files, cnr_files, cns_files, args.bucket_folder)
     )
+  if cnr_files and cns_files and call_cns_files:
+    armlevel_table_task = asyncio.create_task(
+        get_armlevel_calls(cnr_files, cns_files, call_cns_files, args.bucket_folder)
+    )
+  
   if gene_files:
     gene_summary_task = asyncio.create_task(summarize_gene_level(gene_files))
   if vcf_files:
@@ -154,7 +175,9 @@ async def main():
     gene_summary = await gene_summary_task
   if arm_summary_task is not None:
     arm_summary = await arm_summary_task
-  write_xlsx(output_file_name, qc_metrics, cnv_variants, gene_summary, arm_summary, mtc_hist_mem_loc, mad_hist_mem_loc)
+  if armlevel_table_task is not None:
+    armlevel_table = await armlevel_table_task
+  write_xlsx(output_file_name, qc_metrics, cnv_variants, gene_summary, arm_summary, armlevel_table, mtc_hist_mem_loc, mad_hist_mem_loc)
 
 
 if __name__ == "__main__":
