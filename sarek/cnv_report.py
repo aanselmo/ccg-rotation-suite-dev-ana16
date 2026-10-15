@@ -29,7 +29,7 @@ DEFAULT_CNV_REPORT_FILE_ENDING = "cnv_report.xlsx"
 
 def setup_arguments():
   parser = argparse.ArgumentParser(description="Process all sarek files to create a CNV summary report.")
-  append_common_args(parser)
+  append_common_args(parser, default_output_file=DEFAULT_EXCEL_OUTPUT)
   append_bucket_arg(parser)
   append_reference_arg(parser)
   # These 3 types of files are for the QC metrics sheet
@@ -37,7 +37,7 @@ def setup_arguments():
                       help="A list of paths to .recal.mosdepth.summary.txt files with mean coverage in them.")
   parser.add_argument("-c", "--cnr-files", dest="cnr_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .cnr files with normalized log2 ratios in them.")
-  parser.add_argument("-c", "--call-cns-files", dest="call_cns_files", default=[], action="extend", nargs="+",
+  parser.add_argument("-d", "--call-cns-files", dest="call_cns_files", default=[], action="extend", nargs="+",
                       help="A list of paths to .call.cns files with deletion, amplification, or neutral calls in them.")
   parser.add_argument("-s", "--cns-files", dest="cns_files", default=[], action="extend", nargs="+",
                       help=("A list of paths to .cns files with segment calls in them. Use the most unfiltered ones"
