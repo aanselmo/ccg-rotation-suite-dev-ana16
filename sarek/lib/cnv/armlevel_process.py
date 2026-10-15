@@ -18,8 +18,8 @@ import polars as pl
 import narwhals.stable.v2 as nw
 import matplotlib.pyplot as plt
 
-ARM_IMAGE = "aanselmo/azimuth_seurat_ccgd:5.3.0g"
-ARM_SCRIPT = "arm_level_calls_from_cnvkit_v2.R"  # resolved from the bucket dir because of -w
+ARM_IMAGE = "aanselmo/cnv_arm:0.1"
+ARM_SCRIPT = "/opt/arm_level_calls_from_cnvkit.R"  # script within docker container
 
 CNR_FILES_COL = "cnr_files"
 CNS_FILES_COL = "cns_files"
@@ -54,7 +54,7 @@ async def run_armlevel_one_sample(row: dict, abs_bucket_dir: str, out_dir: str,
   out_path = join(out_dir, f"{sample}.arm_calls.tsv")
   docker_command = [
       "docker", "run", "--rm",
-      "--user", f"{os.getuid()}:{os.getgid()}",
+      #"--user", f"{os.getuid()}:{os.getgid()}",
       "-v", f"{abs_bucket_dir}:{abs_bucket_dir}", "-w", abs_bucket_dir,
       ARM_IMAGE,
       "Rscript", ARM_SCRIPT,
