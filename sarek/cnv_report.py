@@ -9,6 +9,7 @@ __credits__ = ["Neil A. Patel"]
 
 import argparse
 from os.path import basename
+from pathlib import Path
 from glob import glob
 import asyncio
 import polars as pl
@@ -19,12 +20,19 @@ from lib.common import (
 from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
 from lib.cnv.variant_sheet import get_cnv_variants
 from lib.cnv.gene_sheet import summarize_gene_level
-from lib.cnv.chromosome_sheet import summarize_chromosome_arm_level
+# from lib.cnv.chromosome_sheet import summarize_chromosome_arm_level  # Arm Level Summary tab disabled
 from lib.cnv.armlevel_process import get_armlevel_calls
 from lib.cnv.write_xlsx import write_xlsx
 
 
 DEFAULT_CNV_REPORT_FILE_ENDING = "cnv_report.xlsx"
+# Reference tabs copied into the report as-is (tab names preserved). Resolved relative to this
+# script so the report can be generated from any working directory.
+DOCS_DIR = Path(__file__).resolve().parent / "docs"
+REFERENCE_SHEET_FILES = [
+    DOCS_DIR / "cnv_arms_level_key.xlsx",
+    DOCS_DIR / "cnv_arms_level_flags.xlsx",
+]
 
 
 def setup_arguments():
@@ -144,13 +152,15 @@ async def main():
   (mos_files, cnr_files, cns_files, tumor_cns_files, gene_files, vcf_files, call_cns_files) = gather_input_files(args)
   qc_task: asyncio.Task | None = None
   gene_summary_task: asyncio.Task | None = None
-  arm_summary_task: asyncio.Task | None = None
+  # arm_summary_task: asyncio.Task | None = None  # Arm Level Summary tab disabled
   armlevel_table_task: asyncio.Task | None = None
   qc_metrics = nw.from_native(pl.DataFrame({}))
   cnv_variants = nw.from_native(pl.DataFrame({}))
   gene_summary = nw.from_native(pl.DataFrame({}))
-  arm_summary = nw.from_native(pl.DataFrame({}))
+  # arm_summary = nw.from_native(pl.DataFrame({}))  # Arm Level Summary tab disabled
   armlevel_table = nw.from_native(pl.DataFrame({}))
+  mtc_hist_mem_loc = None
+  mad_hist_mem_loc = None
   # Start Tasks with asyncio
   if mos_files and cnr_files and cns_files:
     qc_task = asyncio.create_task(
@@ -165,19 +175,25 @@ async def main():
     gene_summary_task = asyncio.create_task(summarize_gene_level(gene_files))
   if vcf_files:
     cnv_variants = await get_cnv_variants(vcf_files, tumor_cns_files)
-  if cnv_variants:
-    arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(args.reference_genome, cnv_variants))
+  # Arm Level Summary tab disabled
+  # if cnv_variants:
+  #   arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(args.reference_genome, cnv_variants))
   # Await Tasks
   if qc_task is not None:
     qc_metrics = await qc_task
     (mtc_hist_mem_loc, mad_hist_mem_loc) = await graph_qc_metrics(qc_metrics)
   if gene_summary_task is not None:
     gene_summary = await gene_summary_task
-  if arm_summary_task is not None:
-    arm_summary = await arm_summary_task
+  # if arm_summary_task is not None:  # Arm Level Summary tab disabled
+  #   arm_summary = await arm_summary_task
   if armlevel_table_task is not None:
     armlevel_table = await armlevel_table_task
-  write_xlsx(output_file_name, qc_metrics, cnv_variants, gene_summary, arm_summary, armlevel_table, mtc_hist_mem_loc, mad_hist_mem_loc)
+  missing_reference_files = [str(one_file) for one_file in REFERENCE_SHEET_FILES if not one_file.exists()]
+  if missing_reference_files:
+    raise FileNotFoundError(f"Reference sheet files not found: {missing_reference_files}")
+  write_xlsx(output_file_name, qc_metrics, cnv_variants, gene_summary,
+             # arm_summary,  # Arm Level Summary tab disabled
+             armlevel_table, mtc_hist_mem_loc, mad_hist_mem_loc, reference_files=REFERENCE_SHEET_FILES)
 
 
 if __name__ == "__main__":
