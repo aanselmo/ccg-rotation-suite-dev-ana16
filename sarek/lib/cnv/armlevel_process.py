@@ -18,7 +18,7 @@ import polars as pl
 import narwhals.stable.v2 as nw
 import matplotlib.pyplot as plt
 
-ARM_IMAGE = "aanselmo/cnv_arm:0.1"
+ARM_IMAGE = "aanselmo/cnv_arm:0.5"
 ARM_SCRIPT = "/opt/arm_level_calls_from_cnvkit.R"  # script within docker container
 
 CNR_FILES_COL = "cnr_files"
@@ -62,6 +62,7 @@ async def run_armlevel_one_sample(row: dict, abs_bucket_dir: str, out_dir: str,
       "--cns", row[CNS_FILES_COL],
       "--call", row[CALL_CNS_FILES_COL],
       "--sample", sample,
+      "--threshold", "0.9",
       "--cytoband", "/opt/cytoBand.txt.gz",
       "--fraction-by", "bins",
       "--out", out_path,
