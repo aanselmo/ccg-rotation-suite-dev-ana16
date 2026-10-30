@@ -26,3 +26,7 @@ secrets/*
 
 # For unit test coverage reports
 .coverage*
+
+# Whitelist specific Excel files
+!sarek/docs/cnv_arms_level_key.xlsx
+!sarek/docs/cnv_arms_level_flags.xlsx
