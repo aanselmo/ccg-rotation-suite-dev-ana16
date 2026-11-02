@@ -30,3 +30,4 @@ secrets/*
 # Whitelist specific Excel files
 !sarek/docs/cnv_arms_level_key.xlsx
 !sarek/docs/cnv_arms_level_flags.xlsx
+!sarek/docs/cnv_legend.xlsx
