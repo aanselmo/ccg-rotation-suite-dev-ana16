@@ -32,6 +32,7 @@ DOCS_DIR = Path(__file__).resolve().parent / "docs"
 REFERENCE_SHEET_FILES = [
     DOCS_DIR / "cnv_arms_level_key.xlsx",
     DOCS_DIR / "cnv_arms_level_flags.xlsx",
+    DOCS_DIR / "cnv_legend.xlsx"
 ]
 
 
