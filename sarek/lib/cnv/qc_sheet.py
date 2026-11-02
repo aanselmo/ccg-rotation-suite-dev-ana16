@@ -15,6 +15,12 @@ import numpy as np
 import polars as pl
 import narwhals.stable.v2 as nw
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator, StrMethodFormatter
+
+MTC_TARGET_BINS = 40
+MTC_MAX_X_TICKS = 10
+NICE_STEPS = (1.0, 2.0, 2.5, 5.0, 10.0)
+
 
 MOS_FILES_COL = "mos_files"
 CNR_FILES_COL = "cnr_files"
@@ -120,26 +126,47 @@ async def get_qc_metrics(
   qc_metrics_without_filenames = all_qc_data.select(columns_to_select)
   return qc_metrics_without_filenames
 
+def nice_binwidth(data_max: float, target_bins: int) -> float:
+  """
+  Smallest "nice" width (1, 2, 2.5, 5 x 10^n) giving at most ``target_bins`` bins.
+  """
+  raw = max(data_max, 1.0) / target_bins
+  magnitude = 10.0 ** np.floor(np.log10(raw))
+  for step in NICE_STEPS:
+    if step * magnitude >= raw:
+      return step * magnitude
+  return 10.0 * magnitude
+
 
 def graph_mtc(qc_metrics: nw.DataFrame) -> io.BytesIO:
   mtc_col = qc_metrics.get_column(MTC_COL)
-  binwidth = min(50.0, max(mtc_col) / 5.0)
-  max_mtc_graph = max(mtc_col) + binwidth
-  if max_mtc_graph >= 20.0 and max_mtc_graph <= 60.0:
-    max_mtc_graph = 60.0
-  mtc_hist_bins = np.arange(0.0, max_mtc_graph, binwidth)
+  mtc_max = float(mtc_col.max())
+  binwidth = nice_binwidth(mtc_max, MTC_TARGET_BINS)
+  # Extend past the threshold so the low-sensitivity zone is always visible.
+  upper = max(mtc_max, MTC_BAD_THRESHOLD * 1.2) + binwidth
+  mtc_hist_bins = np.arange(0.0, upper, binwidth)
+  # Make the threshold a bin edge so pink bins never contain passing samples.
+  mtc_hist_bins = np.union1d(mtc_hist_bins, [MTC_BAD_THRESHOLD])
+
   (n, bins, patches) = plt.hist(mtc_col, bins=mtc_hist_bins, color=GOOD_COLOR)
-  plt.xticks(mtc_hist_bins[:-1])
   max_n = max(n)
+
+  ax = plt.gca()
+  ax.xaxis.set_major_locator(
+      MaxNLocator(nbins=MTC_MAX_X_TICKS, steps=[1, 2, 2.5, 5, 10], integer=True)
+  )
+  ax.xaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
+  plt.xlim(0, mtc_hist_bins[-1])
+
   plt.ylabel("Number of Samples")
   plt.xlabel("Mean Target Coverage (MTC)")
-  plt.xlim(0, None)
-  if max_mtc_graph >= 50.0:
-    plt.plot([MTC_BAD_THRESHOLD, MTC_BAD_THRESHOLD], [0, max_n], color=BAD_COLOR, linestyle="dashed")
+  plt.plot([MTC_BAD_THRESHOLD, MTC_BAD_THRESHOLD], [0, max_n], color=BAD_COLOR, linestyle="dashed")
   plt.axvspan(0, MTC_BAD_THRESHOLD, facecolor=BAD_COLOR, alpha=0.1)
   for index_bin, one_bin in enumerate(bins[:-1]):
     if one_bin < MTC_BAD_THRESHOLD:
       patches[index_bin].set_facecolor(BAD_COLOR)
+
+  plt.tight_layout()
   mtc_hist_mem_loc = io.BytesIO()
   plt.savefig(mtc_hist_mem_loc, format="png")
   plt.close()
