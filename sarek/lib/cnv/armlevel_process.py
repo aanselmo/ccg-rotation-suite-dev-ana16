@@ -21,6 +21,22 @@ import matplotlib.pyplot as plt
 ARM_IMAGE = "aanselmo/cnv_arm:0.5"
 ARM_SCRIPT = "/opt/arm_level_calls_from_cnvkit.R"  # script within docker container
 
+# Column order for the "Arm Level Calls" tab. Columns not listed here are appended at the end,
+# so new columns from a later version of the R script still appear rather than being dropped.
+ARMLEVEL_COLUMN_ORDER = [
+    "sample", "arm", "arm_level_call", "mean_log2",
+    "chrom", "arm_start", "arm_end", "arm_length",
+    "n_bins", "n_segments", "n_called_segments", "called_segments_bp_total",
+    "frac_arm_segmented", "frac_gain_over_arm", "frac_loss_over_arm",
+    "frac_gain_over_called_segments", "frac_loss_over_called_segments",
+    "frac_bins_in_segments", "frac_gain_by_bins", "frac_loss_by_bins",
+    "cnv_calls_by_bins", "cnv_calls_by_bp",
+    "boot_method", "n_blocks", "boot_sd", "ci_low", "ci_high", "ci_sd_ratio",
+    "p_value", "q_value", "flags",
+    "threshold", "fraction_by", "denominator", "unit_values",
+    "gain_log2_cutoff_used", "loss_log2_cutoff_used",
+]
+
 CNR_FILES_COL = "cnr_files"
 CNS_FILES_COL = "cns_files"
 CALL_CNS_FILES_COL = "call_cns_files"
@@ -95,4 +111,7 @@ async def get_armlevel_calls(cnr_files, cns_files, call_cns_files, bucket_dir=""
   all_files = organize_files(cnr_files, cns_files, call_cns_files)
   complete = all_files.select(SAMPLE_COL, CNR_FILES_COL, CNS_FILES_COL, CALL_CNS_FILES_COL).drop_nulls()
   armlevel_calls = await run_armlevel_caller(complete, bucket_dir)
-  return armlevel_calls.drop("purity")
+  armlevel_calls = armlevel_calls.drop("purity")
+  ordered = [col for col in ARMLEVEL_COLUMN_ORDER if col in armlevel_calls.columns]
+  ordered += [col for col in armlevel_calls.columns if col not in ordered]
+  return armlevel_calls.select(ordered)
