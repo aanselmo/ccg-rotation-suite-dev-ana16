@@ -175,7 +175,9 @@ async def main():
   if gene_files:
     gene_summary_task = asyncio.create_task(summarize_gene_level(gene_files))
   if vcf_files:
-    cnv_variants = await get_cnv_variants(vcf_files, tumor_cns_files)
+    # cns_files (unfiltered <sample>.cns) are passed so ci_hi/ci_lo can be back-filled for samples whose call.cns
+    # does not carry them (germline.call.cns from normal-only / germline cnvkit runs).
+    cnv_variants = await get_cnv_variants(vcf_files, tumor_cns_files, cns_files)
   # Arm Level Summary tab disabled
   # if cnv_variants:
   #   arm_summary_task = asyncio.create_task(summarize_chromosome_arm_level(args.reference_genome, cnv_variants))

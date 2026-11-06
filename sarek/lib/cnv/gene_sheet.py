@@ -25,6 +25,14 @@ DIPLOID = 2.0
 GAIN_COL = "No. of Samples with Gains"
 LOSS_COL = "No. of Samples with Losses"
 GAIN_AND_LOSS_COL = "No. of Samples with Gains & Losses"
+# log2 cutoffs of cnvkit's `call --method threshold` (defaults -1.1,-0.25,0.2,0.7): log2 <= -0.25 is a loss
+# (cn <= 1) and log2 > 0.2 is a gain (cn >= 3). These are the cutoffs behind the cn column of the call.cns files
+# used for the CNV tab (and the same cutoffs used for the arm-level calls and the CNV plots), so using them here keeps
+# the Gene Level Summary consistent with the CNV tab.
+# Do NOT derive copy number as round(2 * 2**log2): that rule needs log2 >= 0.32 for a gain and <= -0.42 for a loss,
+# so modest gains/losses that cnvkit calls (e.g. log2 0.20-0.32) were counted as neutral.
+GAIN_LOG2_CUTOFF = 0.2
+LOSS_LOG2_CUTOFF = -0.25
 
 
 
@@ -114,11 +122,15 @@ def calculate_copy_number(original_df: nw.DataFrame, log2col=LOG2_COL) -> nw.Dat
 
 
 def sum_cnv_numbers_by_gene(all_gene_cnvs: nw.DataFrame) -> nw.DataFrame:
-  # Log 2 ratio means 2.0 to the power of the log2ratio
-  all_gene_cnvs = calculate_copy_number(all_gene_cnvs, log2col=LOG2_COL)
+  # Classify each gene row with the same log2 cutoffs cnvkit's threshold calling uses (see GAIN_LOG2_CUTOFF).
+  is_gain = nw.col(LOG2_COL) > GAIN_LOG2_CUTOFF
+  is_loss = nw.col(LOG2_COL) <= LOSS_LOG2_CUTOFF
+  # A gene can be listed more than once for one sample when a breakpoint falls inside it (one row per segment it
+  # overlaps). Count each sample at most once per gene: use max (i.e. "any row is a gain/loss"), not sum, otherwise
+  # such a sample is counted twice and the "Gains & Losses" test (== 1) misses it.
   all_gene_summary = all_gene_cnvs.group_by(GENE_COL, SAMPLE_COL).agg(
-      nw.when(nw.col(COPY_NUMBER_COL) > DIPLOID).then(1).otherwise(0).sum().alias(GAIN_COL),
-      nw.when(nw.col(COPY_NUMBER_COL) < DIPLOID).then(1).otherwise(0).sum().alias(LOSS_COL)
+      nw.when(is_gain).then(1).otherwise(0).max().alias(GAIN_COL),
+      nw.when(is_loss).then(1).otherwise(0).max().alias(LOSS_COL)
   )
   is_gain_and_loss = (nw.col(GAIN_COL) == 1) & (nw.col(LOSS_COL) == 1)
   all_gene_summary = all_gene_summary.with_columns(
