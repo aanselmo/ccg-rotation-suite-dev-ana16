@@ -13,6 +13,7 @@ import xlsxwriter
 from openpyxl import load_workbook
 from ..excel_style import get_column_widths, HEADER_STYLE
 from .qc_sheet import MTC_COL, THRESHOLD_LEGEND, THRESHOLD_LEGEND2, THRESHOLD_LEGEND3
+from .gene_sheet import SAMPLES_WITH_GAINS_COL, SAMPLES_WITH_LOSSES_COL
 # from .chromosome_sheet import ARM_COL, CHROMOSOME_COL  # Arm Level Summary tab disabled
 
 INT_FORMAT = {pl.Int64: "0;[RED]-0"}
@@ -196,10 +197,16 @@ def write_xlsx(
       )
 
     if pl_gene.width:
+      gene_sheet_widths = get_column_widths(pl_gene, first_row_multiplier=5.0)
+      # The sample-list columns can hold a few hundred characters; cap their width so the sheet stays readable
+      # (the full list is still in the cell and overflows into the empty cells to its right).
+      for list_col in (SAMPLES_WITH_GAINS_COL, SAMPLES_WITH_LOSSES_COL):
+        if list_col in gene_sheet_widths and gene_sheet_widths[list_col] is not None:
+          gene_sheet_widths[list_col] = min(gene_sheet_widths[list_col], 400)
       pl_gene.write_excel(
           workbook=workbook,
           worksheet="Gene Level Summary",
-          column_widths=get_column_widths(pl_gene, first_row_multiplier=5.0),
+          column_widths=gene_sheet_widths,
           header_format=HEADER_STYLE,
           dtype_formats=INT_FORMAT,
       )

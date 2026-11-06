@@ -159,3 +159,62 @@ async def summarize_gene_level(gene_files: list[str]) -> nw.DataFrame:
     all_gene_cnvs = nw.concat([all_gene_cnvs, one_sample_variants], how="vertical")
   all_gene_summary = sum_cnv_numbers_by_gene(all_gene_cnvs)
   return all_gene_summary
+
+
+SAMPLES_WITH_GAINS_COL = "Samples with Gains"
+SAMPLES_WITH_LOSSES_COL = "Samples with Losses"
+SAMPLE_LIST_SEPARATOR = ", "
+# cnvkit's placeholder for off-target (antitarget) regions in the call.cns gene column; not a gene.
+NOT_A_GENE = "-"
+
+
+def add_sample_lists(gene_summary: nw.DataFrame, cnv_variants: nw.DataFrame) -> nw.DataFrame:
+  """
+  Adds two columns to the gene summary listing, for each gene, the samples that have it in a gain row / a loss row of
+  the CNV tab (the comma-separated gene column of the call.cns variants). A sample whose CNV-tab rows put the gene in
+  both a gain and a loss (gene split across two called segments) is listed in both columns; such samples are the ones
+  counted under "No. of Samples with Gains & Losses".
+  :param gene_summary nw.DataFrame: output of summarize_gene_level().
+  :param cnv_variants nw.DataFrame: output of get_cnv_variants() (the CNV tab).
+  :return nw.DataFrame: gene_summary with SAMPLES_WITH_GAINS_COL and SAMPLES_WITH_LOSSES_COL appended
+      (null where no sample qualifies).
+  """
+  pl_summary = gene_summary.to_native()
+  if not pl_summary.width:
+    return gene_summary
+  pl_variants = cnv_variants.to_native()
+  needed = {GENE_COL, SAMPLE_COL, COPY_NUMBER_COL}
+  if not pl_variants.width or not needed.issubset(pl_variants.columns):
+    return nw.from_native(pl_summary.with_columns(
+        pl.lit(None, dtype=pl.String).alias(SAMPLES_WITH_GAINS_COL),
+        pl.lit(None, dtype=pl.String).alias(SAMPLES_WITH_LOSSES_COL),
+    ))
+
+  genes_by_sample = (
+      pl_variants
+      .select(
+          pl.col(GENE_COL).cast(pl.String).str.split(",").alias(GENE_COL),
+          pl.col(SAMPLE_COL).cast(pl.String),
+          pl.col(COPY_NUMBER_COL).cast(pl.Float64),
+      )
+      .explode(GENE_COL)
+      .with_columns(pl.col(GENE_COL).str.strip_chars())
+      .filter(pl.col(GENE_COL).is_not_null() & (pl.col(GENE_COL) != "") & (pl.col(GENE_COL) != NOT_A_GENE))
+  )
+
+  def samples_where(condition: pl.Expr, out_col: str) -> pl.DataFrame:
+    return (
+        genes_by_sample.filter(condition)
+        .select(GENE_COL, SAMPLE_COL).unique()
+        .group_by(GENE_COL)
+        .agg(pl.col(SAMPLE_COL).sort().str.join(SAMPLE_LIST_SEPARATOR).alias(out_col))
+    )
+
+  gains = samples_where(pl.col(COPY_NUMBER_COL) > DIPLOID, SAMPLES_WITH_GAINS_COL)
+  losses = samples_where(pl.col(COPY_NUMBER_COL) < DIPLOID, SAMPLES_WITH_LOSSES_COL)
+  pl_summary = (
+      pl_summary.with_columns(pl.col(GENE_COL).cast(pl.String))
+      .join(gains, on=GENE_COL, how="left")
+      .join(losses, on=GENE_COL, how="left")
+  )
+  return nw.from_native(pl_summary)

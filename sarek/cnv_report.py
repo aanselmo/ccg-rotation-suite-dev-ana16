@@ -19,7 +19,7 @@ from lib.common import (
 )
 from lib.cnv.qc_sheet import get_qc_metrics, graph_qc_metrics
 from lib.cnv.variant_sheet import get_cnv_variants
-from lib.cnv.gene_sheet import summarize_gene_level
+from lib.cnv.gene_sheet import summarize_gene_level, add_sample_lists
 # from lib.cnv.chromosome_sheet import summarize_chromosome_arm_level  # Arm Level Summary tab disabled
 from lib.cnv.armlevel_process import get_armlevel_calls
 from lib.cnv.write_xlsx import write_xlsx
@@ -187,6 +187,8 @@ async def main():
     (mtc_hist_mem_loc, mad_hist_mem_loc) = await graph_qc_metrics(qc_metrics)
   if gene_summary_task is not None:
     gene_summary = await gene_summary_task
+    # Append the comma-separated lists of samples with a gain / loss of each gene, taken from the CNV tab.
+    gene_summary = add_sample_lists(gene_summary, cnv_variants)
   # if arm_summary_task is not None:  # Arm Level Summary tab disabled
   #   arm_summary = await arm_summary_task
   if armlevel_table_task is not None:
