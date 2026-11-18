@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/miniforge3/bin/python
 """
 export_nexus_ogt.py - run `cnvkit.py export nexus-ogt` for every sample in a
 sarek project, then plot each result with plot_ogt_v3.py. Both steps run
