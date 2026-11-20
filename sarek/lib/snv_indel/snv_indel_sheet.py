@@ -20,9 +20,9 @@ sarek_script_top_dir = dirname(dirname(script_dir))
 sys.path.append(sarek_script_top_dir)
 from lib.snv_indel.vcf2df import (
     convert_vcf_to_data_frame, BEST_EFFECT_CONSEQUENCE_COL, CSQ_BIOTYPE_COL, BEST_EFFECT_COLS_TO_USE,
-    BEST_EFFECT_PREFIX, CANONICAL_PREFIX, CANONICAL_COLS_TO_USE, 
+    BEST_EFFECT_PREFIX, CANONICAL_PREFIX, CANONICAL_COLS_TO_USE,
     CANONICAL_HGVS_C_COL, CANONICAL_HGVS_P_COL, BEST_EFFECT_HGVS_C_COL, BEST_EFFECT_HGVS_P_COL,
-    CSQ_VARIANT_TYPE_COLS, CSQ_POPULATION_COLS,
+    CSQ_VARIANT_TYPE_COLS, CSQ_POPULATION_COLS, CSQ_VARIANT_CLASS_COL,
     COSMIC_v104_COL, CHROM_COL, POSITION_COL, MUTECT2_FILTER_COL, REF_COL, ALT_COL, AF_COL, DP_COL,
 )
 from concurrent.futures import ProcessPoolExecutor
@@ -33,6 +33,10 @@ VEP_FILE_ENDING = ".mutect2.filtered_VEP.ann.vcf.gz"
 SAMPLE_COL = "sample"
 RECOMMENDED_FILTER_COL = "ccg_recommended_filter"
 REVIEW_REQUIRED_COL = "Review_Required"
+# VEP's VARIANT_CLASS labels equal-length multi-base changes (e.g. phased Mutect2 calls like GG>CC) as
+# "substitution". Report them as MNVs instead.
+VEP_SUBSTITUTION_CLASS = "substitution"
+MNV_CLASS = "MNV"
 RECOMMENDED_CONSEQUENCE_FILTER = [
     "missense_variant", "frameshift_variant", "inframe_deletion", "inframe_insertion",
     "splice_acceptor_variant", "splice_donor_variant", "protein_altering_variant",
@@ -86,6 +90,16 @@ def add_recommended_consequence_filter(all_sample_variants: nw.DataFrame) -> nw.
   return nw.from_native(sample_variants)
 
 
+def relabel_substitutions_as_mnv(sample_variants: pl.DataFrame) -> pl.DataFrame:
+  """
+  Rename VEP's 'substitution' VARIANT_CLASS to 'MNV'. Because the Variant Summary Table builds its class columns
+  from these values, this also renames the 'substitution' column on that sheet.
+  """
+  return sample_variants.with_columns(
+      pl.col(CSQ_VARIANT_CLASS_COL).replace(VEP_SUBSTITUTION_CLASS, MNV_CLASS)
+  )
+
+
 def process_one_file(one_vcf_file_path: str) -> nw.DataFrame:
   one_sample_variants = convert_vcf_to_data_frame(one_vcf_file_path)
   if not one_sample_variants.is_empty():
@@ -108,6 +122,7 @@ def process_one_file(one_vcf_file_path: str) -> nw.DataFrame:
          RECOMMENDED_FILTER_COL] + CSQ_VARIANT_TYPE_COLS + canonical_cols + best_effect_cols + [AF_COL, DP_COL]
         + CSQ_POPULATION_COLS
     )
+    pl_one_sample_variants = relabel_substitutions_as_mnv(pl_one_sample_variants)
   return nw.from_native(pl_one_sample_variants)
 
 
